@@ -15,13 +15,26 @@ import { AnalyticsPage } from "./pages/Analytics";
 import { AdminsPage } from "./pages/Admins";
 import { useWebSocket } from "./hooks/useWebSocket";
 
+// Shown while the startup /me check is in flight so we never flash the
+// login screen or redirect prematurely on a simple page refresh.
+const InitializingScreen: React.FC = () => (
+  <div className="flex items-center justify-center min-h-screen bg-gray-50">
+    <div className="flex flex-col items-center gap-3">
+      <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      <p className="text-sm text-gray-400">Loading…</p>
+    </div>
+  </div>
+);
+
 const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const { admin } = useAuthStore();
-  const location = useLocation();
+  const { admin, initializing } = useAuthStore();
 
   useWebSocket({});
+
+  // Still waiting for the /me response — don't redirect yet.
+  if (initializing) return <InitializingScreen />;
 
   if (!admin) return <Navigate to="/login" replace />;
 
@@ -34,13 +47,17 @@ const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({
 };
 
 function App() {
-  const { token, fetchMe, admin } = useAuthStore();
+  const { token, fetchMe, admin, initializing } = useAuthStore();
 
   useEffect(() => {
-    if (token && !admin) {
+    // Only run the startup check once: when we have a stored token but no
+    // admin object yet.  The in-flight guard inside fetchMe ensures this
+    // never fires a second HTTP request even if the effect runs twice.
+    if (token && !admin && initializing) {
       fetchMe();
     }
-  }, [token]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // ← empty deps: run exactly once on mount, not on every re-render
 
   return (
     <>
