@@ -1,0 +1,213 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("admin")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  comments CandidateComment[]
+  messages Message[]
+}
+
+model Bot {
+  id          String   @id @default(cuid())
+  token       String   @unique
+  name        String
+  username    String?
+  defaultLang String   @default("en")
+  isActive    Boolean  @default(true)
+  webhookSet  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  jobs       Job[]
+  questions  Question[]
+  languages  BotLanguage[]
+  candidates Candidate[]
+}
+
+model BotLanguage {
+  id        String  @id @default(cuid())
+  botId     String
+  code      String
+  name      String
+  isDefault Boolean @default(false)
+
+  bot Bot @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@unique([botId, code])
+}
+
+model Job {
+  id        String   @id @default(cuid())
+  botId     String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bot          Bot              @relation(fields: [botId], references: [id], onDelete: Cascade)
+  translations JobTranslation[]
+  questions    Question[]
+  candidates   Candidate[]
+}
+
+model JobTranslation {
+  id          String @id @default(cuid())
+  jobId       String
+  lang        String
+  title       String
+  description String @default("")
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, lang])
+}
+
+model Question {
+  id       String  @id @default(cuid())
+  botId    String
+  jobId    String?
+  type     String  @default("text")
+  order    Int     @default(0)
+  isActive Boolean @default(true)
+  fieldKey String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bot          Bot                   @relation(fields: [botId], references: [id], onDelete: Cascade)
+  job          Job?                  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  translations QuestionTranslation[]
+  options      QuestionOption[]
+  answers      Answer[]
+}
+
+model QuestionTranslation {
+  id         String @id @default(cuid())
+  questionId String
+  lang       String
+  text       String
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, lang])
+}
+
+model QuestionOption {
+  id         String @id @default(cuid())
+  questionId String
+  order      Int    @default(0)
+
+  question     Question                    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  translations QuestionOptionTranslation[]
+  answers      Answer[]
+}
+
+model QuestionOptionTranslation {
+  id       String @id @default(cuid())
+  optionId String
+  lang     String
+  text     String
+
+  option QuestionOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@unique([optionId, lang])
+}
+
+model Candidate {
+  id           String   @id @default(cuid())
+  botId        String
+  jobId        String
+  telegramId   String
+  username     String?
+  fullName     String?
+  age          String?
+  phone        String?
+  email        String?
+  lang         String   @default("en")
+  status       String   @default("incomplete")
+  currentStep  Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  lastActivity DateTime @default(now())
+
+  bot      Bot             @relation(fields: [botId], references: [id], onDelete: Cascade)
+  job      Job             @relation(fields: [jobId], references: [id])
+  answers  Answer[]
+  comments CandidateComment[]
+  messages Message[]
+  files    CandidateFile[]
+
+  @@unique([botId, telegramId, jobId])
+}
+
+model Answer {
+  id          String   @id @default(cuid())
+  candidateId String
+  questionId  String
+  optionId    String?
+  textValue   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  candidate Candidate      @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  question  Question       @relation(fields: [questionId], references: [id])
+  option    QuestionOption? @relation(fields: [optionId], references: [id])
+
+  @@unique([candidateId, questionId])
+}
+
+model CandidateComment {
+  id          String   @id @default(cuid())
+  candidateId String
+  adminId     String
+  text        String
+  createdAt   DateTime @default(now())
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  admin     Admin     @relation(fields: [adminId], references: [id])
+}
+
+model Message {
+  id            String   @id @default(cuid())
+  candidateId   String
+  adminId       String?
+  direction     String   @default("inbound")
+  type          String   @default("text")
+  text          String?
+  fileId        String?
+  fileName      String?
+  mimeType      String?
+  localPath     String?
+  telegramMsgId Int?
+  isRead        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  admin     Admin?    @relation(fields: [adminId], references: [id])
+}
+
+model CandidateFile {
+  id             String   @id @default(cuid())
+  candidateId    String
+  telegramFileId String?
+  fileName       String
+  mimeType       String?
+  localPath      String?
+  size           Int?
+  createdAt      DateTime @default(now())
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+}
