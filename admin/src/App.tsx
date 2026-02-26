@@ -13,6 +13,7 @@ import { CandidatesPage } from "./pages/Candidates";
 import { CandidateDetailPage } from "./pages/CandidateDetail";
 import { AnalyticsPage } from "./pages/Analytics";
 import { AdminsPage } from "./pages/Admins";
+import { PlaygroundPage } from "./pages/Playground";
 import { useWebSocket } from "./hooks/useWebSocket";
 
 // Shown while the startup /me check is in flight so we never flash the
@@ -107,6 +108,14 @@ function App() {
           element={
             <ProtectedLayout>
               <JobDetailPage />
+            </ProtectedLayout>
+          }
+        />
+        <Route
+          path="/playground"
+          element={
+            <ProtectedLayout>
+              <PlaygroundPage />
             </ProtectedLayout>
           }
         />

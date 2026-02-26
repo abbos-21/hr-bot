@@ -140,6 +140,7 @@ router.post(
           type,
           localPath,
           caption,
+          fileName, // pass original name so Telegram shows it instead of the munged disk name
         },
       );
     }

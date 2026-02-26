@@ -183,8 +183,13 @@ export class BotInstance {
       }
     });
 
-    // Text messages
-    bot.on("message", async (ctx) => {
+    // Text-only messages. Using 'message:text' instead of 'message' is critical:
+    // bot.on('message') would intercept ALL message types (photos, documents,
+    // voice, etc.) and since the handler never calls next(), the specific media
+    // handlers below would never fire for survey candidates.  'message:text'
+    // only matches messages where ctx.message.text is present, so media
+    // messages fall through to :photo / :document / :voice / :video / :audio.
+    bot.on("message:text", async (ctx) => {
       try {
         const telegramId = ctx.from?.id.toString() || "";
 
@@ -430,6 +435,17 @@ export class BotInstance {
         }
       }
       await ctx.reply(questionText, { reply_markup: keyboard });
+    } else if (question.type === "attachment") {
+      // Prompt the user to upload a file or image
+      const uploadHint = await this.getTranslation(
+        botId,
+        lang,
+        "upload_file",
+        "📎 Please send a file, photo, or document as your answer.",
+      );
+      await ctx.reply(`${questionText}
+
+${uploadHint}`);
     } else {
       await ctx.reply(questionText);
     }
@@ -515,6 +531,17 @@ export class BotInstance {
         candidate.lang,
         "invalid_option",
         "Please select one of the provided options.",
+      );
+      await ctx.reply(msg);
+      return;
+    }
+
+    if (question.type === "attachment") {
+      const msg = await this.getTranslation(
+        candidate.botId,
+        candidate.lang,
+        "please_send_file",
+        "📎 Please send a file or photo, not text.",
       );
       await ctx.reply(msg);
       return;
@@ -665,13 +692,139 @@ export class BotInstance {
       where: {
         botId: this.botId,
         telegramId,
-        status: { not: "incomplete" },
+        status: {
+          in: ["incomplete", "applied", "screening", "interviewing", "offered"],
+        },
       },
       orderBy: { updatedAt: "desc" },
     });
 
     if (!candidate) return;
+
+    if (candidate.status === "incomplete") {
+      // Check if current question is an attachment type
+      await this.handleAttachmentAnswer(ctx, candidate);
+      return;
+    }
+
+    // Post-survey inbound message from candidate
     await this.handleInboundMessage(ctx, candidate.id, this.botId);
+  }
+
+  private async handleAttachmentAnswer(
+    ctx: any,
+    candidate: any,
+  ): Promise<void> {
+    const questions = await prisma.question.findMany({
+      where: { botId: candidate.botId, jobId: candidate.jobId, isActive: true },
+      orderBy: { order: "asc" },
+    });
+
+    const question = questions[candidate.currentStep];
+    if (!question || question.type !== "attachment") {
+      // Not an attachment step — ignore the media upload
+      const msg = await this.getTranslation(
+        candidate.botId,
+        candidate.lang,
+        "type_answer",
+        "Please answer the current question in text.",
+      );
+      await ctx.reply(msg);
+      return;
+    }
+
+    const msg = ctx.message;
+    let fileId: string | undefined;
+    let fileName: string | undefined;
+    let mimeType: string | undefined;
+    let localPath: string | undefined;
+
+    if (msg.photo) {
+      const photo = msg.photo[msg.photo.length - 1];
+      fileId = photo.file_id;
+      fileName = "photo.jpg";
+      mimeType = "image/jpeg";
+      localPath = await this.downloadFile(fileId, candidate.botId, "photo.jpg");
+    } else if (msg.document) {
+      fileId = msg.document.file_id;
+      fileName = msg.document.file_name || "document";
+      mimeType = msg.document.mime_type;
+      localPath = await this.downloadFile(
+        fileId,
+        candidate.botId,
+        fileName || "document",
+      );
+    } else if (msg.voice) {
+      fileId = msg.voice.file_id;
+      fileName = "voice.ogg";
+      mimeType = "audio/ogg";
+      localPath = await this.downloadFile(fileId, candidate.botId, "voice.ogg");
+    } else if (msg.video) {
+      fileId = msg.video.file_id;
+      fileName = "video.mp4";
+      mimeType = "video/mp4";
+      localPath = await this.downloadFile(fileId, candidate.botId, "video.mp4");
+    }
+
+    if (!fileId) return; // Unknown media type
+
+    // Store the human-readable fileName as the answer value so the admin panel
+    // can display it meaningfully. The fileId lives in CandidateFile.telegramFileId
+    // and is not needed here for display purposes.
+    const displayValue = fileName || "attachment";
+    await prisma.answer.upsert({
+      where: {
+        candidateId_questionId: {
+          candidateId: candidate.id,
+          questionId: question.id,
+        },
+      },
+      update: {
+        textValue: displayValue,
+        optionId: null,
+        updatedAt: new Date(),
+      },
+      create: {
+        candidateId: candidate.id,
+        questionId: question.id,
+        textValue: displayValue,
+      },
+    });
+
+    // Also create a CandidateFile record for the admin panel files tab
+    await prisma.candidateFile.create({
+      data: {
+        candidateId: candidate.id,
+        telegramFileId: fileId,
+        fileName: fileName || "attachment",
+        mimeType,
+        localPath,
+      },
+    });
+
+    await prisma.candidate.update({
+      where: { id: candidate.id },
+      data: {
+        currentStep: candidate.currentStep + 1,
+        lastActivity: new Date(),
+      },
+    });
+
+    const ackMsg = await this.getTranslation(
+      candidate.botId,
+      candidate.lang,
+      "answer_saved",
+      "✅ File received!",
+    );
+    await ctx.reply(ackMsg);
+
+    await this.sendNextQuestion(
+      ctx,
+      candidate.id,
+      candidate.lang,
+      candidate.botId,
+      candidate.jobId,
+    );
   }
 
   private async downloadFile(
@@ -719,6 +872,7 @@ export class BotInstance {
       localPath?: string;
       fileId?: string;
       caption?: string;
+      fileName?: string; // original filename shown to the Telegram recipient
     },
   ): Promise<number | undefined> {
     try {
@@ -745,9 +899,14 @@ export class BotInstance {
             caption: message.caption,
           });
         } else if (message.localPath && fs.existsSync(message.localPath)) {
+          // Pass the original fileName as the second arg to InputFile so Telegram
+          // shows e.g. "test.pdf" instead of the munged disk name "1234_abc.pdf"
           sentMsg = await this.bot.api.sendDocument(
             chatId,
-            new InputFile(message.localPath),
+            new InputFile(
+              message.localPath,
+              message.fileName || path.basename(message.localPath),
+            ),
             { caption: message.caption },
           );
         }

@@ -32,10 +32,11 @@ model Bot {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  jobs       Job[]
-  questions  Question[]
-  languages  BotLanguage[]
-  candidates Candidate[]
+  jobs              Job[]
+  questions         Question[]
+  languages         BotLanguage[]
+  candidates        Candidate[]
+  questionTemplates QuestionTemplate[]
 }
 
 model BotLanguage {
@@ -76,22 +77,26 @@ model JobTranslation {
 }
 
 model Question {
-  id       String  @id @default(cuid())
-  botId    String
-  jobId    String?
-  type     String  @default("text")
-  order    Int     @default(0)
-  isActive Boolean @default(true)
-  fieldKey String?
+  id               String  @id @default(cuid())
+  botId            String
+  jobId            String?
+  type             String  @default("text")
+  order            Int     @default(0)
+  isActive         Boolean @default(true)
+  fieldKey         String?
+  sourceTemplateId String?   // template this job-question was placed from (null = manual)
+  sourceQuestionId String?   // library question this was copied from (null = manual)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  bot          Bot                   @relation(fields: [botId], references: [id], onDelete: Cascade)
-  job          Job?                  @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  translations QuestionTranslation[]
-  options      QuestionOption[]
-  answers      Answer[]
+  bot            Bot                   @relation(fields: [botId], references: [id], onDelete: Cascade)
+  job            Job?                  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  sourceTemplate QuestionTemplate?     @relation("TemplateJobQuestions", fields: [sourceTemplateId], references: [id], onDelete: SetNull)
+  translations   QuestionTranslation[]
+  options        QuestionOption[]
+  answers        Answer[]
+  templateItems  QuestionTemplateItem[]
 }
 
 model QuestionTranslation {
@@ -144,7 +149,7 @@ model Candidate {
   lastActivity DateTime @default(now())
 
   bot      Bot             @relation(fields: [botId], references: [id], onDelete: Cascade)
-  job      Job             @relation(fields: [jobId], references: [id])
+  job      Job             @relation(fields: [jobId], references: [id], onDelete: Cascade)
   answers  Answer[]
   comments CandidateComment[]
   messages Message[]
@@ -163,8 +168,8 @@ model Answer {
   updatedAt   DateTime @updatedAt
 
   candidate Candidate      @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  question  Question       @relation(fields: [questionId], references: [id])
-  option    QuestionOption? @relation(fields: [optionId], references: [id])
+  question  Question       @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  option    QuestionOption? @relation(fields: [optionId], references: [id], onDelete: Cascade)
 
   @@unique([candidateId, questionId])
 }
@@ -210,4 +215,26 @@ model CandidateFile {
   createdAt      DateTime @default(now())
 
   candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+}
+
+model QuestionTemplate {
+  id        String   @id @default(cuid())
+  botId     String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bot          Bot                    @relation(fields: [botId], references: [id], onDelete: Cascade)
+  items        QuestionTemplateItem[]
+  jobQuestions Question[]             @relation("TemplateJobQuestions")
+}
+
+model QuestionTemplateItem {
+  id         String @id @default(cuid())
+  templateId String
+  questionId String
+  order      Int    @default(0)
+
+  template QuestionTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  question Question         @relation(fields: [questionId], references: [id], onDelete: Cascade)
 }

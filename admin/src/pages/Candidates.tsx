@@ -85,28 +85,22 @@ const CandidateCard: React.FC<{
     <div
       ref={setNodeRef}
       style={style}
+      onClick={onClick}
+      {...listeners}
+      {...attributes}
       className={`bg-white rounded-xl border border-gray-200 p-3.5 select-none
+        cursor-grab active:cursor-grabbing
         hover:shadow-md hover:border-gray-300 transition-all duration-150
         ${isDragging ? "opacity-30" : "opacity-100"}`}
     >
       <div className="flex items-center gap-3">
-        {/* Drag handle */}
-        <div
-          {...listeners}
-          {...attributes}
-          className="cursor-grab active:cursor-grabbing text-gray-200 hover:text-gray-400 transition-colors flex-shrink-0"
-          title="Drag to change status"
-        >
-          ⠿
-        </div>
-
         {/* Avatar */}
         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
           {initials}
         </div>
 
         {/* Info */}
-        <div className="flex-1 min-w-0 cursor-pointer" onClick={onClick}>
+        <div className="flex-1 min-w-0">
           <p className="font-semibold text-gray-800 text-sm truncate leading-tight">
             {candidate.fullName || candidate.username || "Unknown"}
           </p>
@@ -411,16 +405,42 @@ const DetailPanel: React.FC<{
                         const q =
                           answer.question?.translations?.[0]?.text ||
                           "Question";
+                        const isAttachment =
+                          answer.question?.type === "attachment";
                         const a =
                           answer.option?.translations?.[0]?.text ||
                           answer.textValue ||
                           "—";
+
+                        // Find the matching CandidateFile for this attachment answer
+                        // by matching the fileName stored in textValue
+                        const matchedFile = isAttachment
+                          ? candidate.files?.find((f: any) => f.fileName === a)
+                          : null;
+
                         return (
                           <div key={answer.id}>
                             <p className="text-xs text-gray-400 mb-0.5">{q}</p>
-                            <p className="text-sm font-semibold text-gray-800">
-                              {a}
-                            </p>
+                            {isAttachment && a !== "—" ? (
+                              matchedFile ? (
+                                <a
+                                  href={filesApi.downloadUrl(matchedFile.id)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+                                >
+                                  📎 {a}
+                                </a>
+                              ) : (
+                                <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-800">
+                                  📎 {a}
+                                </p>
+                              )
+                            ) : (
+                              <p className="text-sm font-semibold text-gray-800">
+                                {a}
+                              </p>
+                            )}
                           </div>
                         );
                       })}
@@ -696,17 +716,31 @@ export const CandidatesPage: React.FC = () => {
     CANDIDATE_UPDATE: () => fetchCandidates(),
     // Increment unread badge when a new inbound message arrives —
     // no full re-fetch needed, just mutate the count in-place.
+    // Exception: if the chat panel is already open for this candidate,
+    // mark the message as read immediately instead of showing a badge.
     NEW_MESSAGE: (payload) => {
       if (payload?.message?.direction !== "inbound") return;
       const { candidateId, unreadCount } = payload;
       if (!candidateId) return;
-      setAllCandidates((prev) =>
-        prev.map((c) =>
-          c.id === candidateId
-            ? { ...c, unreadCount: unreadCount ?? (c.unreadCount || 0) + 1 }
-            : c,
-        ),
-      );
+
+      // Use a ref-based check so this callback always sees the latest value
+      // without needing to be recreated (avoids stale closure issues).
+      setSelectedCandidateId((currentlyOpen) => {
+        if (currentlyOpen === candidateId) {
+          // Panel is open — auto-mark as read, no badge needed
+          messagesApi.markAsRead(candidateId).catch(() => {});
+        } else {
+          // Panel is closed — show the badge
+          setAllCandidates((prev) =>
+            prev.map((c) =>
+              c.id === candidateId
+                ? { ...c, unreadCount: unreadCount ?? (c.unreadCount || 0) + 1 }
+                : c,
+            ),
+          );
+        }
+        return currentlyOpen; // don't change the selected candidate
+      });
     },
     // Clear badge when any admin marks messages as read (including other tabs).
     MESSAGES_READ: (payload) => {

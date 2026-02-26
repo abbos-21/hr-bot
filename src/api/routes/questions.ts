@@ -1,12 +1,12 @@
-import { Router, Response } from 'express';
-import prisma from '../../db';
-import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { Router, Response } from "express";
+import prisma from "../../db";
+import { authMiddleware, AuthRequest } from "../middleware/auth";
 
 const router = Router();
 router.use(authMiddleware);
 
 // GET /api/questions?botId=&jobId=
-router.get('/', async (req: AuthRequest, res: Response) => {
+router.get("/", async (req: AuthRequest, res: Response) => {
   const { botId, jobId } = req.query;
   const where: any = {};
   if (botId) where.botId = botId as string;
@@ -18,24 +18,34 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       translations: true,
       options: {
         include: { translations: true },
-        orderBy: { order: 'asc' },
+        orderBy: { order: "asc" },
       },
+      sourceTemplate: { select: { id: true, name: true } },
     },
-    orderBy: { order: 'asc' },
+    orderBy: { order: "asc" },
   });
   return res.json(questions);
 });
 
 // POST /api/questions
-router.post('/', async (req: AuthRequest, res: Response) => {
-  const { botId, jobId, type, order, fieldKey, translations, options, isActive } = req.body;
-  if (!botId) return res.status(400).json({ error: 'botId required' });
+router.post("/", async (req: AuthRequest, res: Response) => {
+  const {
+    botId,
+    jobId,
+    type,
+    order,
+    fieldKey,
+    translations,
+    options,
+    isActive,
+  } = req.body;
+  if (!botId) return res.status(400).json({ error: "botId required" });
 
   const question = await prisma.question.create({
     data: {
       botId,
       jobId: jobId || null,
-      type: type || 'text',
+      type: type || "text",
       order: order || 0,
       fieldKey: fieldKey || null,
       isActive: isActive !== undefined ? isActive : true,
@@ -59,7 +69,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     },
     include: {
       translations: true,
-      options: { include: { translations: true }, orderBy: { order: 'asc' } },
+      options: { include: { translations: true }, orderBy: { order: "asc" } },
     },
   });
 
@@ -67,23 +77,24 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 });
 
 // GET /api/questions/:id
-router.get('/:id', async (req: AuthRequest, res: Response) => {
+router.get("/:id", async (req: AuthRequest, res: Response) => {
   const question = await prisma.question.findUnique({
     where: { id: req.params.id },
     include: {
       translations: true,
       options: {
         include: { translations: true },
-        orderBy: { order: 'asc' },
+        orderBy: { order: "asc" },
       },
+      sourceTemplate: { select: { id: true, name: true } },
     },
   });
-  if (!question) return res.status(404).json({ error: 'Not found' });
+  if (!question) return res.status(404).json({ error: "Not found" });
   return res.json(question);
 });
 
 // PUT /api/questions/:id
-router.put('/:id', async (req: AuthRequest, res: Response) => {
+router.put("/:id", async (req: AuthRequest, res: Response) => {
   const { type, order, fieldKey, isActive, translations, options } = req.body;
 
   await prisma.$transaction(async (tx) => {
@@ -100,7 +111,9 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     if (translations) {
       for (const t of translations) {
         await tx.questionTranslation.upsert({
-          where: { questionId_lang: { questionId: req.params.id, lang: t.lang } },
+          where: {
+            questionId_lang: { questionId: req.params.id, lang: t.lang },
+          },
           update: { text: t.text },
           create: { questionId: req.params.id, lang: t.lang, text: t.text },
         });
@@ -109,7 +122,9 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
 
     if (options) {
       // Delete existing options and recreate
-      await tx.questionOption.deleteMany({ where: { questionId: req.params.id } });
+      await tx.questionOption.deleteMany({
+        where: { questionId: req.params.id },
+      });
       for (const opt of options) {
         await tx.questionOption.create({
           data: {
@@ -131,7 +146,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     where: { id: req.params.id },
     include: {
       translations: true,
-      options: { include: { translations: true }, orderBy: { order: 'asc' } },
+      options: { include: { translations: true }, orderBy: { order: "asc" } },
     },
   });
 
@@ -139,20 +154,23 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
 });
 
 // DELETE /api/questions/:id
-router.delete('/:id', async (req: AuthRequest, res: Response) => {
+router.delete("/:id", async (req: AuthRequest, res: Response) => {
+  // onDelete: Cascade on QuestionTemplateItem.question in schema.prisma means
+  // Prisma automatically removes related QuestionTemplateItem rows first.
   await prisma.question.delete({ where: { id: req.params.id } });
   return res.json({ success: true });
 });
 
 // PUT /api/questions/reorder - batch reorder
-router.put('/batch/reorder', async (req: AuthRequest, res: Response) => {
+router.put("/batch/reorder", async (req: AuthRequest, res: Response) => {
   const { questions } = req.body; // [{id, order}]
-  if (!Array.isArray(questions)) return res.status(400).json({ error: 'Invalid' });
+  if (!Array.isArray(questions))
+    return res.status(400).json({ error: "Invalid" });
 
   await prisma.$transaction(
     questions.map((q: { id: string; order: number }) =>
-      prisma.question.update({ where: { id: q.id }, data: { order: q.order } })
-    )
+      prisma.question.update({ where: { id: q.id }, data: { order: q.order } }),
+    ),
   );
 
   return res.json({ success: true });

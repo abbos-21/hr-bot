@@ -143,6 +143,35 @@ export const analyticsApi = {
       .then((r) => r.data),
 };
 
+// Templates (question library + reusable template groups)
+export const templatesApi = {
+  list: (botId?: string) =>
+    api.get("/templates", { params: { botId } }).then((r) => r.data),
+  create: (data: { botId: string; name: string }) =>
+    api.post("/templates", data).then((r) => r.data),
+  update: (id: string, data: { name: string }) =>
+    api.put(`/templates/${id}`, data).then((r) => r.data),
+  delete: (id: string) => api.delete(`/templates/${id}`).then((r) => r.data),
+  addItem: (templateId: string, questionId: string) =>
+    api
+      .post(`/templates/${templateId}/items`, { questionId })
+      .then((r) => r.data),
+  removeItem: (templateId: string, itemId: string) =>
+    api.delete(`/templates/${templateId}/items/${itemId}`).then((r) => r.data),
+  reorderItems: (templateId: string, items: { id: string; order: number }[]) =>
+    api
+      .put(`/templates/${templateId}/items/reorder`, { items })
+      .then((r) => r.data),
+  applyToJob: (templateId: string, jobId: string) =>
+    api
+      .post(`/templates/${templateId}/apply-to-job`, { jobId })
+      .then((r) => r.data),
+  applyQuestionToJob: (questionId: string, jobId: string) =>
+    api
+      .post("/templates/apply-question-to-job", { questionId, jobId })
+      .then((r) => r.data),
+};
+
 // Files
 export const filesApi = {
   // Include the JWT as a query param so browser <img>, <audio>, and <a href>

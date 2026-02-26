@@ -455,18 +455,39 @@ export const CandidateDetailPage: React.FC = () => {
             candidate.answers?.map((answer: any) => {
               const questionText =
                 answer.question?.translations?.[0]?.text || "Unknown question";
+              const isAttachment = answer.question?.type === "attachment";
               const answerText =
                 answer.option?.translations?.[0]?.text ||
                 answer.textValue ||
                 "—";
+              const matchedFile = isAttachment
+                ? candidate.files?.find((f: any) => f.fileName === answerText)
+                : null;
               return (
                 <div key={answer.id} className="card p-4">
                   <p className="text-sm font-medium text-gray-700 mb-1">
                     {questionText}
                   </p>
-                  <p className="text-sm text-gray-900 bg-gray-50 rounded px-3 py-2">
-                    {answerText}
-                  </p>
+                  {isAttachment && answerText !== "—" ? (
+                    matchedFile ? (
+                      <a
+                        href={filesApi.downloadUrl(matchedFile.id)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:underline bg-blue-50 rounded px-3 py-2"
+                      >
+                        📎 {answerText}
+                      </a>
+                    ) : (
+                      <p className="inline-flex items-center gap-2 text-sm text-gray-900 bg-gray-50 rounded px-3 py-2">
+                        📎 {answerText}
+                      </p>
+                    )
+                  ) : (
+                    <p className="text-sm text-gray-900 bg-gray-50 rounded px-3 py-2">
+                      {answerText}
+                    </p>
+                  )}
                 </div>
               );
             })

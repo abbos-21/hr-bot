@@ -1,6 +1,6 @@
-import React from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../store/auth';
+import React from "react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { useAuthStore } from "../store/auth";
 
 interface NavItem {
   label: string;
@@ -9,12 +9,13 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { label: 'Dashboard', path: '/', icon: '📊' },
-  { label: 'Bots', path: '/bots', icon: '🤖' },
-  { label: 'Jobs', path: '/jobs', icon: '💼' },
-  { label: 'Candidates', path: '/candidates', icon: '👥' },
-  { label: 'Analytics', path: '/analytics', icon: '📈' },
-  { label: 'Admins', path: '/admins', icon: '⚙️' },
+  { label: "Dashboard", path: "/", icon: "📊" },
+  { label: "Bots", path: "/bots", icon: "🤖" },
+  { label: "Jobs", path: "/jobs", icon: "💼" },
+  { label: "Playground", path: "/playground", icon: "🧩" },
+  { label: "Candidates", path: "/candidates", icon: "👥" },
+  { label: "Analytics", path: "/analytics", icon: "📈" },
+  { label: "Admins", path: "/admins", icon: "⚙️" },
 ];
 
 export const Sidebar: React.FC = () => {
@@ -23,7 +24,7 @@ export const Sidebar: React.FC = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate("/login");
   };
 
   return (
@@ -38,12 +39,12 @@ export const Sidebar: React.FC = () => {
           <NavLink
             key={item.path}
             to={item.path}
-            end={item.path === '/'}
+            end={item.path === "/"}
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 isActive
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-300 hover:bg-gray-800 hover:text-white"
               }`
             }
           >
@@ -56,7 +57,7 @@ export const Sidebar: React.FC = () => {
       <div className="p-4 border-t border-gray-700">
         <div className="flex items-center gap-3 mb-3">
           <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-sm font-bold">
-            {admin?.name?.[0]?.toUpperCase() || 'A'}
+            {admin?.name?.[0]?.toUpperCase() || "A"}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">{admin?.name}</p>
