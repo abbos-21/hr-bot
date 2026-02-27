@@ -111,7 +111,8 @@ router.get("/:id", async (req: AuthRequest, res: Response) => {
 
 // PUT /api/candidates/:id
 router.put("/:id", async (req: AuthRequest, res: Response) => {
-  const { fullName, age, phone, email, status, lang, currentStep } = req.body;
+  const { fullName, age, phone, email, status, lang, currentStep, columnId } =
+    req.body;
   const updateData: any = {};
 
   if (fullName !== undefined) updateData.fullName = fullName;
@@ -120,12 +121,22 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
   if (email !== undefined) updateData.email = email;
   if (lang !== undefined) updateData.lang = lang;
   if (currentStep !== undefined) updateData.currentStep = currentStep;
+  if (columnId !== undefined) updateData.columnId = columnId || null;
 
   if (status !== undefined) {
     if (!CANDIDATE_STATUSES.includes(status)) {
       return res.status(400).json({ error: "Invalid status" });
     }
     updateData.status = status;
+    if (status === "archived" || status === "hired") {
+      // Keep columnId when archiving (so column-restore can find them back)
+      // but clear it when hiring (hired candidates leave the board)
+      if (status === "hired") updateData.columnId = null;
+    } else if (status === "active") {
+      // Individually restoring an archived candidate → put them in Unassigned
+      // (they may have a stale columnId pointing to an archived column)
+      updateData.columnId = null;
+    }
 
     wsManager.broadcast({
       type: "STATUS_CHANGE",
@@ -201,3 +212,18 @@ router.get("/:id/files", async (req: AuthRequest, res: Response) => {
 });
 
 export default router;
+
+// DELETE /api/candidates/:id  — permanently delete an archived candidate only
+router.delete("/:id", async (req: AuthRequest, res: Response) => {
+  const candidate = await prisma.candidate.findUnique({
+    where: { id: req.params.id },
+  });
+  if (!candidate) return res.status(404).json({ error: "Not found" });
+  if (candidate.status !== "archived") {
+    return res
+      .status(400)
+      .json({ error: "Only archived candidates can be permanently deleted" });
+  }
+  await prisma.candidate.delete({ where: { id: req.params.id } });
+  return res.json({ success: true });
+});

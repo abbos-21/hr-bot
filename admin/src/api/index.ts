@@ -97,6 +97,7 @@ export const candidatesApi = {
     api
       .put(`/candidates/${candidateId}/answers/${answerId}`, data)
       .then((r) => r.data),
+  delete: (id: string) => api.delete(`/candidates/${id}`).then((r) => r.data),
 };
 
 // Messages
@@ -188,4 +189,18 @@ export const filesApi = {
     const token = localStorage.getItem("token") || "";
     return `${API_BASE}/files/message/${messageId}?token=${token}`;
   },
+};
+export const columnsApi = {
+  list: () => api.get("/columns").then((r) => r.data),
+  archived: () => api.get("/columns/archived").then((r) => r.data),
+  create: (data: any) => api.post("/columns", data).then((r) => r.data),
+  update: (id: string, data: any) =>
+    api.put(`/columns/${id}`, data).then((r) => r.data),
+  reorder: (columns: any[]) =>
+    api.put("/columns/reorder", { columns }).then((r) => r.data),
+  archive: (id: string) =>
+    api.post(`/columns/${id}/archive`).then((r) => r.data),
+  restore: (id: string) =>
+    api.post(`/columns/${id}/restore`).then((r) => r.data),
+  delete: (id: string) => api.delete(`/columns/${id}`).then((r) => r.data),
 };

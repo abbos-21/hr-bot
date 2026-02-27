@@ -143,13 +143,15 @@ model Candidate {
   email        String?
   lang         String   @default("en")
   status       String   @default("incomplete")
+  columnId     String?
   currentStep  Int      @default(0)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   lastActivity DateTime @default(now())
 
-  bot      Bot             @relation(fields: [botId], references: [id], onDelete: Cascade)
-  job      Job             @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  bot      Bot            @relation(fields: [botId], references: [id], onDelete: Cascade)
+  job      Job            @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  column   KanbanColumn?  @relation(fields: [columnId], references: [id], onDelete: SetNull)
   answers  Answer[]
   comments CandidateComment[]
   messages Message[]
@@ -237,4 +239,17 @@ model QuestionTemplateItem {
 
   template QuestionTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
   question Question         @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model KanbanColumn {
+  id         String   @id @default(cuid())
+  name       String
+  color      String   @default("bg-slate-50")
+  dot        String   @default("bg-slate-400")
+  order      Int      @default(0)
+  isArchived Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  candidates Candidate[]
 }

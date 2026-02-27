@@ -198,15 +198,7 @@ export class BotInstance {
           where: {
             botId,
             telegramId,
-            status: {
-              in: [
-                "incomplete",
-                "applied",
-                "screening",
-                "interviewing",
-                "offered",
-              ],
-            },
+            status: { in: ["incomplete", "active"] },
           },
           include: {
             job: { include: { translations: true } },
@@ -384,7 +376,7 @@ export class BotInstance {
       // Survey complete
       await prisma.candidate.update({
         where: { id: candidateId },
-        data: { status: "applied", lastActivity: new Date() },
+        data: { status: "active", lastActivity: new Date() },
       });
 
       const msg = await this.getTranslation(
@@ -397,7 +389,7 @@ export class BotInstance {
 
       wsManager.broadcast({
         type: "NEW_APPLICATION",
-        payload: { candidateId, status: "applied", botId, jobId },
+        payload: { candidateId, status: "active", botId, jobId },
       });
       return;
     }
@@ -692,9 +684,7 @@ ${uploadHint}`);
       where: {
         botId: this.botId,
         telegramId,
-        status: {
-          in: ["incomplete", "applied", "screening", "interviewing", "offered"],
-        },
+        status: { in: ["incomplete", "active"] },
       },
       orderBy: { updatedAt: "desc" },
     });

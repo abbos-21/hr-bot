@@ -13,19 +13,20 @@ const navItems: NavItem[] = [
   { label: "Bots", path: "/bots", icon: "🤖" },
   { label: "Jobs", path: "/jobs", icon: "💼" },
   { label: "Playground", path: "/playground", icon: "🧩" },
-  { label: "Candidates", path: "/candidates", icon: "👥" },
+  { label: "Pipeline", path: "/candidates", icon: "👥" },
+  { label: "Hired", path: "/hired", icon: "✅" },
+  { label: "Past Candidates", path: "/past-candidates", icon: "🗃" },
+  { label: "Retired Stages", path: "/retired-stages", icon: "📦" },
   { label: "Analytics", path: "/analytics", icon: "📈" },
   { label: "Admins", path: "/admins", icon: "⚙️" },
 ];
 
+// Group items with a divider before the archive section
+const DIVIDER_BEFORE = "/analytics";
+
 export const Sidebar: React.FC = () => {
   const { admin, logout } = useAuthStore();
   const navigate = useNavigate();
-
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
-  };
 
   return (
     <aside className="w-64 bg-gray-900 text-white min-h-screen flex flex-col">
@@ -35,22 +36,26 @@ export const Sidebar: React.FC = () => {
       </div>
 
       <nav className="flex-1 p-4 space-y-1">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            end={item.path === "/"}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isActive
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-300 hover:bg-gray-800 hover:text-white"
-              }`
-            }
-          >
-            <span>{item.icon}</span>
-            {item.label}
-          </NavLink>
+        {navItems.map((item, i) => (
+          <React.Fragment key={item.path}>
+            {item.path === DIVIDER_BEFORE && (
+              <div className="my-2 border-t border-gray-700" />
+            )}
+            <NavLink
+              to={item.path}
+              end={item.path === "/"}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? "bg-blue-600 text-white"
+                    : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                }`
+              }
+            >
+              <span>{item.icon}</span>
+              {item.label}
+            </NavLink>
+          </React.Fragment>
         ))}
       </nav>
 
@@ -65,7 +70,10 @@ export const Sidebar: React.FC = () => {
           </div>
         </div>
         <button
-          onClick={handleLogout}
+          onClick={() => {
+            useAuthStore.getState().logout();
+            navigate("/login");
+          }}
           className="w-full text-left text-sm text-gray-400 hover:text-white transition-colors px-2 py-1"
         >
           🚪 Sign out

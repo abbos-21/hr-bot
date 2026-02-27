@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
 import {
   DndContext,
   DragOverlay,
@@ -11,75 +10,46 @@ import {
   useDroppable,
   useDraggable,
 } from "@dnd-kit/core";
-import { candidatesApi, messagesApi, botsApi, jobsApi, filesApi } from "../api";
+import {
+  candidatesApi,
+  messagesApi,
+  botsApi,
+  jobsApi,
+  filesApi,
+  columnsApi,
+} from "../api";
 import { useWebSocket } from "../hooks/useWebSocket";
 import { format } from "date-fns";
 import toast from "react-hot-toast";
 import { useAuthStore } from "../store/auth";
 
-// ─── Column definitions ───────────────────────────────────────────────────────
+// ─── Color presets ────────────────────────────────────────────────────────────
 
-interface Column {
-  id: string;
-  label: string;
-  color: string;
-  dot: string;
-}
-
-const COLUMNS: Column[] = [
-  { id: "applied", label: "New", color: "bg-blue-50", dot: "bg-blue-500" },
-  {
-    id: "screening",
-    label: "Screening",
-    color: "bg-yellow-50",
-    dot: "bg-yellow-500",
-  },
-  {
-    id: "interviewing",
-    label: "Interview",
-    color: "bg-purple-50",
-    dot: "bg-purple-500",
-  },
-  {
-    id: "offered",
-    label: "Offer",
-    color: "bg-orange-50",
-    dot: "bg-orange-500",
-  },
-  { id: "hired", label: "Hired", color: "bg-green-50", dot: "bg-green-500" },
-  { id: "rejected", label: "Rejected", color: "bg-red-50", dot: "bg-red-400" },
-];
-
-const STATUSES_ALL = [
-  "incomplete",
-  "applied",
-  "screening",
-  "interviewing",
-  "offered",
-  "hired",
-  "rejected",
-  "archived",
+const COLOR_PRESETS = [
+  { color: "bg-slate-50", dot: "bg-slate-400", label: "Gray" },
+  { color: "bg-blue-50", dot: "bg-blue-500", label: "Blue" },
+  { color: "bg-violet-50", dot: "bg-violet-500", label: "Purple" },
+  { color: "bg-amber-50", dot: "bg-amber-500", label: "Amber" },
+  { color: "bg-emerald-50", dot: "bg-emerald-500", label: "Green" },
+  { color: "bg-rose-50", dot: "bg-rose-500", label: "Rose" },
+  { color: "bg-cyan-50", dot: "bg-cyan-500", label: "Cyan" },
+  { color: "bg-orange-50", dot: "bg-orange-500", label: "Orange" },
 ];
 
 // ─── Candidate card ───────────────────────────────────────────────────────────
 
-const CandidateCard: React.FC<{
-  candidate: any;
-  onClick: () => void;
-}> = ({ candidate, onClick }) => {
+const CandidateCard: React.FC<{ candidate: any; onClick: () => void }> = ({
+  candidate,
+  onClick,
+}) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({
-      id: candidate.id,
-    });
-
+    useDraggable({ id: candidate.id });
   const style = transform
-    ? { transform: `translate(${transform.x}px, ${transform.y}px)`, zIndex: 50 }
+    ? { transform: `translate(${transform.x}px,${transform.y}px)`, zIndex: 50 }
     : undefined;
-
   const initials = (
     (candidate.fullName || candidate.username || "?")[0] || "?"
   ).toUpperCase();
-  const jobTitle = candidate.job?.translations?.[0]?.title || "";
 
   return (
     <div
@@ -88,37 +58,29 @@ const CandidateCard: React.FC<{
       onClick={onClick}
       {...listeners}
       {...attributes}
-      className={`bg-white rounded-xl border border-gray-200 p-3.5 select-none
-        cursor-grab active:cursor-grabbing
-        hover:shadow-md hover:border-gray-300 transition-all duration-150
-        ${isDragging ? "opacity-30" : "opacity-100"}`}
+      className={`bg-white rounded-xl border border-gray-200 p-3.5 select-none cursor-grab active:cursor-grabbing
+        hover:shadow-md hover:border-gray-300 transition-all duration-150 ${isDragging ? "opacity-30" : ""}`}
     >
       <div className="flex items-center gap-3">
-        {/* Avatar */}
         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
           {initials}
         </div>
-
-        {/* Info */}
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-gray-800 text-sm truncate leading-tight">
+          <p className="font-semibold text-gray-800 text-sm truncate">
             {candidate.fullName || candidate.username || "Unknown"}
           </p>
-          {jobTitle && (
-            <p className="text-xs text-gray-400 truncate mt-0.5">{jobTitle}</p>
-          )}
+          <p className="text-xs text-gray-400 truncate">
+            {candidate.job?.translations?.[0]?.title || ""}
+          </p>
         </div>
-
-        {/* Unread badge */}
         {candidate.unreadCount > 0 && (
-          <div className="flex-shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 flex items-center justify-center shadow-sm animate-pulse">
+          <div className="flex-shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 flex items-center justify-center animate-pulse">
             <span className="text-white text-xs font-bold leading-none">
               {candidate.unreadCount > 99 ? "99+" : candidate.unreadCount}
             </span>
           </div>
         )}
       </div>
-
       {candidate.lastActivity && (
         <p className="text-xs text-gray-300 mt-2 pl-12">
           {format(new Date(candidate.lastActivity), "MMM d")}
@@ -131,43 +93,82 @@ const CandidateCard: React.FC<{
 // ─── Droppable column ─────────────────────────────────────────────────────────
 
 const KanbanColumn: React.FC<{
-  column: Column;
+  column: any;
   candidates: any[];
-  onCardClick: (c: any) => void;
-}> = ({ column, candidates, onCardClick }) => {
+  onCardClick: (id: string) => void;
+  onArchive: (id: string) => void;
+  onDelete: (id: string) => void;
+  onRename: (id: string, name: string) => void;
+}> = ({ column, candidates, onCardClick, onArchive, onDelete, onRename }) => {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(column.name);
+
+  const commitRename = () => {
+    if (name.trim() && name !== column.name) onRename(column.id, name.trim());
+    setEditing(false);
+  };
 
   return (
     <div className="flex flex-col w-72 flex-shrink-0">
-      {/* Header */}
       <div className="flex items-center gap-2 mb-3 px-1">
         <span className={`w-2 h-2 rounded-full ${column.dot}`} />
-        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-          {column.label}
-        </span>
-        <span className="ml-auto text-xs font-bold text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
+        {editing ? (
+          <input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commitRename();
+              if (e.key === "Escape") {
+                setName(column.name);
+                setEditing(false);
+              }
+            }}
+            className="flex-1 text-xs font-semibold uppercase tracking-wider text-gray-500 bg-transparent border-b border-blue-400 outline-none"
+          />
+        ) : (
+          <span
+            className="flex-1 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700 truncate"
+            onClick={() => setEditing(true)}
+            title="Click to rename"
+          >
+            {column.name}
+          </span>
+        )}
+        <span className="text-xs font-bold text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
           {candidates.length}
         </span>
+        <button
+          onClick={() => onArchive(column.id)}
+          className="text-gray-300 hover:text-amber-400 transition-colors text-xs leading-none"
+          title="Archive this stage"
+        >
+          ⬇
+        </button>
+        <button
+          onClick={() => onDelete(column.id)}
+          className="text-gray-300 hover:text-red-500 transition-colors text-xs leading-none"
+          title="Delete this stage"
+        >
+          🗑
+        </button>
       </div>
-
-      {/* Cards area */}
       <div
         ref={setNodeRef}
-        className={`flex-1 min-h-[100px] rounded-xl p-2 space-y-2 transition-colors duration-150
-          ${isOver ? "bg-blue-100 ring-2 ring-blue-300" : column.color}`}
+        className={`flex-1 min-h-[120px] rounded-xl p-2 space-y-2 transition-colors duration-150 ${isOver ? "bg-blue-100 ring-2 ring-blue-300" : column.color}`}
       >
         {candidates.map((c) => (
           <CandidateCard
             key={c.id}
             candidate={c}
-            onClick={() => onCardClick(c)}
+            onClick={() => onCardClick(c.id)}
           />
         ))}
         {candidates.length === 0 && (
           <div
-            className={`text-center text-xs py-6 pointer-events-none transition-colors ${
-              isOver ? "text-blue-400 font-medium" : "text-gray-300"
-            }`}
+            className={`text-center text-xs py-8 pointer-events-none ${isOver ? "text-blue-400 font-medium" : "text-gray-300"}`}
           >
             {isOver ? "✓ Drop here" : "Drop here"}
           </div>
@@ -177,13 +178,107 @@ const KanbanColumn: React.FC<{
   );
 };
 
+// ─── Special drop zones (Hire / Archive) ─────────────────────────────────────
+
+const DropZone: React.FC<{
+  id: string;
+  label: string;
+  icon: string;
+  activeColor: string;
+}> = ({ id, label, icon, activeColor }) => {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`flex flex-col items-center justify-center w-40 min-h-[120px] rounded-xl border-2 border-dashed transition-all duration-150 flex-shrink-0 select-none
+        ${isOver ? `${activeColor} border-solid shadow-lg scale-105` : "border-gray-200 bg-white text-gray-300 hover:border-gray-300"}`}
+    >
+      <span className="text-2xl mb-1">{icon}</span>
+      <span
+        className={`text-xs font-semibold uppercase tracking-wider ${isOver ? "text-current" : "text-gray-300"}`}
+      >
+        {label}
+      </span>
+    </div>
+  );
+};
+
+// ─── Add column form ──────────────────────────────────────────────────────────
+
+const AddColumnForm: React.FC<{
+  onAdd: (name: string, color: string, dot: string) => void;
+  onCancel: () => void;
+}> = ({ onAdd, onCancel }) => {
+  const [name, setName] = useState("");
+  const [preset, setPreset] = useState(0);
+
+  return (
+    <div className="w-72 flex-shrink-0 bg-white rounded-xl border-2 border-blue-200 p-4 space-y-3">
+      <p className="text-sm font-semibold text-gray-700">New Stage</p>
+      <input
+        autoFocus
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && name.trim())
+            onAdd(
+              name.trim(),
+              COLOR_PRESETS[preset].color,
+              COLOR_PRESETS[preset].dot,
+            );
+          if (e.key === "Escape") onCancel();
+        }}
+        placeholder="Stage name…"
+        className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-blue-300"
+      />
+      <div className="flex gap-1.5 flex-wrap">
+        {COLOR_PRESETS.map((p, i) => (
+          <button
+            key={i}
+            onClick={() => setPreset(i)}
+            className={`w-5 h-5 rounded-full ${p.dot} ring-2 ring-offset-1 transition-all ${preset === i ? "ring-gray-600 scale-110" : "ring-transparent hover:ring-gray-300"}`}
+            title={p.label}
+          />
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <button
+          onClick={() => {
+            if (name.trim())
+              onAdd(
+                name.trim(),
+                COLOR_PRESETS[preset].color,
+                COLOR_PRESETS[preset].dot,
+              );
+          }}
+          disabled={!name.trim()}
+          className="btn-primary text-xs px-3 py-1.5 disabled:opacity-40"
+        >
+          Add
+        </button>
+        <button
+          onClick={onCancel}
+          className="btn-secondary text-xs px-3 py-1.5"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // ─── Detail Panel ─────────────────────────────────────────────────────────────
 
 const DetailPanel: React.FC<{
   candidateId: string | null;
+  columns: any[];
   onClose: () => void;
-  onStatusChange: (id: string, status: string) => void;
-}> = ({ candidateId, onClose, onStatusChange }) => {
+  onStatusChange: (
+    id: string,
+    status: string,
+    columnId?: string | null,
+  ) => void;
+}> = ({ candidateId, columns, onClose, onStatusChange }) => {
   const { admin } = useAuthStore();
   const [candidate, setCandidate] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
@@ -211,163 +306,165 @@ const DetailPanel: React.FC<{
   }, [candidateId]);
 
   useEffect(() => {
-    if (tab === "chat") {
-      setTimeout(
-        () => chatBottomRef.current?.scrollIntoView({ behavior: "smooth" }),
-        100,
-      );
-    }
+    if (tab === "chat")
+      chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, tab]);
 
   useWebSocket({
     NEW_MESSAGE: (payload) => {
       if (payload?.candidateId !== candidateId) return;
       // Only add INBOUND messages via WebSocket.
-      // Outbound messages are added directly from the API response in
-      // handleSendMessage/handleSendFile, so adding them here too would
-      // duplicate them (race condition between setState calls).
+      // Outbound messages (sent by admin) are already added optimistically in
+      // handleSendMessage / handleSendFile — the server's broadcast would double them.
       if (payload?.message?.direction !== "inbound") return;
-      setMessages((prev) =>
-        prev.find((m) => m.id === payload.message?.id)
-          ? prev
-          : [...prev, payload.message],
-      );
+      setMessages((prev) => {
+        // Deduplicate by id — guards against any race between load and WS delivery
+        if (prev.some((m) => m.id === payload.message.id)) return prev;
+        return [...prev, payload.message];
+      });
     },
   });
 
-  const handleStatusChange = async (status: string) => {
+  const handleStatusChange = async (newStatus: string) => {
     if (!candidate) return;
-    try {
-      await candidatesApi.update(candidate.id, { status });
-      setCandidate((c: any) => ({ ...c, status }));
-      onStatusChange(candidate.id, status);
-      toast.success(`Moved to ${status}`);
-    } catch {
-      toast.error("Failed to update status");
-    }
+    await candidatesApi.update(candidate.id, { status: newStatus });
+    setCandidate((c: any) => ({
+      ...c,
+      status: newStatus,
+      columnId:
+        newStatus === "hired" || newStatus === "archived" ? null : c.columnId,
+    }));
+    onStatusChange(candidate.id, newStatus);
+    toast.success(`Status → ${newStatus}`);
+  };
+
+  const handleColumnChange = async (columnId: string) => {
+    if (!candidate) return;
+    await candidatesApi.update(candidate.id, { columnId });
+    setCandidate((c: any) => ({ ...c, columnId }));
+    onStatusChange(candidate.id, "active", columnId);
+    toast.success("Stage updated");
   };
 
   const handleSendMessage = async () => {
-    if (!msgText.trim() || !candidateId) return;
+    if (!msgText.trim() || !candidate || sending) return;
     setSending(true);
     try {
-      const msg = await messagesApi.send(candidateId, {
-        text: msgText,
-        type: "text",
+      const msg = await messagesApi.send(candidate.id, {
+        text: msgText.trim(),
       });
       setMessages((prev) => [...prev, msg]);
       setMsgText("");
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || "Failed to send");
-    } finally {
-      setSending(false);
+    } catch {
+      toast.error("Failed to send");
     }
+    setSending(false);
   };
 
   const handleSendFile = async (file: File) => {
-    if (!candidateId) return;
-    setSending(true);
+    if (!candidate) return;
     try {
-      const msg = await messagesApi.sendMedia(candidateId, file, "document");
+      const msg = await messagesApi.sendMedia(candidate.id, file, "document");
       setMessages((prev) => [...prev, msg]);
     } catch {
       toast.error("Failed to send file");
-    } finally {
-      setSending(false);
     }
   };
 
   const handleAddComment = async () => {
-    if (!comment.trim() || !candidateId) return;
-    try {
-      const c = await candidatesApi.addComment(candidateId, comment);
-      setCandidate((prev: any) => ({
-        ...prev,
-        comments: [...(prev.comments || []), c],
-      }));
-      setComment("");
-    } catch {
-      toast.error("Failed to add note");
-    }
-  };
-
-  const handleQuickAction = async (status: "hired" | "rejected") => {
-    if (!candidate || !confirm(`Mark as ${status}?`)) return;
-    await handleStatusChange(status);
+    if (!comment.trim() || !candidate) return;
+    const c = await candidatesApi.addComment(candidate.id, comment.trim());
+    setCandidate((prev: any) => ({
+      ...prev,
+      comments: [...(prev.comments || []), c],
+    }));
+    setComment("");
   };
 
   if (!candidateId) return null;
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/20 z-30" onClick={onClose} />
-      <div className="fixed right-0 top-0 h-full w-[420px] bg-white shadow-2xl z-40 flex flex-col">
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 z-10 transition-colors"
-        >
-          ✕
-        </button>
-
-        {loading ? (
-          <div className="flex items-center justify-center h-full text-gray-400">
+      <div className="fixed inset-0 bg-black/10 z-30" onClick={onClose} />
+      <div className="fixed top-0 right-0 h-full w-[420px] bg-white shadow-2xl z-40 flex flex-col">
+        {loading || !candidate ? (
+          <div className="flex-1 flex items-center justify-center text-gray-400">
             Loading…
           </div>
-        ) : !candidate ? null : (
+        ) : (
           <>
             {/* Header */}
-            <div className="p-6 pb-4 border-b border-gray-100">
-              <div className="flex items-center gap-4 pr-8">
-                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-xl font-bold flex-shrink-0">
-                  {(
-                    (candidate.fullName || candidate.username || "?")[0] || "?"
-                  ).toUpperCase()}
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-gray-900 leading-tight">
-                    {candidate.fullName || candidate.username || "Unknown"}
-                  </h2>
-                  <p className="text-sm text-blue-500 font-medium mt-0.5">
-                    {candidate.job?.translations?.[0]?.title || ""}
-                  </p>
-                </div>
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-bold">
+                {(
+                  (candidate.fullName || candidate.username || "?")[0] || "?"
+                ).toUpperCase()}
               </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-gray-900 truncate">
+                  {candidate.fullName || candidate.username || "Unknown"}
+                </p>
+                <p className="text-xs text-blue-500 truncate">
+                  {candidate.job?.translations?.[0]?.title || ""}
+                </p>
+              </div>
+              <button
+                onClick={onClose}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 text-xl"
+              >
+                ×
+              </button>
             </div>
 
-            {/* Scrollable content */}
             <div className="flex-1 overflow-y-auto">
-              {/* Status + Contact */}
-              <div className="grid grid-cols-2 gap-4 p-5 pb-0">
-                <div>
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
-                    Status
-                  </p>
-                  <select
-                    value={candidate.status}
-                    onChange={(e) => handleStatusChange(e.target.value)}
-                    className="w-full text-sm font-semibold text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-300"
-                  >
-                    {STATUSES_ALL.map((s) => (
-                      <option key={s} value={s}>
-                        {s.charAt(0).toUpperCase() + s.slice(1)}
-                      </option>
-                    ))}
-                  </select>
+              {/* Status + Stage + Contact */}
+              <div className="p-5 pb-0 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+                      Status
+                    </p>
+                    <select
+                      value={candidate.status}
+                      onChange={(e) => handleStatusChange(e.target.value)}
+                      className="w-full text-sm font-semibold text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none"
+                    >
+                      <option value="active">Active</option>
+                      <option value="hired">Hired ✅</option>
+                      <option value="archived">Archived</option>
+                    </select>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+                      Contact
+                    </p>
+                    <p className="text-sm font-semibold text-gray-700 truncate">
+                      {candidate.phone ||
+                        candidate.email ||
+                        (candidate.username ? `@${candidate.username}` : "—")}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
-                    Contact
-                  </p>
-                  <p className="text-sm font-semibold text-gray-700">
-                    {candidate.phone ||
-                      candidate.email ||
-                      (candidate.username ? `@${candidate.username}` : "—")}
-                  </p>
-                  {candidate.phone && candidate.email && (
-                    <p className="text-xs text-gray-400">{candidate.email}</p>
-                  )}
-                </div>
+
+                {candidate.status === "active" && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+                      Stage
+                    </p>
+                    <select
+                      value={candidate.columnId || ""}
+                      onChange={(e) => handleColumnChange(e.target.value)}
+                      className="w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none"
+                    >
+                      <option value="">— Unassigned —</option>
+                      {columns.map((col: any) => (
+                        <option key={col.id} value={col.id}>
+                          {col.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
 
               {/* Tabs */}
@@ -376,11 +473,7 @@ const DetailPanel: React.FC<{
                   <button
                     key={t}
                     onClick={() => setTab(t)}
-                    className={`px-3 py-2 text-xs font-semibold capitalize border-b-2 -mb-px transition-colors ${
-                      tab === t
-                        ? "border-blue-500 text-blue-600"
-                        : "border-transparent text-gray-400 hover:text-gray-600"
-                    }`}
+                    className={`px-3 py-2 text-xs font-semibold capitalize border-b-2 -mb-px transition-colors ${tab === t ? "border-blue-500 text-blue-600" : "border-transparent text-gray-400 hover:text-gray-600"}`}
                   >
                     {t}
                     {t === "chat" && messages.length > 0 && (
@@ -392,13 +485,12 @@ const DetailPanel: React.FC<{
                 ))}
               </div>
 
-              {/* ── Answers tab ── */}
+              {/* Answers tab */}
               {tab === "answers" && (
                 <div className="p-5 space-y-4">
-                  {/* Survey answers */}
                   {candidate.answers?.length > 0 && (
                     <div className="space-y-3">
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
                         🤖 Bot Answers
                       </p>
                       {candidate.answers.map((answer: any) => {
@@ -411,13 +503,9 @@ const DetailPanel: React.FC<{
                           answer.option?.translations?.[0]?.text ||
                           answer.textValue ||
                           "—";
-
-                        // Find the matching CandidateFile for this attachment answer
-                        // by matching the fileName stored in textValue
                         const matchedFile = isAttachment
                           ? candidate.files?.find((f: any) => f.fileName === a)
                           : null;
-
                         return (
                           <div key={answer.id}>
                             <p className="text-xs text-gray-400 mb-0.5">{q}</p>
@@ -427,7 +515,7 @@ const DetailPanel: React.FC<{
                                   href={filesApi.downloadUrl(matchedFile.id)}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+                                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:underline"
                                 >
                                   📎 {a}
                                 </a>
@@ -446,8 +534,6 @@ const DetailPanel: React.FC<{
                       })}
                     </div>
                   )}
-
-                  {/* Notes / comments */}
                   <div
                     className={
                       candidate.answers?.length > 0
@@ -455,7 +541,7 @@ const DetailPanel: React.FC<{
                         : ""
                     }
                   >
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
                       ✏️ Notes
                     </p>
                     {candidate.comments?.length === 0 && (
@@ -475,7 +561,6 @@ const DetailPanel: React.FC<{
                     ))}
                     <div className="flex gap-2 mt-2">
                       <input
-                        type="text"
                         value={comment}
                         onChange={(e) => setComment(e.target.value)}
                         onKeyDown={(e) =>
@@ -486,124 +571,104 @@ const DetailPanel: React.FC<{
                       />
                       <button
                         onClick={handleAddComment}
-                        disabled={!comment.trim()}
-                        className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-sm disabled:opacity-40 transition-colors"
+                        className="w-9 h-9 rounded-xl bg-amber-100 hover:bg-amber-200 flex items-center justify-center text-amber-600 transition-colors"
                       >
-                        ➕
+                        +
                       </button>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* ── Chat tab ── */}
+              {/* Chat tab */}
               {tab === "chat" && (
-                <div className="flex flex-col" style={{ height: 360 }}>
-                  {candidate.status === "incomplete" && (
-                    <div className="mx-4 mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded-lg text-xs text-yellow-600">
-                      Messaging available once candidate submits (Applied+)
-                    </div>
-                  )}
+                <div className="flex flex-col h-[400px]">
                   <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                    {messages.length === 0 ? (
-                      <p className="text-center text-gray-300 text-sm py-6">
-                        No messages yet
-                      </p>
-                    ) : (
-                      messages.map((msg) => {
-                        const isOut = msg.direction === "outbound";
-                        return (
+                    {messages.map((msg) => {
+                      const isOut = msg.direction === "outbound";
+                      return (
+                        <div
+                          key={msg.id}
+                          className={`flex ${isOut ? "justify-end" : "justify-start"}`}
+                        >
                           <div
-                            key={msg.id}
-                            className={`flex ${isOut ? "justify-end" : "justify-start"}`}
+                            className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${isOut ? "bg-blue-600 text-white rounded-tr-sm" : "bg-gray-100 text-gray-800 rounded-tl-sm"}`}
                           >
-                            <div
-                              className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${
-                                isOut
-                                  ? "bg-blue-600 text-white rounded-br-none"
-                                  : "bg-gray-100 text-gray-800 rounded-bl-none"
-                              }`}
-                            >
-                              {msg.type === "text" && <p>{msg.text}</p>}
-                              {msg.type === "photo" && msg.localPath && (
-                                <img
-                                  src={filesApi.serveUrl(msg.id)}
-                                  alt="photo"
-                                  className="max-w-full rounded max-h-40 object-cover"
-                                />
-                              )}
-                              {msg.type === "document" && (
-                                <a
-                                  href={filesApi.serveUrl(msg.id)}
-                                  download
-                                  className={`flex items-center gap-1 ${isOut ? "text-blue-100" : "text-blue-600"}`}
-                                >
-                                  📎 {msg.fileName || "File"}
-                                </a>
-                              )}
-                              {msg.type === "voice" && (
-                                <audio
-                                  controls
-                                  src={filesApi.serveUrl(msg.id)}
-                                  className="max-w-full h-8"
-                                />
-                              )}
-                              <p
-                                className={`text-xs mt-1 ${isOut ? "text-blue-200" : "text-gray-400"}`}
+                            {msg.type === "text" && <p>{msg.text}</p>}
+                            {msg.type === "photo" && (
+                              <img
+                                src={filesApi.serveUrl(msg.id)}
+                                alt="photo"
+                                className="max-w-full rounded max-h-40 object-cover"
+                              />
+                            )}
+                            {msg.type === "document" && (
+                              <a
+                                href={filesApi.serveUrl(msg.id)}
+                                download
+                                className={`flex items-center gap-1 ${isOut ? "text-blue-100" : "text-blue-600"}`}
                               >
-                                {format(new Date(msg.createdAt), "HH:mm")}
-                              </p>
-                            </div>
+                                📎 {msg.fileName || "File"}
+                              </a>
+                            )}
+                            {msg.type === "voice" && (
+                              <audio
+                                controls
+                                src={filesApi.serveUrl(msg.id)}
+                                className="max-w-full h-8"
+                              />
+                            )}
+                            <p
+                              className={`text-xs mt-1 ${isOut ? "text-blue-200" : "text-gray-400"}`}
+                            >
+                              {format(new Date(msg.createdAt), "HH:mm")}
+                            </p>
                           </div>
-                        );
-                      })
-                    )}
+                        </div>
+                      );
+                    })}
                     <div ref={chatBottomRef} />
                   </div>
-                  {candidate.status !== "incomplete" && (
-                    <div className="p-3 border-t border-gray-100 flex gap-2">
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        className="hidden"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          if (f) handleSendFile(f);
-                          e.target.value = "";
-                        }}
-                      />
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
-                      >
-                        📎
-                      </button>
-                      <input
-                        type="text"
-                        value={msgText}
-                        onChange={(e) => setMsgText(e.target.value)}
-                        onKeyDown={(e) =>
-                          e.key === "Enter" && handleSendMessage()
-                        }
-                        placeholder="Message…"
-                        className="flex-1 text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-300"
-                        disabled={sending}
-                      />
-                      <button
-                        onClick={handleSendMessage}
-                        disabled={!msgText.trim() || sending}
-                        className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm disabled:opacity-40 transition-colors"
-                      >
-                        {sending ? "…" : "→"}
-                      </button>
-                    </div>
-                  )}
+                  <div className="p-3 border-t border-gray-100 flex gap-2">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleSendFile(f);
+                        e.target.value = "";
+                      }}
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-9 h-9 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors"
+                    >
+                      📎
+                    </button>
+                    <input
+                      value={msgText}
+                      onChange={(e) => setMsgText(e.target.value)}
+                      onKeyDown={(e) =>
+                        e.key === "Enter" && !e.shiftKey && handleSendMessage()
+                      }
+                      placeholder="Message…"
+                      className="flex-1 text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-300"
+                    />
+                    <button
+                      onClick={handleSendMessage}
+                      disabled={sending || !msgText.trim()}
+                      className="w-9 h-9 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 flex items-center justify-center text-white transition-colors"
+                    >
+                      →
+                    </button>
+                  </div>
                 </div>
               )}
 
-              {/* ── Files tab ── */}
+              {/* Files tab */}
               {tab === "files" && (
-                <div className="p-5 space-y-2">
+                <div className="p-5">
                   {!candidate.files || candidate.files.length === 0 ? (
                     <p className="text-sm text-gray-400 text-center py-4">
                       No files uploaded
@@ -614,20 +679,19 @@ const DetailPanel: React.FC<{
                         key={f.id}
                         href={filesApi.downloadUrl(f.id)}
                         download={f.fileName}
-                        className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors mb-1"
                       >
-                        <span className="text-xl">📄</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-700 truncate">
+                        <span className="text-2xl">📄</span>
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">
                             {f.fileName}
                           </p>
                           <p className="text-xs text-gray-400">
-                            {format(new Date(f.createdAt), "MMM d, yyyy")}
+                            {format(new Date(f.createdAt), "MMM d, HH:mm")}
                           </p>
                         </div>
-                        <span className="text-xs text-blue-500 font-bold">
-                          ↓
-                        </span>
                       </a>
                     ))
                   )}
@@ -635,23 +699,33 @@ const DetailPanel: React.FC<{
               )}
             </div>
 
-            {/* Footer quick actions */}
-            {!["hired", "rejected", "archived"].includes(candidate.status) && (
-              <div className="p-4 border-t border-gray-100 space-y-2 flex-shrink-0">
+            {/* Action buttons */}
+            <div className="p-4 border-t border-gray-100 space-y-2">
+              {candidate.status !== "hired" && (
                 <button
-                  onClick={() => handleQuickAction("hired")}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-xl transition-colors text-sm"
+                  onClick={() => handleStatusChange("hired")}
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors"
                 >
-                  👤 Mark as Hired
+                  ✅ Mark as Hired
                 </button>
+              )}
+              {candidate.status === "active" && (
                 <button
-                  onClick={() => handleQuickAction("rejected")}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 border border-red-300 text-red-500 hover:bg-red-50 font-semibold rounded-xl transition-colors text-sm"
+                  onClick={() => handleStatusChange("archived")}
+                  className="w-full py-2.5 border border-red-200 text-red-500 hover:bg-red-50 font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors text-sm"
                 >
-                  🚫 Reject
+                  🗃 Archive Candidate
                 </button>
-              </div>
-            )}
+              )}
+              {candidate.status === "archived" && (
+                <button
+                  onClick={() => handleStatusChange("active")}
+                  className="w-full py-2.5 border border-blue-200 text-blue-600 hover:bg-blue-50 font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors text-sm"
+                >
+                  ↩ Restore to Pipeline
+                </button>
+              )}
+            </div>
           </>
         )}
       </div>
@@ -659,50 +733,75 @@ const DetailPanel: React.FC<{
   );
 };
 
+// ─── Unassigned column (always-mounted droppable) ─────────────────────────────
+
+const UnassignedColumn: React.FC<{
+  candidates: any[];
+  onCardClick: (id: string) => void;
+}> = ({ candidates, onCardClick }) => {
+  const { setNodeRef, isOver } = useDroppable({ id: "__unassigned__" });
+  return (
+    <div className="flex flex-col w-72 flex-shrink-0">
+      <div className="flex items-center gap-2 mb-3 px-1">
+        <span className="w-2 h-2 rounded-full bg-gray-300" />
+        <span className="flex-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+          Unassigned
+        </span>
+        <span className="text-xs font-bold text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
+          {candidates.length}
+        </span>
+      </div>
+      <div
+        ref={setNodeRef}
+        className={`flex-1 min-h-[120px] rounded-xl p-2 space-y-2 transition-colors ${isOver ? "bg-blue-100 ring-2 ring-blue-300" : "bg-gray-100"}`}
+      >
+        {candidates.map((c) => (
+          <CandidateCard
+            key={c.id}
+            candidate={c}
+            onClick={() => onCardClick(c.id)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export const CandidatesPage: React.FC = () => {
-  const [searchParams] = useSearchParams();
-  const botIdFilter = searchParams.get("botId") || "";
-
+  const [columns, setColumns] = useState<any[]>([]);
   const [allCandidates, setAllCandidates] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [bots, setBots] = useState<any[]>([]);
   const [jobs, setJobs] = useState<any[]>([]);
-  const [filters, setFilters] = useState({
-    botId: botIdFilter,
-    jobId: "",
-    search: "",
-  });
+  const [filters, setFilters] = useState({ botId: "", jobId: "", search: "" });
+  const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(
     null,
   );
-  const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
+  const [addingColumn, setAddingColumn] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
 
-  const fetchCandidates = useCallback(async () => {
+  const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await candidatesApi.list({
-        botId: filters.botId || undefined,
-        jobId: filters.jobId || undefined,
-        search: filters.search || undefined,
-        limit: 300,
-        page: 1,
-      });
+      const [cols, result] = await Promise.all([
+        columnsApi.list(),
+        candidatesApi.list({ status: "active", limit: 500, page: 1 }),
+      ]);
+      setColumns(cols);
       setAllCandidates(result.candidates || []);
     } catch {}
     setLoading(false);
-  }, [filters]);
+  }, []);
 
   useEffect(() => {
-    fetchCandidates();
-  }, [fetchCandidates]);
-
+    fetchAll();
+  }, [fetchAll]);
   useEffect(() => {
     Promise.all([botsApi.list(), jobsApi.list()]).then(([b, j]) => {
       setBots(b);
@@ -711,26 +810,17 @@ export const CandidatesPage: React.FC = () => {
   }, []);
 
   useWebSocket({
-    NEW_APPLICATION: () => fetchCandidates(),
-    STATUS_CHANGE: () => fetchCandidates(),
-    CANDIDATE_UPDATE: () => fetchCandidates(),
-    // Increment unread badge when a new inbound message arrives —
-    // no full re-fetch needed, just mutate the count in-place.
-    // Exception: if the chat panel is already open for this candidate,
-    // mark the message as read immediately instead of showing a badge.
+    NEW_APPLICATION: () => fetchAll(),
+    STATUS_CHANGE: () => fetchAll(),
+    CANDIDATE_UPDATE: () => fetchAll(),
     NEW_MESSAGE: (payload) => {
       if (payload?.message?.direction !== "inbound") return;
       const { candidateId, unreadCount } = payload;
       if (!candidateId) return;
-
-      // Use a ref-based check so this callback always sees the latest value
-      // without needing to be recreated (avoids stale closure issues).
-      setSelectedCandidateId((currentlyOpen) => {
-        if (currentlyOpen === candidateId) {
-          // Panel is open — auto-mark as read, no badge needed
+      setSelectedCandidateId((cur) => {
+        if (cur === candidateId) {
           messagesApi.markAsRead(candidateId).catch(() => {});
         } else {
-          // Panel is closed — show the badge
           setAllCandidates((prev) =>
             prev.map((c) =>
               c.id === candidateId
@@ -739,93 +829,185 @@ export const CandidatesPage: React.FC = () => {
             ),
           );
         }
-        return currentlyOpen; // don't change the selected candidate
+        return cur;
       });
     },
-    // Clear badge when any admin marks messages as read (including other tabs).
     MESSAGES_READ: (payload) => {
       const { candidateId } = payload || {};
-      if (!candidateId) return;
-      setAllCandidates((prev) =>
-        prev.map((c) => (c.id === candidateId ? { ...c, unreadCount: 0 } : c)),
-      );
+      if (candidateId)
+        setAllCandidates((prev) =>
+          prev.map((c) =>
+            c.id === candidateId ? { ...c, unreadCount: 0 } : c,
+          ),
+        );
     },
   });
 
-  const activeCandidate = activeId
-    ? allCandidates.find((c) => c.id === activeId)
-    : null;
+  const handleCardClick = useCallback(async (id: string) => {
+    setSelectedCandidateId(id);
+    setAllCandidates((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c)),
+    );
+    messagesApi.markAsRead(id).catch(() => {});
+  }, []);
 
   const handleDragStart = (e: DragStartEvent) =>
     setActiveId(e.active.id as string);
-
-  // Called when a candidate card is clicked — open panel and mark messages read
-  const handleCardClick = useCallback(async (candidateId: string) => {
-    setSelectedCandidateId(candidateId);
-    // Optimistically clear the badge immediately so the admin sees feedback
-    setAllCandidates((prev) =>
-      prev.map((c) => (c.id === candidateId ? { ...c, unreadCount: 0 } : c)),
-    );
-    // Fire-and-forget: mark all inbound messages as read on the server
-    // The WS MESSAGES_READ broadcast will keep other open tabs in sync
-    messagesApi.markAsRead(candidateId).catch(() => {});
-  }, []);
 
   const handleDragEnd = async (e: DragEndEvent) => {
     setActiveId(null);
     const { active, over } = e;
     if (!over) return;
-
-    const newStatus = over.id as string;
     const candidateId = active.id as string;
-    if (!COLUMNS.find((c) => c.id === newStatus)) return;
-
+    const overId = over.id as string;
     const candidate = allCandidates.find((c) => c.id === candidateId);
-    if (!candidate || candidate.status === newStatus) return;
+    if (!candidate) return;
 
-    // Optimistic update
+    if (overId === "__hire__") {
+      setAllCandidates((prev) => prev.filter((c) => c.id !== candidateId));
+      try {
+        await candidatesApi.update(candidateId, { status: "hired" });
+        toast.success("Candidate hired! 🎉");
+      } catch {
+        toast.error("Failed");
+        fetchAll();
+      }
+      return;
+    }
+    if (overId === "__archive__") {
+      setAllCandidates((prev) => prev.filter((c) => c.id !== candidateId));
+      try {
+        await candidatesApi.update(candidateId, { status: "archived" });
+        toast.success("Candidate archived");
+      } catch {
+        toast.error("Failed");
+        fetchAll();
+      }
+      return;
+    }
+    // Moving between columns
+    const col = columns.find((c) => c.id === overId);
+    if (!col || candidate.columnId === overId) return;
     setAllCandidates((prev) =>
-      prev.map((c) => (c.id === candidateId ? { ...c, status: newStatus } : c)),
+      prev.map((c) => (c.id === candidateId ? { ...c, columnId: overId } : c)),
     );
-
+    // Only send columnId — sending status:'active' would trigger the route's
+    // individual-restore logic which clears columnId, undoing the move.
     try {
-      await candidatesApi.update(candidateId, { status: newStatus });
-      toast.success(`Moved to ${newStatus}`);
+      await candidatesApi.update(candidateId, { columnId: overId });
     } catch {
-      toast.error("Failed to update status");
-      fetchCandidates();
+      toast.error("Failed");
+      fetchAll();
     }
   };
 
-  const handleStatusChangeFromPanel = (id: string, status: string) => {
+  const handleAddColumn = async (name: string, color: string, dot: string) => {
+    try {
+      const col = await columnsApi.create({ name, color, dot });
+      setColumns((prev) => [...prev, col]);
+      setAddingColumn(false);
+      toast.success(`Stage "${name}" created`);
+    } catch {
+      toast.error("Failed to create stage");
+    }
+  };
+
+  const handleArchiveColumn = async (id: string) => {
+    const col = columns.find((c) => c.id === id);
+    if (
+      !confirm(
+        `Archive stage "${col?.name}"? All candidates inside it will be archived too.`,
+      )
+    )
+      return;
+    await columnsApi.archive(id);
+    setColumns((prev) => prev.filter((c) => c.id !== id));
+    // Remove archived candidates from the board (they are now archived, not active)
+    setAllCandidates((prev) => prev.filter((c) => c.columnId !== id));
+    toast.success(`Stage "${col?.name}" and its candidates archived`);
+  };
+
+  const handleDeleteColumn = async (id: string) => {
+    const col = columns.find((c) => c.id === id);
+    if (
+      !confirm(
+        `Delete stage "${col?.name}"? Candidates inside will move to Unassigned.`,
+      )
+    )
+      return;
+    await columnsApi.delete(id);
+    setColumns((prev) => prev.filter((c) => c.id !== id));
+    // Candidates become active+unassigned (handled by backend), reflect in state
     setAllCandidates((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status } : c)),
+      prev.map((c) => (c.columnId === id ? { ...c, columnId: null } : c)),
     );
+    toast.success(`Stage "${col?.name}" deleted`);
+  };
+
+  const handleRenameColumn = async (id: string, name: string) => {
+    await columnsApi.update(id, { name });
+    setColumns((prev) => prev.map((c) => (c.id === id ? { ...c, name } : c)));
+  };
+
+  const handleStatusChangeFromPanel = (
+    id: string,
+    status: string,
+    columnId?: string | null,
+  ) => {
+    if (status === "hired" || status === "archived") {
+      setAllCandidates((prev) => prev.filter((c) => c.id !== id));
+    } else {
+      setAllCandidates((prev) =>
+        prev.map((c) =>
+          c.id === id
+            ? {
+                ...c,
+                status,
+                columnId: columnId !== undefined ? columnId : c.columnId,
+              }
+            : c,
+        ),
+      );
+    }
   };
 
   const filteredJobs = filters.botId
     ? jobs.filter((j) => j.botId === filters.botId)
     : jobs;
 
-  const incompleteCount = allCandidates.filter(
-    (c) => c.status === "incomplete",
-  ).length;
+  const visibleCandidates = allCandidates.filter((c) => {
+    if (filters.botId && c.botId !== filters.botId) return false;
+    if (filters.jobId && c.jobId !== filters.jobId) return false;
+    if (filters.search) {
+      const q = filters.search.toLowerCase();
+      return (
+        (c.fullName || "").toLowerCase().includes(q) ||
+        (c.phone || "").includes(q) ||
+        (c.username || "").toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
+
+  const uncolumned = visibleCandidates.filter((c) => !c.columnId);
+  const activeCandidate = activeId
+    ? allCandidates.find((c) => c.id === activeId)
+    : null;
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-gray-50">
       {/* Top bar */}
       <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200 flex-shrink-0">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Candidates</h1>
+          <h1 className="text-xl font-bold text-gray-900">Pipeline</h1>
           <p className="text-xs text-gray-400 mt-0.5">
-            {allCandidates.length} total
+            {visibleCandidates.length} active candidates
           </p>
         </div>
-
         <div className="flex items-center gap-3">
           <input
             type="text"
-            placeholder="Search name, phone…"
+            placeholder="Search…"
             value={filters.search}
             onChange={(e) =>
               setFilters((f) => ({ ...f, search: e.target.value }))
@@ -837,7 +1019,7 @@ export const CandidatesPage: React.FC = () => {
             onChange={(e) =>
               setFilters((f) => ({ ...f, botId: e.target.value, jobId: "" }))
             }
-            className="text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
+            className="text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none bg-white"
           >
             <option value="">All bots</option>
             {bots.map((b) => (
@@ -851,7 +1033,7 @@ export const CandidatesPage: React.FC = () => {
             onChange={(e) =>
               setFilters((f) => ({ ...f, jobId: e.target.value }))
             }
-            className="text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
+            className="text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none bg-white"
           >
             <option value="">All jobs</option>
             {filteredJobs.map((j) => (
@@ -860,45 +1042,14 @@ export const CandidatesPage: React.FC = () => {
               </option>
             ))}
           </select>
-          <div className="flex rounded-xl border border-gray-200 overflow-hidden">
-            <button
-              onClick={() => setViewMode("kanban")}
-              className={`px-3 py-2 text-sm font-medium transition-colors ${
-                viewMode === "kanban"
-                  ? "bg-blue-600 text-white"
-                  : "bg-white text-gray-500 hover:bg-gray-50"
-              }`}
-            >
-              ⬜ Board
-            </button>
-            <button
-              onClick={() => setViewMode("list")}
-              className={`px-3 py-2 text-sm font-medium transition-colors ${
-                viewMode === "list"
-                  ? "bg-blue-600 text-white"
-                  : "bg-white text-gray-500 hover:bg-gray-50"
-              }`}
-            >
-              ☰ List
-            </button>
-          </div>
         </div>
       </div>
-
-      {/* Incomplete banner */}
-      {incompleteCount > 0 && (
-        <div className="mx-6 mt-3 flex-shrink-0 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2 text-sm text-amber-700">
-          ⏳ <strong>{incompleteCount}</strong> incomplete application
-          {incompleteCount > 1 ? "s" : ""} — not shown on board
-        </div>
-      )}
 
       {loading ? (
         <div className="flex-1 flex items-center justify-center text-gray-400">
           Loading…
         </div>
-      ) : viewMode === "kanban" ? (
-        /* ── KANBAN ── */
+      ) : (
         <DndContext
           sensors={sensors}
           onDragStart={handleDragStart}
@@ -906,17 +1057,61 @@ export const CandidatesPage: React.FC = () => {
         >
           <div className="flex-1 overflow-x-auto overflow-y-hidden">
             <div
-              className="flex gap-5 p-6 h-full"
+              className="flex gap-5 p-6 h-full items-start"
               style={{ minWidth: "max-content" }}
             >
-              {COLUMNS.map((col) => (
+              {/* Unassigned column — always visible */}
+              <UnassignedColumn
+                candidates={uncolumned}
+                onCardClick={handleCardClick}
+              />
+
+              {/* Custom columns */}
+              {columns.map((col) => (
                 <KanbanColumn
                   key={col.id}
                   column={col}
-                  candidates={allCandidates.filter((c) => c.status === col.id)}
-                  onCardClick={(c) => handleCardClick(c.id)}
+                  candidates={visibleCandidates.filter(
+                    (c) => c.columnId === col.id,
+                  )}
+                  onCardClick={handleCardClick}
+                  onArchive={handleArchiveColumn}
+                  onDelete={handleDeleteColumn}
+                  onRename={handleRenameColumn}
                 />
               ))}
+
+              {/* Add column button/form — always to the right of existing columns */}
+              {addingColumn ? (
+                <AddColumnForm
+                  onAdd={handleAddColumn}
+                  onCancel={() => setAddingColumn(false)}
+                />
+              ) : (
+                <button
+                  onClick={() => setAddingColumn(true)}
+                  className="flex flex-col items-center justify-center w-40 min-h-[120px] rounded-xl border-2 border-dashed border-gray-200 text-gray-300 hover:border-blue-300 hover:text-blue-400 transition-all flex-shrink-0 gap-2 text-sm font-medium"
+                >
+                  <span className="text-2xl">+</span>
+                  Add Stage
+                </button>
+              )}
+
+              {/* Hire / Archive drop zones */}
+              <div className="flex flex-col gap-3 flex-shrink-0 justify-start mt-10">
+                <DropZone
+                  id="__hire__"
+                  label="Hire"
+                  icon="✅"
+                  activeColor="bg-emerald-100 text-emerald-700 border-emerald-400"
+                />
+                <DropZone
+                  id="__archive__"
+                  label="Archive"
+                  icon="🗃"
+                  activeColor="bg-gray-200 text-gray-600 border-gray-400"
+                />
+              </div>
             </div>
           </div>
 
@@ -946,96 +1141,11 @@ export const CandidatesPage: React.FC = () => {
             ) : null}
           </DragOverlay>
         </DndContext>
-      ) : (
-        /* ── LIST VIEW ── */
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="card overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="text-left px-4 py-3 text-gray-500 font-medium">
-                    Candidate
-                  </th>
-                  <th className="text-left px-4 py-3 text-gray-500 font-medium">
-                    Job
-                  </th>
-                  <th className="text-left px-4 py-3 text-gray-500 font-medium">
-                    Status
-                  </th>
-                  <th className="text-left px-4 py-3 text-gray-500 font-medium">
-                    Last Activity
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {allCandidates.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="text-center py-8 text-gray-400">
-                      No candidates found
-                    </td>
-                  </tr>
-                ) : (
-                  allCandidates.map((c) => {
-                    const col = COLUMNS.find((col) => col.id === c.status);
-                    return (
-                      <tr
-                        key={c.id}
-                        className="hover:bg-gray-50 cursor-pointer transition-colors"
-                        onClick={() => handleCardClick(c.id)}
-                      >
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-xs font-bold">
-                              {(
-                                (c.fullName || c.username || "?")[0] || "?"
-                              ).toUpperCase()}
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-900">
-                                {c.fullName || c.username || "Unknown"}
-                              </p>
-                              {c.username && (
-                                <p className="text-xs text-gray-400">
-                                  @{c.username}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-gray-600">
-                          {c.job?.translations?.[0]?.title || "N/A"}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
-                              col
-                                ? `${col.color} text-gray-700`
-                                : "bg-gray-100 text-gray-500"
-                            }`}
-                          >
-                            <span
-                              className={`w-1.5 h-1.5 rounded-full ${col?.dot || "bg-gray-400"}`}
-                            />
-                            {c.status.charAt(0).toUpperCase() +
-                              c.status.slice(1)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-gray-400 text-xs">
-                          {format(new Date(c.lastActivity), "MMM d, HH:mm")}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
       )}
 
-      {/* Slide-in detail panel */}
       <DetailPanel
         candidateId={selectedCandidateId}
+        columns={columns}
         onClose={() => setSelectedCandidateId(null)}
         onStatusChange={handleStatusChangeFromPanel}
       />
