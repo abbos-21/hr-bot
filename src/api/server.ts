@@ -7,6 +7,7 @@ import fs from "fs";
 import { config } from "../config";
 import authRoutes from "./routes/auth";
 import botsRoutes from "./routes/bots";
+import botMessagesRoutes from "./routes/botMessages";
 import questionsRoutes from "./routes/questions";
 import candidatesRoutes from "./routes/candidates";
 import messagesRoutes from "./routes/messages";
@@ -30,6 +31,7 @@ export function createApp(): express.Application {
   // API Routes
   app.use("/api/auth", authRoutes);
   app.use("/api/bots", botsRoutes);
+  app.use("/api/bots/:id/bot-messages", botMessagesRoutes);
   app.use("/api/questions", questionsRoutes);
   app.use("/api/candidates", candidatesRoutes);
   app.use("/api/messages", messagesRoutes);

@@ -1,4 +1,11 @@
-import { Bot, GrammyError, HttpError, InlineKeyboard, InputFile } from "grammy";
+import {
+  Bot,
+  GrammyError,
+  HttpError,
+  InlineKeyboard,
+  InputFile,
+  Keyboard,
+} from "grammy";
 import prisma from "../db";
 import { wsManager } from "../websocket";
 import path from "path";
@@ -27,6 +34,21 @@ export class BotInstance {
     key: string,
     fallback: string,
   ): Promise<string> {
+    // 1. Try admin-configured DB message (exact lang)
+    const dbMsg = await prisma.botMessage.findUnique({
+      where: { botId_lang_key: { botId, lang, key } },
+    });
+    if (dbMsg) return dbMsg.value;
+
+    // 2. Try DB message in English
+    if (lang !== "en") {
+      const dbEn = await prisma.botMessage.findUnique({
+        where: { botId_lang_key: { botId, lang: "en", key } },
+      });
+      if (dbEn) return dbEn.value;
+    }
+
+    // 3. Hardcoded defaults
     const translations: Record<string, Record<string, string>> = {
       en: {
         welcome: "👋 Welcome! Please choose a language:",
@@ -38,6 +60,11 @@ export class BotInstance {
         please_send_file: "📎 Please send a photo or file, not text.",
         please_send_photo: "📸 Please send a photo for your profile picture.",
         message_received: "✉️ New message from HR:",
+        invalid_date_format:
+          "⚠️ Please enter your birth date in the format DD.MM.YYYY (e.g. 15.03.1998)",
+        invalid_date_value: "⚠️ Please enter a valid birth date.",
+        phone_use_button:
+          "📱 Please use the button below to share your phone number.",
       },
       ru: {
         welcome: "👋 Добро пожаловать! Выберите язык:",
@@ -49,6 +76,11 @@ export class BotInstance {
         please_send_file: "📎 Пожалуйста, отправьте файл, а не текст.",
         please_send_photo: "📸 Пожалуйста, отправьте фото для профиля.",
         message_received: "✉️ Новое сообщение от HR:",
+        invalid_date_format:
+          "⚠️ Введите дату рождения в формате ДД.ММ.ГГГГ (например 15.03.1998)",
+        invalid_date_value: "⚠️ Введите корректную дату рождения.",
+        phone_use_button:
+          "📱 Пожалуйста, используйте кнопку ниже, чтобы поделиться номером.",
       },
       uz: {
         welcome: "👋 Xush kelibsiz! Tilni tanlang:",
@@ -60,6 +92,11 @@ export class BotInstance {
         please_send_file: "📎 Iltimos, matn emas, fayl yuboring.",
         please_send_photo: "📸 Iltimos, profil uchun rasm yuboring.",
         message_received: "✉️ HR dan yangi xabar:",
+        invalid_date_format:
+          "⚠️ Tug'ilgan sanangizni KK.OO.YYYY formatida kiriting (masalan 15.03.1998)",
+        invalid_date_value: "⚠️ Iltimos, to'g'ri tug'ilgan sanani kiriting.",
+        phone_use_button:
+          "📱 Raqamingizni ulashish uchun quyidagi tugmani bosing.",
       },
     };
     return translations[lang]?.[key] || translations["en"]?.[key] || fallback;
@@ -182,6 +219,64 @@ export class BotInstance {
         await this.handleTextAnswer(ctx, candidate);
       } catch (error) {
         console.error("Error in message handler:", error);
+      }
+    });
+
+    // Contact message (phone number sharing)
+    bot.on("message:contact", async (ctx) => {
+      try {
+        const telegramId = ctx.from?.id.toString() || "";
+        const candidate = await prisma.candidate.findFirst({
+          where: { botId, telegramId, status: "incomplete" },
+        });
+        if (!candidate) return;
+
+        const questions = await prisma.question.findMany({
+          where: { botId, isActive: true },
+          include: { translations: true },
+          orderBy: [{ isRequired: "desc" }, { order: "asc" }],
+        });
+        const question = questions[candidate.currentStep];
+        if (!question || question.fieldKey !== "phone") return;
+
+        const phone = ctx.message.contact.phone_number;
+
+        await prisma.answer.upsert({
+          where: {
+            candidateId_questionId: {
+              candidateId: candidate.id,
+              questionId: question.id,
+            },
+          },
+          update: { textValue: phone, optionId: null, updatedAt: new Date() },
+          create: {
+            candidateId: candidate.id,
+            questionId: question.id,
+            textValue: phone,
+          },
+        });
+        await this.updateCandidateField(candidate.id, "phone", phone);
+        await prisma.candidate.update({
+          where: { id: candidate.id },
+          data: {
+            currentStep: candidate.currentStep + 1,
+            lastActivity: new Date(),
+          },
+        });
+
+        const ack =
+          this.getQuestionMessage(question, candidate.lang, "success") ||
+          (await this.getTranslation(
+            botId,
+            candidate.lang,
+            "answer_saved",
+            "✅ Answer saved.",
+          ));
+        // Send ack and remove the contact keyboard in one message
+        await ctx.reply(ack, { reply_markup: { remove_keyboard: true } });
+        await this.sendNextQuestion(ctx, candidate.id, candidate.lang, botId);
+      } catch (err) {
+        console.error("contact handler error", err);
       }
     });
 
@@ -343,6 +438,17 @@ export class BotInstance {
               "📎 Please send a file or photo.",
             );
       await ctx.reply(`${questionText}\n\n${hint}`);
+    } else if (question.fieldKey === "phone") {
+      // Phone: send request_contact keyboard
+      const buttonLabel =
+        translation.phoneButtonText ||
+        (candidate.lang === "ru"
+          ? "📱 Поделиться номером"
+          : candidate.lang === "uz"
+            ? "📱 Raqamni ulashish"
+            : "📱 Share phone number");
+      const kb = new Keyboard().requestContact(buttonLabel).resized();
+      await ctx.reply(questionText, { reply_markup: kb });
     } else {
       await ctx.reply(questionText);
     }
@@ -387,6 +493,55 @@ export class BotInstance {
       return;
     }
 
+    if (question.fieldKey === "phone") {
+      await ctx.reply(
+        await this.getTranslation(
+          candidate.botId,
+          candidate.lang,
+          "phone_use_button",
+          "📱 Please use the button below to share your phone number.",
+        ),
+      );
+      return;
+    }
+
+    // Age field: expect dd.mm.yyyy, validate and calculate age
+    let storedText = text;
+    if (question.fieldKey === "age") {
+      const match = text.trim().match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+      if (!match) {
+        const errMsg =
+          this.getQuestionMessage(question, candidate.lang, "error") ||
+          (await this.getTranslation(
+            candidate.botId,
+            candidate.lang,
+            "invalid_date_format",
+            "⚠️ Please enter your birth date in the format DD.MM.YYYY (e.g. 15.03.1998)",
+          ));
+        await ctx.reply(errMsg);
+        return;
+      }
+      const [, dd, mm, yyyy] = match;
+      const birth = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+      const now = new Date();
+      let years = now.getFullYear() - birth.getFullYear();
+      const mDiff = now.getMonth() - birth.getMonth();
+      if (mDiff < 0 || (mDiff === 0 && now.getDate() < birth.getDate()))
+        years--;
+      if (years < 14 || years > 80) {
+        await ctx.reply(
+          await this.getTranslation(
+            candidate.botId,
+            candidate.lang,
+            "invalid_date_value",
+            "⚠️ Please enter a valid birth date.",
+          ),
+        );
+        return;
+      }
+      storedText = `${text.trim()} (${years} years old)`;
+    }
+
     await prisma.answer.upsert({
       where: {
         candidateId_questionId: {
@@ -394,16 +549,20 @@ export class BotInstance {
           questionId: question.id,
         },
       },
-      update: { textValue: text, optionId: null, updatedAt: new Date() },
+      update: { textValue: storedText, optionId: null, updatedAt: new Date() },
       create: {
         candidateId: candidate.id,
         questionId: question.id,
-        textValue: text,
+        textValue: storedText,
       },
     });
 
     if (question.fieldKey) {
-      await this.updateCandidateField(candidate.id, question.fieldKey, text);
+      await this.updateCandidateField(
+        candidate.id,
+        question.fieldKey,
+        storedText,
+      );
     }
 
     await prisma.candidate.update({

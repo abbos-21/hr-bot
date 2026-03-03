@@ -35,6 +35,19 @@ model Bot {
   questions  Question[]
   languages  BotLanguage[]
   candidates Candidate[]
+  messages2  BotMessage[]
+}
+
+model BotMessage {
+  id     String @id @default(cuid())
+  botId  String
+  lang   String
+  key    String
+  value  String
+
+  bot Bot @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@unique([botId, lang, key])
 }
 
 model BotLanguage {
@@ -75,6 +88,7 @@ model QuestionTranslation {
   text           String
   successMessage String?
   errorMessage   String?
+  phoneButtonText String?
 
   question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 

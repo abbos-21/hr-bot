@@ -1,13 +1,254 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { botsApi } from "../api";
 import toast from "react-hot-toast";
+
+// ── Canonical message keys (must match botMessages.ts backend) ────────────────
+
+const MESSAGE_KEYS: { key: string; label: string; hint?: string }[] = [
+  {
+    key: "welcome",
+    label: "Language selection prompt",
+    hint: "Shown when user first starts the bot (if multiple languages)",
+  },
+  {
+    key: "survey_complete",
+    label: "Survey completed",
+    hint: "Shown after the last question is answered",
+  },
+  {
+    key: "answer_saved",
+    label: "Answer saved (generic)",
+    hint: "Shown after each text/attachment answer",
+  },
+  {
+    key: "invalid_option",
+    label: "Invalid choice selected",
+    hint: "Shown when user types text instead of picking a choice option",
+  },
+  {
+    key: "upload_file",
+    label: "Prompt to send file",
+    hint: "Shown below attachment questions",
+  },
+  {
+    key: "please_send_file",
+    label: "File expected, not text",
+    hint: "Shown when user sends text on an attachment question",
+  },
+  {
+    key: "please_send_photo",
+    label: "Profile photo prompt",
+    hint: "Shown below the profile photo question",
+  },
+  {
+    key: "message_received",
+    label: "New HR message notification",
+    hint: "Prefix shown before admin messages sent via Chats",
+  },
+  {
+    key: "invalid_date_format",
+    label: "Invalid birth date format",
+    hint: "Shown when user enters a date in wrong format on the age question",
+  },
+  {
+    key: "invalid_date_value",
+    label: "Birth date out of valid range",
+    hint: "Shown when the entered birth date is unrealistic",
+  },
+  {
+    key: "phone_use_button",
+    label: "Prompt to use phone button",
+    hint: "Shown if user types text instead of tapping the phone share button",
+  },
+];
+
+const DEFAULTS: Record<string, string> = {
+  welcome: "👋 Welcome! Please choose a language:",
+  survey_complete:
+    "✅ Thank you! Your application has been submitted successfully.",
+  answer_saved: "✅ Answer saved.",
+  invalid_option: "⚠️ Please select one of the provided options.",
+  upload_file: "📎 Please send a photo or file as your answer.",
+  please_send_file: "📎 Please send a photo or file, not text.",
+  please_send_photo: "📸 Please send a photo for your profile picture.",
+  message_received: "✉️ New message from HR:",
+  invalid_date_format:
+    "⚠️ Please enter your birth date in the format DD.MM.YYYY (e.g. 15.03.1998)",
+  invalid_date_value: "⚠️ Please enter a valid birth date.",
+  phone_use_button:
+    "📱 Please use the button below to share your phone number.",
+};
+
+// ── MessagesTab component ─────────────────────────────────────────────────────
+
+const MessagesTab: React.FC<{
+  botId: string;
+  langs: { code: string; name: string }[];
+}> = ({ botId, langs }) => {
+  // state: { [lang]: { [key]: value } }
+  const [values, setValues] = useState<Record<string, Record<string, string>>>(
+    {},
+  );
+  const [activeLang, setActiveLang] = useState(langs[0]?.code || "en");
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    botsApi
+      .getMessages(botId)
+      .then((data: Record<string, Record<string, string>>) => setValues(data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [botId]);
+
+  useEffect(() => {
+    if (!langs.find((l) => l.code === activeLang) && langs.length) {
+      setActiveLang(langs[0].code);
+    }
+  }, [langs, activeLang]);
+
+  const getValue = (lang: string, key: string) => values[lang]?.[key] ?? "";
+
+  const setValue = (lang: string, key: string, val: string) =>
+    setValues((prev) => ({
+      ...prev,
+      [lang]: { ...(prev[lang] || {}), [key]: val },
+    }));
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const items: { lang: string; key: string; value: string }[] = [];
+      for (const lang of langs) {
+        for (const { key } of MESSAGE_KEYS) {
+          const val = getValue(lang.code, key).trim();
+          // Only save non-empty, non-default values (or anything the admin has typed)
+          items.push({ lang: lang.code, key, value: val || "" });
+        }
+      }
+      // Filter out empty (will fall through to defaults in bot)
+      await botsApi.saveMessages(
+        botId,
+        items.filter((i) => i.value),
+      );
+      toast.success("Messages saved");
+    } catch {
+      toast.error("Failed to save");
+    }
+    setSaving(false);
+  };
+
+  const handleReset = (lang: string, key: string) => {
+    setValue(lang, key, "");
+  };
+
+  if (loading)
+    return (
+      <div className="text-gray-400 text-sm py-8 text-center">Loading…</div>
+    );
+  if (!langs.length)
+    return (
+      <div className="text-gray-400 text-sm py-8 text-center">
+        Add at least one language to configure messages.
+      </div>
+    );
+
+  return (
+    <div className="space-y-6">
+      {/* Language tabs */}
+      <div className="flex gap-1 border-b border-gray-200">
+        {langs.map((l) => (
+          <button
+            key={l.code}
+            onClick={() => setActiveLang(l.code)}
+            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px rounded-t-lg
+              ${activeLang === l.code ? "border-blue-600 text-blue-600 bg-blue-50" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+          >
+            {l.name}
+            <span className="ml-1.5 text-xs font-mono text-gray-400">
+              ({l.code})
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Message rows */}
+      <div className="space-y-4">
+        {MESSAGE_KEYS.map(({ key, label, hint }) => {
+          const current = getValue(activeLang, key);
+          const placeholder = DEFAULTS[key] || "";
+          const isCustom = current.trim().length > 0;
+
+          return (
+            <div
+              key={key}
+              className={`rounded-xl border p-4 transition-colors ${isCustom ? "border-blue-200 bg-blue-50/40" : "border-gray-200 bg-white"}`}
+            >
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">{label}</p>
+                  {hint && (
+                    <p className="text-xs text-gray-400 mt-0.5">{hint}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {isCustom && (
+                    <span className="text-xs font-medium text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
+                      Custom
+                    </span>
+                  )}
+                  {isCustom && (
+                    <button
+                      onClick={() => handleReset(activeLang, key)}
+                      className="text-xs text-gray-400 hover:text-red-500 transition-colors underline"
+                    >
+                      Reset to default
+                    </button>
+                  )}
+                </div>
+              </div>
+              <textarea
+                rows={2}
+                value={current}
+                onChange={(e) => setValue(activeLang, key, e.target.value)}
+                placeholder={placeholder}
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-y bg-white placeholder-gray-300"
+              />
+              {!isCustom && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Using default:{" "}
+                  <span className="text-gray-500 italic">
+                    {placeholder.slice(0, 80)}
+                    {placeholder.length > 80 ? "…" : ""}
+                  </span>
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <button
+        onClick={handleSave}
+        disabled={saving}
+        className="btn-primary w-full py-2.5"
+      >
+        {saving ? "Saving…" : "Save All Messages"}
+      </button>
+    </div>
+  );
+};
+
+// ── Main BotDetailPage ────────────────────────────────────────────────────────
 
 export const BotDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [bot, setBot] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"languages" | "settings">("languages");
+  const [tab, setTab] = useState<"languages" | "messages" | "settings">(
+    "languages",
+  );
   const [langForm, setLangForm] = useState({ code: "", name: "" });
   const [addingLang, setAddingLang] = useState(false);
   const [settings, setSettings] = useState({ name: "", defaultLang: "" });
@@ -96,7 +337,7 @@ export const BotDetailPage: React.FC = () => {
   const langs = bot.languages || [];
 
   return (
-    <div className="p-8 max-w-3xl">
+    <div className="overflow-auto flex-1 p-8 max-w-3xl">
       <div className="flex items-center gap-3 mb-6">
         <Link to="/bots" className="text-gray-400 hover:text-gray-600 text-sm">
           ← Bots
@@ -138,13 +379,17 @@ export const BotDetailPage: React.FC = () => {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 border-b border-gray-200">
-        {(["languages", "settings"] as const).map((t) => (
+        {(["languages", "messages", "settings"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={`px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${tab === t ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}
           >
-            {t}
+            {t === "messages"
+              ? "💬 Messages"
+              : t === "languages"
+                ? "🌐 Languages"
+                : "⚙️ Settings"}
           </button>
         ))}
       </div>
@@ -229,6 +474,21 @@ export const BotDetailPage: React.FC = () => {
               Common codes: en, ru, uz, de, fr, ar, zh, es
             </p>
           </div>
+        </div>
+      )}
+
+      {/* ─── Messages Tab ─── */}
+      {tab === "messages" && (
+        <div>
+          <div className="mb-5 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+            <p className="font-semibold mb-1">Bot System Messages</p>
+            <p className="text-xs leading-relaxed">
+              These are messages your bot sends automatically in response to
+              user actions. Leave any field empty to use the built-in default.
+              Changes are applied immediately — no restart needed.
+            </p>
+          </div>
+          {id && <MessagesTab botId={id} langs={langs} />}
         </div>
       )}
 

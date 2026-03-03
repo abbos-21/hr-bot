@@ -11,6 +11,7 @@ interface Translation {
   text: string;
   successMessage?: string | null;
   errorMessage?: string | null;
+  phoneButtonText?: string | null;
 }
 interface QOption {
   id?: string;
@@ -91,6 +92,7 @@ const MessageEditorModal: React.FC<{
   });
   const [msgs, setMsgs] =
     useState<Record<string, { success: string; error: string }>>(init);
+  const isPhoneQuestion = question.fieldKey === "phone";
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -205,6 +207,11 @@ const RequiredQuestionRow: React.FC<{
   const [translations, setTranslations] = useState<Record<string, string>>(
     Object.fromEntries(question.translations.map((t) => [t.lang, t.text])),
   );
+  const [phoneButtons, setPhoneButtons] = useState<Record<string, string>>(
+    Object.fromEntries(
+      question.translations.map((t) => [t.lang, t.phoneButtonText || ""]),
+    ),
+  );
   const [showMessages, setShowMessages] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -215,6 +222,8 @@ const RequiredQuestionRow: React.FC<{
         translations: Object.entries(translations).map(([lang, text]) => ({
           lang,
           text,
+          phoneButtonText:
+            question.fieldKey === "phone" ? phoneButtons[lang] || null : null,
         })),
       });
       onUpdate(updated);
@@ -257,6 +266,11 @@ const RequiredQuestionRow: React.FC<{
 
   const label =
     REQUIRED_FIELD_LABELS[question.fieldKey || ""] || question.fieldKey;
+  const fieldHint: Record<string, string> = {
+    age: "Expects DD.MM.YYYY → auto-calculates age",
+    phone: "Uses Telegram contact button",
+  };
+  const hint = fieldHint[question.fieldKey || ""];
 
   return (
     <div className="bg-white rounded-xl border-2 border-blue-100 p-4">
@@ -270,25 +284,49 @@ const RequiredQuestionRow: React.FC<{
               Required
             </span>
             <span className="text-xs text-gray-400">{label}</span>
+            {hint && (
+              <span className="text-xs text-amber-500 bg-amber-50 px-2 py-0.5 rounded-full">
+                {hint}
+              </span>
+            )}
           </div>
           {editing ? (
-            <div className="space-y-2 mt-2">
+            <div className="space-y-3 mt-2">
+              {/* Question text translations */}
               {langs.map((l: any) => (
-                <div key={l.code} className="flex gap-2">
-                  <span className="text-xs font-mono bg-gray-100 px-2 py-2 rounded w-10 text-center text-gray-500 flex-shrink-0">
-                    {l.code}
-                  </span>
-                  <input
-                    value={translations[l.code] || ""}
-                    onChange={(e) =>
-                      setTranslations((t) => ({
-                        ...t,
-                        [l.code]: e.target.value,
-                      }))
-                    }
-                    className="input flex-1 text-sm"
-                    placeholder={`In ${l.name}…`}
-                  />
+                <div key={l.code} className="space-y-1.5">
+                  <div className="flex gap-2">
+                    <span className="text-xs font-mono bg-gray-100 px-2 py-2 rounded w-10 text-center text-gray-500 flex-shrink-0">
+                      {l.code}
+                    </span>
+                    <input
+                      value={translations[l.code] || ""}
+                      onChange={(e) =>
+                        setTranslations((t) => ({
+                          ...t,
+                          [l.code]: e.target.value,
+                        }))
+                      }
+                      className="input flex-1 text-sm"
+                      placeholder={`Question text in ${l.name}…`}
+                    />
+                  </div>
+                  {/* Phone button label per language */}
+                  {question.fieldKey === "phone" && (
+                    <div className="flex gap-2 pl-12">
+                      <input
+                        value={phoneButtons[l.code] || ""}
+                        onChange={(e) =>
+                          setPhoneButtons((b) => ({
+                            ...b,
+                            [l.code]: e.target.value,
+                          }))
+                        }
+                        className="input flex-1 text-xs"
+                        placeholder={`Button label in ${l.name} (e.g. 📱 Share number)`}
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
               <div className="flex gap-2 mt-1">
@@ -311,7 +349,7 @@ const RequiredQuestionRow: React.FC<{
             <p className="text-sm text-gray-800 mt-0.5">{qText(question)}</p>
           )}
           {question.translations.some(
-            (t) => t.successMessage || t.errorMessage,
+            (t) => t.successMessage || t.errorMessage || t.phoneButtonText,
           ) &&
             (() => {
               const tr = question.translations[0];
@@ -328,6 +366,9 @@ const RequiredQuestionRow: React.FC<{
                       ❌ "{tr.errorMessage.slice(0, 40)}
                       {tr.errorMessage.length > 40 ? "…" : ""}"
                     </span>
+                  )}
+                  {tr?.phoneButtonText && (
+                    <span>📱 "{tr.phoneButtonText.slice(0, 30)}"</span>
                   )}
                 </div>
               );

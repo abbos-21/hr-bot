@@ -51,6 +51,7 @@ router.post("/", async (req: AuthRequest, res: Response) => {
           text: t.text,
           successMessage: t.successMessage || null,
           errorMessage: t.errorMessage || null,
+          phoneButtonText: t.phoneButtonText || null,
         })),
       },
       options: {
@@ -108,11 +109,11 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
     await tx.question.update({
       where: { id: req.params.id },
       data: {
-        // Required questions: only translations can change
+        ...(type !== undefined && { type }),
+        // Required questions: only type + translations can change, not order/fieldKey/isActive
         ...(existing.isRequired
           ? {}
           : {
-              ...(type !== undefined && { type }),
               ...(order !== undefined && { order }),
               ...(fieldKey !== undefined && { fieldKey }),
               ...(filterLabel !== undefined && { filterLabel }),
@@ -135,6 +136,9 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
             ...(t.errorMessage !== undefined && {
               errorMessage: t.errorMessage,
             }),
+            ...(t.phoneButtonText !== undefined && {
+              phoneButtonText: t.phoneButtonText,
+            }),
           },
           create: {
             questionId: req.params.id,
@@ -142,6 +146,7 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
             text: t.text,
             successMessage: t.successMessage || null,
             errorMessage: t.errorMessage || null,
+            phoneButtonText: t.phoneButtonText || null,
           },
         });
       }

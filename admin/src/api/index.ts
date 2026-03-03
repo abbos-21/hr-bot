@@ -56,6 +56,12 @@ export const botsApi = {
     api.delete(`/bots/${botId}/languages/${langId}`).then((r) => r.data),
   updateToken: (id: string, token: string) =>
     api.put(`/bots/${id}/token`, { token }).then((r) => r.data),
+  getMessages: (id: string) =>
+    api.get(`/bots/${id}/bot-messages`).then((r) => r.data),
+  saveMessages: (
+    id: string,
+    items: { lang: string; key: string; value: string }[],
+  ) => api.put(`/bots/${id}/bot-messages`, items).then((r) => r.data),
 };
 
 // Jobs
