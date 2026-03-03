@@ -57,6 +57,7 @@ model Question {
   isActive   Boolean @default(true)
   isRequired Boolean @default(false)
   fieldKey   String?
+  filterLabel String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

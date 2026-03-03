@@ -24,8 +24,16 @@ router.get("/", async (req: AuthRequest, res: Response) => {
 
 // POST /api/questions
 router.post("/", async (req: AuthRequest, res: Response) => {
-  const { botId, type, order, fieldKey, translations, options, isActive } =
-    req.body;
+  const {
+    botId,
+    type,
+    order,
+    fieldKey,
+    filterLabel,
+    translations,
+    options,
+    isActive,
+  } = req.body;
   if (!botId) return res.status(400).json({ error: "botId required" });
 
   const question = await prisma.question.create({
@@ -34,6 +42,7 @@ router.post("/", async (req: AuthRequest, res: Response) => {
       type: type || "text",
       order: order || 0,
       fieldKey: fieldKey || null,
+      filterLabel: filterLabel || null,
       isActive: isActive !== undefined ? isActive : true,
       isRequired: false,
       translations: {
@@ -80,7 +89,15 @@ router.get("/:id", async (req: AuthRequest, res: Response) => {
 
 // PUT /api/questions/:id
 router.put("/:id", async (req: AuthRequest, res: Response) => {
-  const { type, order, fieldKey, isActive, translations, options } = req.body;
+  const {
+    type,
+    order,
+    fieldKey,
+    filterLabel,
+    isActive,
+    translations,
+    options,
+  } = req.body;
 
   const existing = await prisma.question.findUnique({
     where: { id: req.params.id },
@@ -98,6 +115,7 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
               ...(type !== undefined && { type }),
               ...(order !== undefined && { order }),
               ...(fieldKey !== undefined && { fieldKey }),
+              ...(filterLabel !== undefined && { filterLabel }),
               ...(isActive !== undefined && { isActive }),
             }),
       },

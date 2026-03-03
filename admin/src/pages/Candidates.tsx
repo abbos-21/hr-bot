@@ -16,6 +16,7 @@ import {
   botsApi,
   filesApi,
   columnsApi,
+  questionsApi,
 } from "../api";
 import { useWebSocket } from "../hooks/useWebSocket";
 import { format } from "date-fns";
@@ -782,8 +783,16 @@ export const CandidatesPage: React.FC = () => {
   const [columns, setColumns] = useState<any[]>([]);
   const [allCandidates, setAllCandidates] = useState<any[]>([]);
   const [bots, setBots] = useState<any[]>([]);
-  const [filters, setFilters] = useState({ botId: "", search: "" });
+  const [filterQuestions, setFilterQuestions] = useState<any[]>([]);
+  const [filters, setFilters] = useState({
+    botId: "",
+    search: "",
+    questionId: "",
+    optionId: "",
+  });
   const [loading, setLoading] = useState(true);
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
+  const filterPanelRef = useRef<HTMLDivElement>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(
     null,
@@ -799,13 +808,23 @@ export const CandidatesPage: React.FC = () => {
     try {
       const [cols, result] = await Promise.all([
         columnsApi.list(),
-        candidatesApi.list({ status: "active", limit: 500, page: 1 }),
+        candidatesApi.list({
+          status: "active",
+          limit: 500,
+          page: 1,
+          ...(filters.botId && { botId: filters.botId }),
+          ...(filters.questionId &&
+            filters.optionId && {
+              questionId: filters.questionId,
+              optionId: filters.optionId,
+            }),
+        }),
       ]);
       setColumns(cols);
       setAllCandidates(result.candidates || []);
     } catch {}
     setLoading(false);
-  }, []);
+  }, [filters.botId, filters.questionId, filters.optionId]);
 
   useEffect(() => {
     fetchAll();
@@ -813,6 +832,35 @@ export const CandidatesPage: React.FC = () => {
   useEffect(() => {
     botsApi.list().then((b) => setBots(b));
   }, []);
+
+  // Load choice questions that have a filterLabel for pipeline filters
+  useEffect(() => {
+    const params = filters.botId ? { botId: filters.botId } : {};
+    questionsApi.list(params).then((qs: any[]) => {
+      // Show any non-required choice question that has options
+      // filterLabel is used as display name; falls back to question text
+      setFilterQuestions(
+        qs.filter(
+          (q: any) =>
+            q.type === "choice" && !q.isRequired && q.options?.length > 0,
+        ),
+      );
+    });
+  }, [filters.botId]);
+
+  // Close filter panel on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        filterPanelRef.current &&
+        !filterPanelRef.current.contains(e.target as Node)
+      ) {
+        setFilterPanelOpen(false);
+      }
+    };
+    if (filterPanelOpen) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [filterPanelOpen]);
 
   useWebSocket({
     NEW_APPLICATION: () => fetchAll(),
@@ -977,7 +1025,6 @@ export const CandidatesPage: React.FC = () => {
   };
 
   const visibleCandidates = allCandidates.filter((c) => {
-    if (filters.botId && c.botId !== filters.botId) return false;
     if (filters.search) {
       const q = filters.search.toLowerCase();
       return (
@@ -995,39 +1042,261 @@ export const CandidatesPage: React.FC = () => {
     : null;
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-gray-50">
+    <div className="flex flex-col h-full overflow-hidden bg-gray-50">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200 flex-shrink-0">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Pipeline</h1>
-          <p className="text-xs text-gray-400 mt-0.5">
-            {visibleCandidates.length} active candidates
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <input
-            type="text"
-            placeholder="Search…"
-            value={filters.search}
-            onChange={(e) =>
-              setFilters((f) => ({ ...f, search: e.target.value }))
-            }
-            className="w-44 text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
-          />
-          <select
-            value={filters.botId}
-            onChange={(e) =>
-              setFilters((f) => ({ ...f, botId: e.target.value }))
-            }
-            className="text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none bg-white"
-          >
-            <option value="">All bots</option>
-            {bots.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
+      <div className="px-6 py-3 bg-white border-b border-gray-200 flex-shrink-0">
+        <div className="flex items-center justify-between gap-3">
+          {/* Title */}
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">Pipeline</h1>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {visibleCandidates.length} candidates
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 flex-1 justify-end">
+            {/* Active filter chips */}
+            <div className="flex items-center gap-1.5 flex-wrap justify-end">
+              {/* Bot chip */}
+              {filters.botId && (
+                <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-violet-100 text-violet-700">
+                  🤖 {bots.find((b) => b.id === filters.botId)?.name || "Bot"}
+                  <button
+                    onClick={() =>
+                      setFilters((f) => ({
+                        ...f,
+                        botId: "",
+                        questionId: "",
+                        optionId: "",
+                      }))
+                    }
+                    className="ml-0.5 hover:opacity-70 font-bold"
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
+              {/* Answer chip */}
+              {filters.questionId &&
+                filters.optionId &&
+                (() => {
+                  const q = filterQuestions.find(
+                    (q: any) => q.id === filters.questionId,
+                  );
+                  const opt = q?.options?.find(
+                    (o: any) => o.id === filters.optionId,
+                  );
+                  if (!q || !opt) return null;
+                  const label = `${q.filterLabel || q.translations?.[0]?.text || "Filter"}: ${opt.translations?.[0]?.text || "Option"}`;
+                  return (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-indigo-100 text-indigo-700">
+                      🔽 {label}
+                      <button
+                        onClick={() =>
+                          setFilters((f) => ({
+                            ...f,
+                            questionId: "",
+                            optionId: "",
+                          }))
+                        }
+                        className="ml-0.5 hover:opacity-70 font-bold"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  );
+                })()}
+            </div>
+
+            {/* Search */}
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">
+                🔍
+              </span>
+              <input
+                type="text"
+                placeholder="Search…"
+                value={filters.search}
+                onChange={(e) =>
+                  setFilters((f) => ({ ...f, search: e.target.value }))
+                }
+                className="pl-7 pr-3 w-44 text-sm border border-gray-200 rounded-xl py-2 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
+              />
+            </div>
+
+            {/* Filters button */}
+            <div className="relative" ref={filterPanelRef}>
+              {(() => {
+                const activeCount = [
+                  filters.botId ? 1 : 0,
+                  filters.questionId ? 1 : 0,
+                ].reduce((a, b) => a + b, 0);
+                return (
+                  <button
+                    onClick={() => setFilterPanelOpen((o) => !o)}
+                    className={`flex items-center gap-2 text-sm font-medium px-3.5 py-2 rounded-xl border transition-all
+                      ${
+                        filterPanelOpen || activeCount > 0
+                          ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                          : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600"
+                      }`}
+                  >
+                    <svg
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      className="w-4 h-4"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L13 10.414V15a1 1 0 01-.553.894l-4 2A1 1 0 017 17v-6.586L3.293 6.707A1 1 0 013 6V3z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    Filters
+                    {activeCount > 0 && (
+                      <span className="w-5 h-5 rounded-full bg-white text-blue-600 text-xs font-bold flex items-center justify-center">
+                        {activeCount}
+                      </span>
+                    )}
+                  </button>
+                );
+              })()}
+
+              {/* Filter dropdown panel */}
+              {filterPanelOpen && (
+                <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl border border-gray-200 shadow-2xl z-50 overflow-hidden">
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                    <span className="text-sm font-bold text-gray-900">
+                      Filters
+                    </span>
+                    <button
+                      onClick={() => {
+                        setFilters((f) => ({
+                          ...f,
+                          botId: "",
+                          questionId: "",
+                          optionId: "",
+                        }));
+                      }}
+                      className="text-xs text-gray-400 hover:text-red-500 transition-colors font-medium"
+                    >
+                      Reset all
+                    </button>
+                  </div>
+
+                  <div className="p-4 space-y-5 max-h-[70vh] overflow-y-auto">
+                    {/* ── Bot ──────────────────────────────── */}
+                    {bots.length > 0 && (
+                      <div>
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2.5">
+                          Bot
+                        </p>
+                        <div className="space-y-1.5">
+                          {[{ id: "", name: "All bots" }, ...bots].map((b) => {
+                            const selected = filters.botId === b.id;
+                            return (
+                              <label
+                                key={b.id}
+                                className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors
+                                ${selected ? "bg-violet-50 border border-violet-200" : "hover:bg-gray-50 border border-transparent"}`}
+                                onClick={() =>
+                                  setFilters((f) => ({
+                                    ...f,
+                                    botId: b.id,
+                                    questionId: "",
+                                    optionId: "",
+                                  }))
+                                }
+                              >
+                                <div
+                                  className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all
+                                  ${selected ? "border-violet-600" : "border-gray-300"}`}
+                                >
+                                  {selected && (
+                                    <div className="w-2 h-2 rounded-full bg-violet-600" />
+                                  )}
+                                </div>
+                                <span className="text-sm text-gray-700 font-medium">
+                                  {b.id ? "🤖 " : ""}
+                                  {b.name}
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── Choice question filters ───────────── */}
+                    {filterQuestions.map((q: any) => {
+                      const qLabel =
+                        q.filterLabel || q.translations?.[0]?.text || "Filter";
+                      return (
+                        <div key={q.id}>
+                          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2.5">
+                            {qLabel}
+                          </p>
+                          <div className="space-y-1.5">
+                            {/* "Any" option */}
+                            {[
+                              { id: "", text: "Any" },
+                              ...q.options.map((o: any) => ({
+                                id: o.id,
+                                text: o.translations?.[0]?.text || "Option",
+                              })),
+                            ].map((opt) => {
+                              const selected =
+                                opt.id === ""
+                                  ? filters.questionId !== q.id
+                                  : filters.questionId === q.id &&
+                                    filters.optionId === opt.id;
+                              return (
+                                <label
+                                  key={opt.id || "__any__"}
+                                  className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors
+                                  ${selected ? "bg-indigo-50 border border-indigo-200" : "hover:bg-gray-50 border border-transparent"}`}
+                                  onClick={() =>
+                                    setFilters((f) => ({
+                                      ...f,
+                                      questionId: opt.id ? q.id : "",
+                                      optionId: opt.id || "",
+                                    }))
+                                  }
+                                >
+                                  <div
+                                    className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all
+                                    ${selected ? "border-indigo-600" : "border-gray-300"}`}
+                                  >
+                                    {selected && (
+                                      <div className="w-2 h-2 rounded-full bg-indigo-600" />
+                                    )}
+                                  </div>
+                                  <span className="text-sm text-gray-700 font-medium">
+                                    {opt.text}
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Footer */}
+                  <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
+                    <button
+                      onClick={() => setFilterPanelOpen(false)}
+                      className="w-full text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl py-2 transition-colors"
+                    >
+                      Apply Filters
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 

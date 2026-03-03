@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/auth";
+import { messagesApi } from "../api";
+import { useWebSocket } from "../hooks/useWebSocket";
 
 interface NavItem {
   label: string;
@@ -12,20 +14,41 @@ const navItems: NavItem[] = [
   { label: "Dashboard", path: "/", icon: "📊" },
   { label: "Bots", path: "/bots", icon: "🤖" },
   { label: "Playground", path: "/playground", icon: "🧩" },
+  { label: "Chats", path: "/chats", icon: "💬" },
   { label: "Pipeline", path: "/candidates", icon: "👥" },
   { label: "Hired", path: "/hired", icon: "✅" },
-  { label: "Past Candidates", path: "/past-candidates", icon: "🗃" },
-  { label: "Retired Stages", path: "/retired-stages", icon: "📦" },
+  { label: "Archived", path: "/past-candidates", icon: "🗃" },
+  { label: "Archived Columns", path: "/retired-stages", icon: "📦" },
   { label: "Analytics", path: "/analytics", icon: "📈" },
   { label: "Admins", path: "/admins", icon: "⚙️" },
 ];
 
-// Group items with a divider before the archive section
 const DIVIDER_BEFORE = "/analytics";
 
 export const Sidebar: React.FC = () => {
   const { admin, logout } = useAuthStore();
   const navigate = useNavigate();
+  const [totalUnread, setTotalUnread] = useState(0);
+
+  const refreshUnread = useCallback(() => {
+    messagesApi
+      .conversations()
+      .then((convs: any[]) => {
+        setTotalUnread(convs.reduce((sum, c) => sum + (c.unreadCount || 0), 0));
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    refreshUnread();
+  }, [refreshUnread]);
+
+  useWebSocket({
+    NEW_MESSAGE: (payload) => {
+      if (payload?.message?.direction === "inbound") refreshUnread();
+    },
+    MESSAGES_READ: refreshUnread,
+  });
 
   return (
     <aside className="w-64 bg-gray-900 text-white min-h-screen flex flex-col">
@@ -35,7 +58,7 @@ export const Sidebar: React.FC = () => {
       </div>
 
       <nav className="flex-1 p-4 space-y-1">
-        {navItems.map((item, i) => (
+        {navItems.map((item) => (
           <React.Fragment key={item.path}>
             {item.path === DIVIDER_BEFORE && (
               <div className="my-2 border-t border-gray-700" />
@@ -52,7 +75,12 @@ export const Sidebar: React.FC = () => {
               }
             >
               <span>{item.icon}</span>
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {item.path === "/chats" && totalUnread > 0 && (
+                <span className="min-w-[20px] h-5 bg-blue-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center px-1.5">
+                  {totalUnread > 99 ? "99+" : totalUnread}
+                </span>
+              )}
             </NavLink>
           </React.Fragment>
         ))}

@@ -60,7 +60,7 @@ export const AnalyticsPage: React.FC = () => {
   }, [selectedBot, days]);
 
   return (
-    <div className="p-8">
+    <div className="overflow-auto flex-1 p-8">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>

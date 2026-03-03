@@ -87,7 +87,10 @@ export const BotDetailPage: React.FC = () => {
     }
   };
 
-  if (loading) return <div className="p-8 text-gray-400">Loading...</div>;
+  if (loading)
+    return (
+      <div className="overflow-auto flex-1 p-8 text-gray-400">Loading...</div>
+    );
   if (!bot) return <div className="p-8 text-gray-400">Bot not found</div>;
 
   const langs = bot.languages || [];

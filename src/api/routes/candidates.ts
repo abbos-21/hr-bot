@@ -9,10 +9,21 @@ router.use(authMiddleware);
 
 // GET /api/candidates
 router.get("/", async (req: AuthRequest, res: Response) => {
-  const { botId, status, search, page, limit } = req.query;
+  const { botId, status, search, page, limit, questionId, optionId } =
+    req.query;
   const where: any = {};
   if (botId) where.botId = botId as string;
-  if (status) where.status = status as string;
+
+  // status can be a comma-separated list: "active,hired,archived"
+  if (status) {
+    const statuses = (status as string)
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (statuses.length === 1) where.status = statuses[0];
+    else if (statuses.length > 1) where.status = { in: statuses };
+  }
+
   if (search) {
     where.OR = [
       { fullName: { contains: search as string } },
@@ -20,6 +31,16 @@ router.get("/", async (req: AuthRequest, res: Response) => {
       { email: { contains: search as string } },
       { phone: { contains: search as string } },
     ];
+  }
+
+  // Filter by answer to a specific choice question option
+  if (questionId && optionId) {
+    where.answers = {
+      some: {
+        questionId: questionId as string,
+        optionId: optionId as string,
+      },
+    };
   }
 
   const pageNum = parseInt(page as string) || 1;

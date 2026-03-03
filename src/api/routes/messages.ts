@@ -26,6 +26,51 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } });
 
+// GET /api/messages/conversations - list all candidates with messages, latest first
+router.get("/conversations", async (req: AuthRequest, res: Response) => {
+  // Get all candidates that have at least one message
+  const candidates = await prisma.candidate.findMany({
+    where: { messages: { some: {} } },
+    include: {
+      messages: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
+      bot: { select: { name: true } },
+    },
+    orderBy: { lastActivity: "desc" },
+  });
+
+  const unreadCounts = await prisma.message.groupBy({
+    by: ["candidateId"],
+    where: {
+      candidateId: { in: candidates.map((c) => c.id) },
+      direction: "inbound",
+      isRead: false,
+    },
+    _count: { id: true },
+  });
+
+  const unreadMap: Record<string, number> = {};
+  unreadCounts.forEach((r) => {
+    unreadMap[r.candidateId] = r._count.id;
+  });
+
+  return res.json(
+    candidates.map((c) => ({
+      id: c.id,
+      fullName: c.fullName,
+      username: c.username,
+      profilePhoto: c.profilePhoto,
+      botId: c.botId,
+      botName: c.bot?.name,
+      lastMessage: c.messages[0] || null,
+      unreadCount: unreadMap[c.id] || 0,
+      lastActivity: c.lastActivity,
+    })),
+  );
+});
+
 // GET /api/messages/:candidateId
 router.get("/:candidateId", async (req: AuthRequest, res: Response) => {
   const messages = await prisma.message.findMany({

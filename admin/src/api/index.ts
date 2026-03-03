@@ -94,6 +94,7 @@ export const candidatesApi = {
 
 // Messages
 export const messagesApi = {
+  conversations: () => api.get("/messages/conversations").then((r) => r.data),
   list: (candidateId: string) =>
     api.get(`/messages/${candidateId}`).then((r) => r.data),
   send: (candidateId: string, data: any) =>

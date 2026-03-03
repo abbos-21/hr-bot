@@ -15,6 +15,7 @@ import { PlaygroundPage } from "./pages/Playground";
 import { HiredCandidatesPage } from "./pages/HiredCandidates";
 import { PastCandidatesPage } from "./pages/PastCandidates";
 import { RetiredStagesPage } from "./pages/RetiredStages";
+import { ChatsPage } from "./pages/Chats";
 import { useWebSocket } from "./hooks/useWebSocket";
 
 // Shown while the startup /me check is in flight so we never flash the
@@ -41,9 +42,9 @@ const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({
   if (!admin) return <Navigate to="/login" replace />;
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen h-screen">
       <Sidebar />
-      <main className="flex-1 overflow-auto">{children}</main>
+      <main className="flex-1 overflow-hidden flex flex-col">{children}</main>
     </div>
   );
 };
@@ -157,6 +158,14 @@ function App() {
           element={
             <ProtectedLayout>
               <RetiredStagesPage />
+            </ProtectedLayout>
+          }
+        />
+        <Route
+          path="/chats"
+          element={
+            <ProtectedLayout>
+              <ChatsPage />
             </ProtectedLayout>
           }
         />

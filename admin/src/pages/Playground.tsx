@@ -23,6 +23,7 @@ interface Question {
   type: QType;
   isRequired?: boolean;
   fieldKey?: string | null;
+  filterLabel?: string | null;
   translations: Translation[];
   options: QOption[];
 }
@@ -388,7 +389,7 @@ const CustomQuestionCard: React.FC<{
       ),
     })),
   );
-  const [fieldKey, setFieldKey] = useState(question.fieldKey || "");
+  const [filterLabel, setFilterLabel] = useState(question.filterLabel || "");
 
   const openEdit = () => {
     setType(question.type);
@@ -402,7 +403,7 @@ const CustomQuestionCard: React.FC<{
         ),
       })),
     );
-    setFieldKey(question.fieldKey || "");
+    setFilterLabel(question.filterLabel || "");
     setEditing(true);
   };
 
@@ -415,7 +416,8 @@ const CustomQuestionCard: React.FC<{
     try {
       const updated = await questionsApi.update(question.id, {
         type,
-        fieldKey: fieldKey || null,
+        filterLabel:
+          type === "choice" && filterLabel.trim() ? filterLabel.trim() : null,
         translations: Object.entries(translations)
           .filter(([, v]) => v)
           .map(([lang, text]) => ({ lang, text })),
@@ -494,17 +496,19 @@ const CustomQuestionCard: React.FC<{
               >
                 {meta.label}
               </span>
-              {question.fieldKey && (
-                <span className="text-xs text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">
-                  → {question.fieldKey}
-                </span>
-              )}
             </div>
             <p className="text-sm text-gray-800">{qText(question)}</p>
             {question.type === "choice" && question.options.length > 0 && (
-              <p className="text-xs text-gray-400 mt-1">
-                {question.options.length} options
-              </p>
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-xs text-gray-400">
+                  {question.options.length} options
+                </p>
+                {question.filterLabel && (
+                  <span className="text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                    🔽 {question.filterLabel}
+                  </span>
+                )}
+              </div>
             )}
             {question.translations.some(
               (t) => t.successMessage || t.errorMessage,
@@ -662,24 +666,24 @@ const CustomQuestionCard: React.FC<{
             </div>
           )}
 
-          {/* Field key */}
-          <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 block">
-              Maps to Profile Field{" "}
-              <span className="font-normal text-gray-400">(optional)</span>
-            </label>
-            <select
-              value={fieldKey}
-              onChange={(e) => setFieldKey(e.target.value)}
-              className="input w-full"
-            >
-              <option value="">None</option>
-              <option value="fullName">Full Name</option>
-              <option value="age">Age</option>
-              <option value="phone">Phone</option>
-              <option value="email">Email</option>
-            </select>
-          </div>
+          {/* Filter label — only for choice questions */}
+          {type === "choice" && (
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">
+                Filter Label{" "}
+                <span className="font-normal text-gray-400">
+                  (optional — shown in Pipeline filters)
+                </span>
+              </label>
+              <input
+                type="text"
+                value={filterLabel}
+                onChange={(e) => setFilterLabel(e.target.value)}
+                placeholder="e.g. Position, Department, Experience…"
+                className="input w-full text-sm"
+              />
+            </div>
+          )}
 
           <div className="flex gap-2">
             <button
@@ -725,7 +729,7 @@ const AddQuestionForm: React.FC<{
   const [options, setOptions] = useState<
     { translations: Record<string, string> }[]
   >([]);
-  const [fieldKey, setFieldKey] = useState("");
+  const [filterLabel, setFilterLabel] = useState("");
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -744,7 +748,8 @@ const AddQuestionForm: React.FC<{
         botId,
         type,
         order: existingCount,
-        fieldKey: fieldKey || null,
+        filterLabel:
+          type === "choice" && filterLabel.trim() ? filterLabel.trim() : null,
         translations: Object.entries(translations)
           .filter(([, v]) => v.trim())
           .map(([lang, text]) => ({ lang, text })),
@@ -878,23 +883,24 @@ const AddQuestionForm: React.FC<{
         </div>
       )}
 
-      <div>
-        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 block">
-          Maps to Profile Field{" "}
-          <span className="font-normal text-gray-400">(optional)</span>
-        </label>
-        <select
-          value={fieldKey}
-          onChange={(e) => setFieldKey(e.target.value)}
-          className="input w-full bg-white"
-        >
-          <option value="">None</option>
-          <option value="fullName">Full Name</option>
-          <option value="age">Age</option>
-          <option value="phone">Phone</option>
-          <option value="email">Email</option>
-        </select>
-      </div>
+      {/* Filter label — only for choice questions */}
+      {type === "choice" && (
+        <div>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">
+            Filter Label{" "}
+            <span className="font-normal text-gray-400">
+              (optional — shown in Pipeline filters)
+            </span>
+          </label>
+          <input
+            type="text"
+            value={filterLabel}
+            onChange={(e) => setFilterLabel(e.target.value)}
+            placeholder="e.g. Position, Department, Experience…"
+            className="input w-full text-sm bg-white"
+          />
+        </div>
+      )}
 
       <div className="flex gap-2">
         <button type="submit" disabled={saving} className="btn-primary flex-1">
@@ -965,7 +971,7 @@ export const PlaygroundPage: React.FC = () => {
   }, []);
 
   return (
-    <div className="p-8 max-w-2xl">
+    <div className="overflow-auto flex-1 p-8 max-w-2xl">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>

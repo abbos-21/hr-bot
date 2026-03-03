@@ -30,7 +30,7 @@ export const HiredCandidatesPage: React.FC = () => {
   });
 
   return (
-    <div className="p-8">
+    <div className="overflow-auto flex-1 p-8">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900">✅ Hired</h1>
