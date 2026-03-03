@@ -32,11 +32,9 @@ model Bot {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  jobs              Job[]
-  questions         Question[]
-  languages         BotLanguage[]
-  candidates        Candidate[]
-  questionTemplates QuestionTemplate[]
+  questions  Question[]
+  languages  BotLanguage[]
+  candidates Candidate[]
 }
 
 model BotLanguage {
@@ -51,59 +49,31 @@ model BotLanguage {
   @@unique([botId, code])
 }
 
-model Job {
-  id        String   @id @default(cuid())
-  botId     String
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  bot          Bot              @relation(fields: [botId], references: [id], onDelete: Cascade)
-  translations JobTranslation[]
-  questions    Question[]
-  candidates   Candidate[]
-}
-
-model JobTranslation {
-  id          String @id @default(cuid())
-  jobId       String
-  lang        String
-  title       String
-  description String @default("")
-
-  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
-
-  @@unique([jobId, lang])
-}
-
 model Question {
-  id               String  @id @default(cuid())
-  botId            String
-  jobId            String?
-  type             String  @default("text")
-  order            Int     @default(0)
-  isActive         Boolean @default(true)
-  fieldKey         String?
-  sourceTemplateId String?   // template this job-question was placed from (null = manual)
-  sourceQuestionId String?   // library question this was copied from (null = manual)
+  id         String  @id @default(cuid())
+  botId      String
+  type       String  @default("text")
+  order      Int     @default(0)
+  isActive   Boolean @default(true)
+  isRequired Boolean @default(false)
+  fieldKey   String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  bot            Bot                   @relation(fields: [botId], references: [id], onDelete: Cascade)
-  job            Job?                  @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  sourceTemplate QuestionTemplate?     @relation("TemplateJobQuestions", fields: [sourceTemplateId], references: [id], onDelete: SetNull)
-  translations   QuestionTranslation[]
-  options        QuestionOption[]
-  answers        Answer[]
-  templateItems  QuestionTemplateItem[]
+  bot          Bot                   @relation(fields: [botId], references: [id], onDelete: Cascade)
+  translations QuestionTranslation[]
+  options      QuestionOption[]
+  answers      Answer[]
 }
 
 model QuestionTranslation {
-  id         String @id @default(cuid())
-  questionId String
-  lang       String
-  text       String
+  id             String  @id @default(cuid())
+  questionId     String
+  lang           String
+  text           String
+  successMessage String?
+  errorMessage   String?
 
   question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
@@ -134,13 +104,13 @@ model QuestionOptionTranslation {
 model Candidate {
   id           String   @id @default(cuid())
   botId        String
-  jobId        String
   telegramId   String
   username     String?
   fullName     String?
   age          String?
   phone        String?
   email        String?
+  profilePhoto String?
   lang         String   @default("en")
   status       String   @default("incomplete")
   columnId     String?
@@ -150,14 +120,13 @@ model Candidate {
   lastActivity DateTime @default(now())
 
   bot      Bot            @relation(fields: [botId], references: [id], onDelete: Cascade)
-  job      Job            @relation(fields: [jobId], references: [id], onDelete: Cascade)
   column   KanbanColumn?  @relation(fields: [columnId], references: [id], onDelete: SetNull)
   answers  Answer[]
   comments CandidateComment[]
   messages Message[]
   files    CandidateFile[]
 
-  @@unique([botId, telegramId, jobId])
+  @@unique([botId, telegramId])
 }
 
 model Answer {
@@ -217,28 +186,6 @@ model CandidateFile {
   createdAt      DateTime @default(now())
 
   candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-}
-
-model QuestionTemplate {
-  id        String   @id @default(cuid())
-  botId     String
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  bot          Bot                    @relation(fields: [botId], references: [id], onDelete: Cascade)
-  items        QuestionTemplateItem[]
-  jobQuestions Question[]             @relation("TemplateJobQuestions")
-}
-
-model QuestionTemplateItem {
-  id         String @id @default(cuid())
-  templateId String
-  questionId String
-  order      Int    @default(0)
-
-  template QuestionTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  question Question         @relation(fields: [questionId], references: [id], onDelete: Cascade)
 }
 
 model KanbanColumn {

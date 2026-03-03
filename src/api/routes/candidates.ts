@@ -9,10 +9,9 @@ router.use(authMiddleware);
 
 // GET /api/candidates
 router.get("/", async (req: AuthRequest, res: Response) => {
-  const { botId, jobId, status, search, page, limit } = req.query;
+  const { botId, status, search, page, limit } = req.query;
   const where: any = {};
   if (botId) where.botId = botId as string;
-  if (jobId) where.jobId = jobId as string;
   if (status) where.status = status as string;
   if (search) {
     where.OR = [
@@ -31,14 +30,7 @@ router.get("/", async (req: AuthRequest, res: Response) => {
     prisma.candidate.findMany({
       where,
       include: {
-        job: { include: { translations: true } },
-        _count: {
-          select: {
-            messages: true,
-            files: true,
-            comments: true,
-          },
-        },
+        _count: { select: { messages: true, files: true, comments: true } },
       },
       orderBy: { lastActivity: "desc" },
       skip,
@@ -47,9 +39,6 @@ router.get("/", async (req: AuthRequest, res: Response) => {
     prisma.candidate.count({ where }),
   ]);
 
-  // Attach unread inbound message count to each candidate.
-  // Prisma filtered _count doesn't support `where` on relations in all versions,
-  // so we do one aggregation query grouped by candidateId instead.
   const candidateIds = candidates.map((c: any) => c.id);
   const unreadRows = candidateIds.length
     ? await prisma.message.groupBy({
@@ -68,13 +57,11 @@ router.get("/", async (req: AuthRequest, res: Response) => {
     unreadMap[row.candidateId] = row._count.id;
   });
 
-  const candidatesWithUnread = candidates.map((c: any) => ({
-    ...c,
-    unreadCount: unreadMap[c.id] || 0,
-  }));
-
   return res.json({
-    candidates: candidatesWithUnread,
+    candidates: candidates.map((c: any) => ({
+      ...c,
+      unreadCount: unreadMap[c.id] || 0,
+    })),
     total,
     page: pageNum,
     pages: Math.ceil(total / limitNum),
@@ -86,7 +73,6 @@ router.get("/:id", async (req: AuthRequest, res: Response) => {
   const candidate = await prisma.candidate.findUnique({
     where: { id: req.params.id },
     include: {
-      job: { include: { translations: true } },
       answers: {
         include: {
           question: { include: { translations: true } },
@@ -104,7 +90,6 @@ router.get("/:id", async (req: AuthRequest, res: Response) => {
       files: { orderBy: { createdAt: "desc" } },
     },
   });
-
   if (!candidate) return res.status(404).json({ error: "Not found" });
   return res.json(candidate);
 });
@@ -128,15 +113,8 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: "Invalid status" });
     }
     updateData.status = status;
-    if (status === "archived" || status === "hired") {
-      // Keep columnId when archiving (so column-restore can find them back)
-      // but clear it when hiring (hired candidates leave the board)
-      if (status === "hired") updateData.columnId = null;
-    } else if (status === "active") {
-      // Individually restoring an archived candidate → put them in Unassigned
-      // (they may have a stale columnId pointing to an archived column)
-      updateData.columnId = null;
-    }
+    if (status === "hired") updateData.columnId = null;
+    else if (status === "active") updateData.columnId = null; // restore → Unassigned
 
     wsManager.broadcast({
       type: "STATUS_CHANGE",
@@ -147,13 +125,9 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
   const candidate = await prisma.candidate.update({
     where: { id: req.params.id },
     data: { ...updateData, lastActivity: new Date() },
-    include: {
-      job: { include: { translations: true } },
-    },
   });
 
   wsManager.broadcast({ type: "CANDIDATE_UPDATE", payload: candidate });
-
   return res.json(candidate);
 });
 
@@ -178,16 +152,10 @@ router.put(
 router.post("/:id/comments", async (req: AuthRequest, res: Response) => {
   const { text } = req.body;
   if (!text) return res.status(400).json({ error: "text required" });
-
   const comment = await prisma.candidateComment.create({
-    data: {
-      candidateId: req.params.id,
-      adminId: req.admin!.adminId,
-      text,
-    },
+    data: { candidateId: req.params.id, adminId: req.admin!.adminId, text },
     include: { admin: { select: { id: true, name: true, email: true } } },
   });
-
   return res.status(201).json(comment);
 });
 
@@ -211,9 +179,7 @@ router.get("/:id/files", async (req: AuthRequest, res: Response) => {
   return res.json(files);
 });
 
-export default router;
-
-// DELETE /api/candidates/:id  — permanently delete an archived candidate only
+// DELETE /api/candidates/:id — only archived candidates
 router.delete("/:id", async (req: AuthRequest, res: Response) => {
   const candidate = await prisma.candidate.findUnique({
     where: { id: req.params.id },
@@ -227,3 +193,5 @@ router.delete("/:id", async (req: AuthRequest, res: Response) => {
   await prisma.candidate.delete({ where: { id: req.params.id } });
   return res.json({ success: true });
 });
+
+export default router;

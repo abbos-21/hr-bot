@@ -99,9 +99,6 @@ export const PastCandidatesPage: React.FC = () => {
                   Candidate
                 </th>
                 <th className="text-left px-4 py-3 text-gray-500 font-medium">
-                  Job
-                </th>
-                <th className="text-left px-4 py-3 text-gray-500 font-medium">
                   Contact
                 </th>
                 <th className="text-left px-4 py-3 text-gray-500 font-medium">
@@ -115,10 +112,18 @@ export const PastCandidatesPage: React.FC = () => {
                 <tr key={c.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs font-bold">
-                        {(
-                          (c.fullName || c.username || "?")[0] || "?"
-                        ).toUpperCase()}
+                      <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center text-gray-500 text-xs font-bold flex-shrink-0">
+                        {c.profilePhoto ? (
+                          <img
+                            src={`/uploads/${c.botId}/${c.profilePhoto.split(/[\\/]/).pop()}`}
+                            className="w-8 h-8 object-cover"
+                            alt=""
+                          />
+                        ) : (
+                          (
+                            (c.fullName || c.username || "?")[0] || "?"
+                          ).toUpperCase()
+                        )}
                       </div>
                       <div>
                         <p className="font-medium text-gray-700">
@@ -129,9 +134,6 @@ export const PastCandidatesPage: React.FC = () => {
                         )}
                       </div>
                     </div>
-                  </td>
-                  <td className="px-4 py-3 text-gray-500">
-                    {c.job?.translations?.[0]?.title || "—"}
                   </td>
                   <td className="px-4 py-3 text-gray-400">
                     {c.phone || c.email || "—"}

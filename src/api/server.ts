@@ -7,13 +7,11 @@ import fs from "fs";
 import { config } from "../config";
 import authRoutes from "./routes/auth";
 import botsRoutes from "./routes/bots";
-import jobsRoutes from "./routes/jobs";
 import questionsRoutes from "./routes/questions";
 import candidatesRoutes from "./routes/candidates";
 import messagesRoutes from "./routes/messages";
 import analyticsRoutes from "./routes/analytics";
 import filesRoutes from "./routes/files";
-import templatesRoutes from "./routes/templates";
 import columnsRoutes from "./routes/columns";
 
 export function createApp(): express.Application {
@@ -27,17 +25,16 @@ export function createApp(): express.Application {
   if (!fs.existsSync(config.uploadDir)) {
     fs.mkdirSync(config.uploadDir, { recursive: true });
   }
+  app.use("/uploads", express.static(config.uploadDir));
 
   // API Routes
   app.use("/api/auth", authRoutes);
   app.use("/api/bots", botsRoutes);
-  app.use("/api/jobs", jobsRoutes);
   app.use("/api/questions", questionsRoutes);
   app.use("/api/candidates", candidatesRoutes);
   app.use("/api/messages", messagesRoutes);
   app.use("/api/analytics", analyticsRoutes);
   app.use("/api/files", filesRoutes);
-  app.use("/api/templates", templatesRoutes);
   app.use("/api/columns", columnsRoutes);
 
   // Health check

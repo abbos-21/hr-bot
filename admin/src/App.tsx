@@ -7,8 +7,6 @@ import { LoginPage } from "./pages/Login";
 import { DashboardPage } from "./pages/Dashboard";
 import { BotsPage } from "./pages/Bots";
 import { BotDetailPage } from "./pages/BotDetail";
-import { JobsPage } from "./pages/Jobs";
-import { JobDetailPage } from "./pages/JobDetail";
 import { CandidatesPage } from "./pages/Candidates";
 import { CandidateDetailPage } from "./pages/CandidateDetail";
 import { AnalyticsPage } from "./pages/Analytics";
@@ -95,22 +93,6 @@ function App() {
           element={
             <ProtectedLayout>
               <BotDetailPage />
-            </ProtectedLayout>
-          }
-        />
-        <Route
-          path="/jobs"
-          element={
-            <ProtectedLayout>
-              <JobsPage />
-            </ProtectedLayout>
-          }
-        />
-        <Route
-          path="/jobs/:id"
-          element={
-            <ProtectedLayout>
-              <JobDetailPage />
             </ProtectedLayout>
           }
         />

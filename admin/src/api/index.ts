@@ -1,4 +1,3 @@
-/// <reference types="vite/client" />
 import axios from "axios";
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
@@ -55,22 +54,14 @@ export const botsApi = {
     api.post(`/bots/${botId}/languages`, data).then((r) => r.data),
   deleteLanguage: (botId: string, langId: string) =>
     api.delete(`/bots/${botId}/languages/${langId}`).then((r) => r.data),
+  updateToken: (id: string, token: string) =>
+    api.put(`/bots/${id}/token`, { token }).then((r) => r.data),
 };
 
 // Jobs
-export const jobsApi = {
-  list: (botId?: string) =>
-    api.get("/jobs", { params: { botId } }).then((r) => r.data),
-  get: (id: string) => api.get(`/jobs/${id}`).then((r) => r.data),
-  create: (data: any) => api.post("/jobs", data).then((r) => r.data),
-  update: (id: string, data: any) =>
-    api.put(`/jobs/${id}`, data).then((r) => r.data),
-  delete: (id: string) => api.delete(`/jobs/${id}`).then((r) => r.data),
-};
-
 // Questions
 export const questionsApi = {
-  list: (params?: { botId?: string; jobId?: string }) =>
+  list: (params?: { botId?: string }) =>
     api.get("/questions", { params }).then((r) => r.data),
   get: (id: string) => api.get(`/questions/${id}`).then((r) => r.data),
   create: (data: any) => api.post("/questions", data).then((r) => r.data),
@@ -142,35 +133,6 @@ export const analyticsApi = {
   completionRate: (botId?: string) =>
     api
       .get("/analytics/completion-rate", { params: { botId } })
-      .then((r) => r.data),
-};
-
-// Templates (question library + reusable template groups)
-export const templatesApi = {
-  list: (botId?: string) =>
-    api.get("/templates", { params: { botId } }).then((r) => r.data),
-  create: (data: { botId: string; name: string }) =>
-    api.post("/templates", data).then((r) => r.data),
-  update: (id: string, data: { name: string }) =>
-    api.put(`/templates/${id}`, data).then((r) => r.data),
-  delete: (id: string) => api.delete(`/templates/${id}`).then((r) => r.data),
-  addItem: (templateId: string, questionId: string) =>
-    api
-      .post(`/templates/${templateId}/items`, { questionId })
-      .then((r) => r.data),
-  removeItem: (templateId: string, itemId: string) =>
-    api.delete(`/templates/${templateId}/items/${itemId}`).then((r) => r.data),
-  reorderItems: (templateId: string, items: { id: string; order: number }[]) =>
-    api
-      .put(`/templates/${templateId}/items/reorder`, { items })
-      .then((r) => r.data),
-  applyToJob: (templateId: string, jobId: string) =>
-    api
-      .post(`/templates/${templateId}/apply-to-job`, { jobId })
-      .then((r) => r.data),
-  applyQuestionToJob: (questionId: string, jobId: string) =>
-    api
-      .post("/templates/apply-question-to-job", { questionId, jobId })
       .then((r) => r.data),
 };
 

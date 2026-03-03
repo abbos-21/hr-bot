@@ -11,7 +11,6 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: "Dashboard", path: "/", icon: "📊" },
   { label: "Bots", path: "/bots", icon: "🤖" },
-  { label: "Jobs", path: "/jobs", icon: "💼" },
   { label: "Playground", path: "/playground", icon: "🧩" },
   { label: "Pipeline", path: "/candidates", icon: "👥" },
   { label: "Hired", path: "/hired", icon: "✅" },

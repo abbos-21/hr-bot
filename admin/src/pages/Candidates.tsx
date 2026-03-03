@@ -14,7 +14,6 @@ import {
   candidatesApi,
   messagesApi,
   botsApi,
-  jobsApi,
   filesApi,
   columnsApi,
 } from "../api";
@@ -62,15 +61,20 @@ const CandidateCard: React.FC<{ candidate: any; onClick: () => void }> = ({
         hover:shadow-md hover:border-gray-300 transition-all duration-150 ${isDragging ? "opacity-30" : ""}`}
     >
       <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-          {initials}
-        </div>
+        {candidate.profilePhoto ? (
+          <img
+            src={`/uploads/${candidate.botId}/${candidate.profilePhoto.split(/[\\/]/).pop()}`}
+            className="w-9 h-9 rounded-full object-cover flex-shrink-0 border border-gray-100"
+            alt=""
+          />
+        ) : (
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+            {initials}
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-gray-800 text-sm truncate">
             {candidate.fullName || candidate.username || "Unknown"}
-          </p>
-          <p className="text-xs text-gray-400 truncate">
-            {candidate.job?.translations?.[0]?.title || ""}
           </p>
         </div>
         {candidate.unreadCount > 0 && (
@@ -395,17 +399,22 @@ const DetailPanel: React.FC<{
           <>
             {/* Header */}
             <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-bold">
-                {(
-                  (candidate.fullName || candidate.username || "?")[0] || "?"
-                ).toUpperCase()}
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-bold overflow-hidden flex-shrink-0">
+                {candidate.profilePhoto ? (
+                  <img
+                    src={`/uploads/${candidate.botId}/${candidate.profilePhoto.split(/[\\/]/).pop()}`}
+                    className="w-10 h-10 object-cover"
+                    alt=""
+                  />
+                ) : (
+                  (
+                    (candidate.fullName || candidate.username || "?")[0] || "?"
+                  ).toUpperCase()
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-gray-900 truncate">
                   {candidate.fullName || candidate.username || "Unknown"}
-                </p>
-                <p className="text-xs text-blue-500 truncate">
-                  {candidate.job?.translations?.[0]?.title || ""}
                 </p>
               </div>
               <button
@@ -773,8 +782,7 @@ export const CandidatesPage: React.FC = () => {
   const [columns, setColumns] = useState<any[]>([]);
   const [allCandidates, setAllCandidates] = useState<any[]>([]);
   const [bots, setBots] = useState<any[]>([]);
-  const [jobs, setJobs] = useState<any[]>([]);
-  const [filters, setFilters] = useState({ botId: "", jobId: "", search: "" });
+  const [filters, setFilters] = useState({ botId: "", search: "" });
   const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(
@@ -803,10 +811,7 @@ export const CandidatesPage: React.FC = () => {
     fetchAll();
   }, [fetchAll]);
   useEffect(() => {
-    Promise.all([botsApi.list(), jobsApi.list()]).then(([b, j]) => {
-      setBots(b);
-      setJobs(j);
-    });
+    botsApi.list().then((b) => setBots(b));
   }, []);
 
   useWebSocket({
@@ -971,13 +976,8 @@ export const CandidatesPage: React.FC = () => {
     }
   };
 
-  const filteredJobs = filters.botId
-    ? jobs.filter((j) => j.botId === filters.botId)
-    : jobs;
-
   const visibleCandidates = allCandidates.filter((c) => {
     if (filters.botId && c.botId !== filters.botId) return false;
-    if (filters.jobId && c.jobId !== filters.jobId) return false;
     if (filters.search) {
       const q = filters.search.toLowerCase();
       return (
@@ -1017,7 +1017,7 @@ export const CandidatesPage: React.FC = () => {
           <select
             value={filters.botId}
             onChange={(e) =>
-              setFilters((f) => ({ ...f, botId: e.target.value, jobId: "" }))
+              setFilters((f) => ({ ...f, botId: e.target.value }))
             }
             className="text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none bg-white"
           >
@@ -1025,20 +1025,6 @@ export const CandidatesPage: React.FC = () => {
             {bots.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
-              </option>
-            ))}
-          </select>
-          <select
-            value={filters.jobId}
-            onChange={(e) =>
-              setFilters((f) => ({ ...f, jobId: e.target.value }))
-            }
-            className="text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none bg-white"
-          >
-            <option value="">All jobs</option>
-            {filteredJobs.map((j) => (
-              <option key={j.id} value={j.id}>
-                {j.translations?.[0]?.title || "Untitled"}
               </option>
             ))}
           </select>
@@ -1131,9 +1117,6 @@ export const CandidatesPage: React.FC = () => {
                       {activeCandidate.fullName ||
                         activeCandidate.username ||
                         "Unknown"}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      {activeCandidate.job?.translations?.[0]?.title || ""}
                     </p>
                   </div>
                 </div>

@@ -63,9 +63,6 @@ export const HiredCandidatesPage: React.FC = () => {
                   Candidate
                 </th>
                 <th className="text-left px-4 py-3 text-gray-500 font-medium">
-                  Job
-                </th>
-                <th className="text-left px-4 py-3 text-gray-500 font-medium">
                   Contact
                 </th>
                 <th className="text-left px-4 py-3 text-gray-500 font-medium">
@@ -82,10 +79,18 @@ export const HiredCandidatesPage: React.FC = () => {
                 >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-xs font-bold">
-                        {(
-                          (c.fullName || c.username || "?")[0] || "?"
-                        ).toUpperCase()}
+                      <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-xs font-bold">
+                        {c.profilePhoto ? (
+                          <img
+                            src={`/uploads/${c.botId}/${c.profilePhoto.split(/[\\/]/).pop()}`}
+                            className="w-8 h-8 object-cover"
+                            alt=""
+                          />
+                        ) : (
+                          (
+                            (c.fullName || c.username || "?")[0] || "?"
+                          ).toUpperCase()
+                        )}
                       </div>
                       <div>
                         <p className="font-medium text-gray-900">
@@ -96,9 +101,6 @@ export const HiredCandidatesPage: React.FC = () => {
                         )}
                       </div>
                     </div>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">
-                    {c.job?.translations?.[0]?.title || "—"}
                   </td>
                   <td className="px-4 py-3 text-gray-500">
                     {c.phone || c.email || "—"}
@@ -164,12 +166,7 @@ const MiniPanel: React.FC<{
         </div>
         {candidate && (
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
-            <div>
-              <p className="text-xs text-gray-400 mb-1">Job</p>
-              <p className="text-sm font-medium">
-                {candidate.job?.translations?.[0]?.title || "—"}
-              </p>
-            </div>
+            <div></div>
             <div>
               <p className="text-xs text-gray-400 mb-1">Contact</p>
               <p className="text-sm font-medium">
