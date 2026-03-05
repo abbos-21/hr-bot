@@ -36,6 +36,51 @@ const COLOR_PRESETS = [
   { color: "bg-orange-50", dot: "bg-orange-500", label: "Orange" },
 ];
 
+// ─── Confirm modal ───────────────────────────────────────────────────────────
+
+const ConfirmModal: React.FC<{
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  danger?: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}> = ({
+  title,
+  message,
+  confirmLabel = "Confirm",
+  danger = false,
+  onConfirm,
+  onCancel,
+}) => (
+  <div
+    className="fixed inset-0 z-[300] bg-black/40 flex items-center justify-center p-4"
+    onClick={onCancel}
+  >
+    <div
+      className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <h3 className="text-base font-bold text-gray-900 mb-2">{title}</h3>
+      <p className="text-sm text-gray-500 mb-6 leading-relaxed">{message}</p>
+      <div className="flex gap-3 justify-end">
+        <button
+          onClick={onCancel}
+          className="px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={onConfirm}
+          className={`px-4 py-2 text-sm font-semibold text-white rounded-xl transition-colors ${danger ? "bg-red-500 hover:bg-red-600" : "bg-amber-500 hover:bg-amber-600"}`}
+        >
+          {confirmLabel}
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
 // ─── Candidate card ───────────────────────────────────────────────────────────
 
 const CandidateCard: React.FC<{ candidate: any; onClick: () => void }> = ({
@@ -77,6 +122,20 @@ const CandidateCard: React.FC<{ candidate: any; onClick: () => void }> = ({
           <p className="font-semibold text-gray-800 text-sm truncate">
             {candidate.fullName || candidate.username || "Unknown"}
           </p>
+          {(candidate.age || candidate.position) && (
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+              {candidate.position && (
+                <span className="text-xs text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-full truncate max-w-[120px]">
+                  💼 {candidate.position}
+                </span>
+              )}
+              {candidate.age && (
+                <span className="text-xs text-gray-400">
+                  {candidate.age.replace(/ \(.*\)/, "")}
+                </span>
+              )}
+            </div>
+          )}
         </div>
         {candidate.unreadCount > 0 && (
           <div className="flex-shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 flex items-center justify-center animate-pulse">
@@ -108,6 +167,18 @@ const KanbanColumn: React.FC<{
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(column.name);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node))
+        setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
 
   const commitRename = () => {
     if (name.trim() && name !== column.name) onRename(column.id, name.trim());
@@ -145,20 +216,47 @@ const KanbanColumn: React.FC<{
         <span className="text-xs font-bold text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
           {candidates.length}
         </span>
-        <button
-          onClick={() => onArchive(column.id)}
-          className="text-gray-300 hover:text-amber-400 transition-colors text-xs leading-none"
-          title="Archive this stage"
-        >
-          ⬇
-        </button>
-        <button
-          onClick={() => onDelete(column.id)}
-          className="text-gray-300 hover:text-red-500 transition-colors text-xs leading-none"
-          title="Delete this stage"
-        >
-          🗑
-        </button>
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={() => setMenuOpen((o) => !o)}
+            className="w-6 h-6 flex items-center justify-center rounded-lg text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition-colors text-xs font-bold"
+          >
+            ···
+          </button>
+          {menuOpen && (
+            <div className="absolute right-0 top-7 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden w-44">
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  onRename(column.id, column.name + "");
+                  setEditing(true);
+                }}
+                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+              >
+                ✏️ Rename
+              </button>
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  onArchive(column.id);
+                }}
+                className="w-full text-left px-3 py-2 text-sm text-amber-600 hover:bg-amber-50 flex items-center gap-2"
+              >
+                ⬇ Archive stage
+              </button>
+              <div className="border-t border-gray-100" />
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  onDelete(column.id);
+                }}
+                className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2"
+              >
+                🗑 Delete stage
+              </button>
+            </div>
+          )}
+        </div>
       </div>
       <div
         ref={setNodeRef}
@@ -288,6 +386,7 @@ const DetailPanel: React.FC<{
   const [candidate, setCandidate] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [tab, setTab] = useState<"answers" | "chat" | "files">("answers");
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [comment, setComment] = useState("");
   const [msgText, setMsgText] = useState("");
   const [sending, setSending] = useState(false);
@@ -400,7 +499,15 @@ const DetailPanel: React.FC<{
           <>
             {/* Header */}
             <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-bold overflow-hidden flex-shrink-0">
+              <div
+                className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-bold overflow-hidden flex-shrink-0 cursor-pointer"
+                onClick={() => {
+                  if (candidate.profilePhoto)
+                    setLightboxSrc(
+                      `/uploads/${candidate.botId}/${candidate.profilePhoto.split(/[\/\\]/).pop()}`,
+                    );
+                }}
+              >
                 {candidate.profilePhoto ? (
                   <img
                     src={`/uploads/${candidate.botId}/${candidate.profilePhoto.split(/[\\/]/).pop()}`}
@@ -416,6 +523,11 @@ const DetailPanel: React.FC<{
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-gray-900 truncate">
                   {candidate.fullName || candidate.username || "Unknown"}
+                </p>
+                <p className="text-xs text-gray-400">
+                  {candidate.username
+                    ? `@${candidate.username}`
+                    : "No username"}
                 </p>
               </div>
               <button
@@ -498,50 +610,84 @@ const DetailPanel: React.FC<{
               {/* Answers tab */}
               {tab === "answers" && (
                 <div className="p-5 space-y-4">
-                  {candidate.answers?.length > 0 && (
+                  {/* Age + Position info cards */}
+                  {(candidate.age || candidate.position) && (
+                    <div className="grid grid-cols-2 gap-2">
+                      {candidate.age && (
+                        <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+                          <p className="text-xs text-amber-500 font-semibold uppercase tracking-wider mb-1">
+                            🎂 Age
+                          </p>
+                          <p className="text-sm font-semibold text-gray-800">
+                            {candidate.age}
+                          </p>
+                        </div>
+                      )}
+                      {candidate.position && (
+                        <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3">
+                          <p className="text-xs text-indigo-500 font-semibold uppercase tracking-wider mb-1">
+                            💼 Position
+                          </p>
+                          <p className="text-sm font-semibold text-gray-800">
+                            {candidate.position}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {/* Custom (non-required) question answers only */}
+                  {candidate.answers?.filter(
+                    (a: any) => !a.question?.isRequired,
+                  ).length > 0 && (
                     <div className="space-y-3">
                       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
                         🤖 Bot Answers
                       </p>
-                      {candidate.answers.map((answer: any) => {
-                        const q =
-                          answer.question?.translations?.[0]?.text ||
-                          "Question";
-                        const isAttachment =
-                          answer.question?.type === "attachment";
-                        const a =
-                          answer.option?.translations?.[0]?.text ||
-                          answer.textValue ||
-                          "—";
-                        const matchedFile = isAttachment
-                          ? candidate.files?.find((f: any) => f.fileName === a)
-                          : null;
-                        return (
-                          <div key={answer.id}>
-                            <p className="text-xs text-gray-400 mb-0.5">{q}</p>
-                            {isAttachment && a !== "—" ? (
-                              matchedFile ? (
-                                <a
-                                  href={filesApi.downloadUrl(matchedFile.id)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:underline"
-                                >
-                                  📎 {a}
-                                </a>
-                              ) : (
-                                <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-800">
-                                  📎 {a}
-                                </p>
+                      {candidate.answers
+                        .filter((a: any) => !a.question?.isRequired)
+                        .map((answer: any) => {
+                          const q =
+                            answer.question?.translations?.[0]?.text ||
+                            "Question";
+                          const isAttachment =
+                            answer.question?.type === "attachment";
+                          const a =
+                            answer.option?.translations?.[0]?.text ||
+                            answer.textValue ||
+                            "—";
+                          const matchedFile = isAttachment
+                            ? candidate.files?.find(
+                                (f: any) => f.fileName === a,
                               )
-                            ) : (
-                              <p className="text-sm font-semibold text-gray-800">
-                                {a}
+                            : null;
+                          return (
+                            <div key={answer.id}>
+                              <p className="text-xs text-gray-400 mb-0.5">
+                                {q}
                               </p>
-                            )}
-                          </div>
-                        );
-                      })}
+                              {isAttachment && a !== "—" ? (
+                                matchedFile ? (
+                                  <a
+                                    href={filesApi.downloadUrl(matchedFile.id)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:underline"
+                                  >
+                                    📎 {a}
+                                  </a>
+                                ) : (
+                                  <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-800">
+                                    📎 {a}
+                                  </p>
+                                )
+                              ) : (
+                                <p className="text-sm font-semibold text-gray-800">
+                                  {a}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
                     </div>
                   )}
                   <div
@@ -609,7 +755,10 @@ const DetailPanel: React.FC<{
                               <img
                                 src={filesApi.serveUrl(msg.id)}
                                 alt="photo"
-                                className="max-w-full rounded max-h-40 object-cover"
+                                className="max-w-full rounded max-h-40 object-cover cursor-zoom-in"
+                                onClick={() =>
+                                  setLightboxSrc(filesApi.serveUrl(msg.id))
+                                }
                               />
                             )}
                             {msg.type === "document" && (
@@ -739,6 +888,23 @@ const DetailPanel: React.FC<{
           </>
         )}
       </div>
+
+      {/* Lightbox */}
+      {lightboxSrc && (
+        <div
+          className="fixed inset-0 z-[200] bg-black/80 flex items-center justify-center"
+          onClick={() => setLightboxSrc(null)}
+        >
+          <img
+            src={lightboxSrc}
+            alt=""
+            className="max-w-[90vw] max-h-[90vh] rounded-2xl object-contain shadow-2xl"
+          />
+          <button className="absolute top-4 right-4 text-white text-3xl leading-none opacity-70 hover:opacity-100">
+            ×
+          </button>
+        </div>
+      )}
     </>
   );
 };
@@ -791,6 +957,13 @@ export const CandidatesPage: React.FC = () => {
     optionId: "",
   });
   const [loading, setLoading] = useState(true);
+  const [confirmModal, setConfirmModal] = useState<{
+    title: string;
+    message: string;
+    danger?: boolean;
+    confirmLabel?: string;
+    onConfirm: () => void;
+  } | null>(null);
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const filterPanelRef = useRef<HTMLDivElement>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -842,7 +1015,9 @@ export const CandidatesPage: React.FC = () => {
       setFilterQuestions(
         qs.filter(
           (q: any) =>
-            q.type === "choice" && !q.isRequired && q.options?.length > 0,
+            q.type === "choice" &&
+            q.options?.length > 0 &&
+            (!q.isRequired || q.filterLabel),
         ),
       );
     });
@@ -938,6 +1113,20 @@ export const CandidatesPage: React.FC = () => {
       }
       return;
     }
+    // Moving to unassigned
+    if (overId === "__unassigned__") {
+      if (candidate.columnId === null) return;
+      setAllCandidates((prev) =>
+        prev.map((c) => (c.id === candidateId ? { ...c, columnId: null } : c)),
+      );
+      try {
+        await candidatesApi.update(candidateId, { columnId: null });
+      } catch {
+        toast.error("Failed");
+        fetchAll();
+      }
+      return;
+    }
     // Moving between columns
     const col = columns.find((c) => c.id === overId);
     if (!col || candidate.columnId === overId) return;
@@ -965,36 +1154,40 @@ export const CandidatesPage: React.FC = () => {
     }
   };
 
-  const handleArchiveColumn = async (id: string) => {
+  const handleArchiveColumn = (id: string) => {
     const col = columns.find((c) => c.id === id);
-    if (
-      !confirm(
-        `Archive stage "${col?.name}"? All candidates inside it will be archived too.`,
-      )
-    )
-      return;
-    await columnsApi.archive(id);
-    setColumns((prev) => prev.filter((c) => c.id !== id));
-    // Remove archived candidates from the board (they are now archived, not active)
-    setAllCandidates((prev) => prev.filter((c) => c.columnId !== id));
-    toast.success(`Stage "${col?.name}" and its candidates archived`);
+    setConfirmModal({
+      title: `Archive stage "${col?.name}"?`,
+      message: "All candidates inside this stage will be archived too.",
+      confirmLabel: "Archive",
+      danger: false,
+      onConfirm: async () => {
+        setConfirmModal(null);
+        await columnsApi.archive(id);
+        setColumns((prev) => prev.filter((c) => c.id !== id));
+        setAllCandidates((prev) => prev.filter((c) => c.columnId !== id));
+        toast.success(`Stage "${col?.name}" archived`);
+      },
+    });
   };
 
-  const handleDeleteColumn = async (id: string) => {
+  const handleDeleteColumn = (id: string) => {
     const col = columns.find((c) => c.id === id);
-    if (
-      !confirm(
-        `Delete stage "${col?.name}"? Candidates inside will move to Unassigned.`,
-      )
-    )
-      return;
-    await columnsApi.delete(id);
-    setColumns((prev) => prev.filter((c) => c.id !== id));
-    // Candidates become active+unassigned (handled by backend), reflect in state
-    setAllCandidates((prev) =>
-      prev.map((c) => (c.columnId === id ? { ...c, columnId: null } : c)),
-    );
-    toast.success(`Stage "${col?.name}" deleted`);
+    setConfirmModal({
+      title: `Delete stage "${col?.name}"?`,
+      message: "Candidates inside will move to Unassigned.",
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setConfirmModal(null);
+        await columnsApi.delete(id);
+        setColumns((prev) => prev.filter((c) => c.id !== id));
+        setAllCandidates((prev) =>
+          prev.map((c) => (c.columnId === id ? { ...c, columnId: null } : c)),
+        );
+        toast.success(`Stage "${col?.name}" deleted`);
+      },
+    });
   };
 
   const handleRenameColumn = async (id: string, name: string) => {
@@ -1042,365 +1235,381 @@ export const CandidatesPage: React.FC = () => {
     : null;
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-gray-50">
-      {/* Top bar */}
-      <div className="px-6 py-3 bg-white border-b border-gray-200 flex-shrink-0">
-        <div className="flex items-center justify-between gap-3">
-          {/* Title */}
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Pipeline</h1>
-            <p className="text-xs text-gray-400 mt-0.5">
-              {visibleCandidates.length} candidates
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 flex-1 justify-end">
-            {/* Active filter chips */}
-            <div className="flex items-center gap-1.5 flex-wrap justify-end">
-              {/* Bot chip */}
-              {filters.botId && (
-                <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-violet-100 text-violet-700">
-                  🤖 {bots.find((b) => b.id === filters.botId)?.name || "Bot"}
-                  <button
-                    onClick={() =>
-                      setFilters((f) => ({
-                        ...f,
-                        botId: "",
-                        questionId: "",
-                        optionId: "",
-                      }))
-                    }
-                    className="ml-0.5 hover:opacity-70 font-bold"
-                  >
-                    ×
-                  </button>
-                </span>
-              )}
-              {/* Answer chip */}
-              {filters.questionId &&
-                filters.optionId &&
-                (() => {
-                  const q = filterQuestions.find(
-                    (q: any) => q.id === filters.questionId,
-                  );
-                  const opt = q?.options?.find(
-                    (o: any) => o.id === filters.optionId,
-                  );
-                  if (!q || !opt) return null;
-                  const label = `${q.filterLabel || q.translations?.[0]?.text || "Filter"}: ${opt.translations?.[0]?.text || "Option"}`;
-                  return (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-indigo-100 text-indigo-700">
-                      🔽 {label}
-                      <button
-                        onClick={() =>
-                          setFilters((f) => ({
-                            ...f,
-                            questionId: "",
-                            optionId: "",
-                          }))
-                        }
-                        className="ml-0.5 hover:opacity-70 font-bold"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  );
-                })()}
+    <>
+      {confirmModal && (
+        <ConfirmModal
+          title={confirmModal.title}
+          message={confirmModal.message}
+          confirmLabel={confirmModal.confirmLabel}
+          danger={confirmModal.danger}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal(null)}
+        />
+      )}
+      <div className="flex flex-col h-full overflow-hidden bg-gray-50">
+        {/* Top bar */}
+        <div className="px-6 py-3 bg-white border-b border-gray-200 flex-shrink-0">
+          <div className="flex items-center justify-between gap-3">
+            {/* Title */}
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Pipeline</h1>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {visibleCandidates.length} candidates
+              </p>
             </div>
 
-            {/* Search */}
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">
-                🔍
-              </span>
-              <input
-                type="text"
-                placeholder="Search…"
-                value={filters.search}
-                onChange={(e) =>
-                  setFilters((f) => ({ ...f, search: e.target.value }))
-                }
-                className="pl-7 pr-3 w-44 text-sm border border-gray-200 rounded-xl py-2 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
-              />
-            </div>
-
-            {/* Filters button */}
-            <div className="relative" ref={filterPanelRef}>
-              {(() => {
-                const activeCount = [
-                  filters.botId ? 1 : 0,
-                  filters.questionId ? 1 : 0,
-                ].reduce((a, b) => a + b, 0);
-                return (
-                  <button
-                    onClick={() => setFilterPanelOpen((o) => !o)}
-                    className={`flex items-center gap-2 text-sm font-medium px-3.5 py-2 rounded-xl border transition-all
-                      ${
-                        filterPanelOpen || activeCount > 0
-                          ? "bg-blue-600 text-white border-blue-600 shadow-sm"
-                          : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600"
-                      }`}
-                  >
-                    <svg
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                      className="w-4 h-4"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L13 10.414V15a1 1 0 01-.553.894l-4 2A1 1 0 017 17v-6.586L3.293 6.707A1 1 0 013 6V3z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    Filters
-                    {activeCount > 0 && (
-                      <span className="w-5 h-5 rounded-full bg-white text-blue-600 text-xs font-bold flex items-center justify-center">
-                        {activeCount}
-                      </span>
-                    )}
-                  </button>
-                );
-              })()}
-
-              {/* Filter dropdown panel */}
-              {filterPanelOpen && (
-                <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl border border-gray-200 shadow-2xl z-50 overflow-hidden">
-                  {/* Header */}
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                    <span className="text-sm font-bold text-gray-900">
-                      Filters
-                    </span>
+            <div className="flex items-center gap-2 flex-1 justify-end">
+              {/* Active filter chips */}
+              <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                {/* Bot chip */}
+                {filters.botId && (
+                  <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-violet-100 text-violet-700">
+                    🤖 {bots.find((b) => b.id === filters.botId)?.name || "Bot"}
                     <button
-                      onClick={() => {
+                      onClick={() =>
                         setFilters((f) => ({
                           ...f,
                           botId: "",
                           questionId: "",
                           optionId: "",
-                        }));
-                      }}
-                      className="text-xs text-gray-400 hover:text-red-500 transition-colors font-medium"
+                        }))
+                      }
+                      className="ml-0.5 hover:opacity-70 font-bold"
                     >
-                      Reset all
+                      ×
                     </button>
-                  </div>
+                  </span>
+                )}
+                {/* Answer chip */}
+                {filters.questionId &&
+                  filters.optionId &&
+                  (() => {
+                    const q = filterQuestions.find(
+                      (q: any) => q.id === filters.questionId,
+                    );
+                    const opt = q?.options?.find(
+                      (o: any) => o.id === filters.optionId,
+                    );
+                    if (!q || !opt) return null;
+                    const label = `${q.filterLabel || q.translations?.[0]?.text || "Filter"}: ${opt.translations?.[0]?.text || "Option"}`;
+                    return (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-indigo-100 text-indigo-700">
+                        🔽 {label}
+                        <button
+                          onClick={() =>
+                            setFilters((f) => ({
+                              ...f,
+                              questionId: "",
+                              optionId: "",
+                            }))
+                          }
+                          className="ml-0.5 hover:opacity-70 font-bold"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    );
+                  })()}
+              </div>
 
-                  <div className="p-4 space-y-5 max-h-[70vh] overflow-y-auto">
-                    {/* ── Bot ──────────────────────────────── */}
-                    {bots.length > 0 && (
-                      <div>
-                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2.5">
-                          Bot
-                        </p>
-                        <div className="space-y-1.5">
-                          {[{ id: "", name: "All bots" }, ...bots].map((b) => {
-                            const selected = filters.botId === b.id;
-                            return (
-                              <label
-                                key={b.id}
-                                className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors
-                                ${selected ? "bg-violet-50 border border-violet-200" : "hover:bg-gray-50 border border-transparent"}`}
-                                onClick={() =>
-                                  setFilters((f) => ({
-                                    ...f,
-                                    botId: b.id,
-                                    questionId: "",
-                                    optionId: "",
-                                  }))
-                                }
-                              >
-                                <div
-                                  className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all
-                                  ${selected ? "border-violet-600" : "border-gray-300"}`}
-                                >
-                                  {selected && (
-                                    <div className="w-2 h-2 rounded-full bg-violet-600" />
-                                  )}
-                                </div>
-                                <span className="text-sm text-gray-700 font-medium">
-                                  {b.id ? "🤖 " : ""}
-                                  {b.name}
-                                </span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
+              {/* Search */}
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">
+                  🔍
+                </span>
+                <input
+                  type="text"
+                  placeholder="Search…"
+                  value={filters.search}
+                  onChange={(e) =>
+                    setFilters((f) => ({ ...f, search: e.target.value }))
+                  }
+                  className="pl-7 pr-3 w-44 text-sm border border-gray-200 rounded-xl py-2 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
+                />
+              </div>
 
-                    {/* ── Choice question filters ───────────── */}
-                    {filterQuestions.map((q: any) => {
-                      const qLabel =
-                        q.filterLabel || q.translations?.[0]?.text || "Filter";
-                      return (
-                        <div key={q.id}>
+              {/* Filters button */}
+              <div className="relative" ref={filterPanelRef}>
+                {(() => {
+                  const activeCount = [
+                    filters.botId ? 1 : 0,
+                    filters.questionId ? 1 : 0,
+                  ].reduce((a, b) => a + b, 0);
+                  return (
+                    <button
+                      onClick={() => setFilterPanelOpen((o) => !o)}
+                      className={`flex items-center gap-2 text-sm font-medium px-3.5 py-2 rounded-xl border transition-all
+                      ${
+                        filterPanelOpen || activeCount > 0
+                          ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                          : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600"
+                      }`}
+                    >
+                      <svg
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className="w-4 h-4"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L13 10.414V15a1 1 0 01-.553.894l-4 2A1 1 0 017 17v-6.586L3.293 6.707A1 1 0 013 6V3z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      Filters
+                      {activeCount > 0 && (
+                        <span className="w-5 h-5 rounded-full bg-white text-blue-600 text-xs font-bold flex items-center justify-center">
+                          {activeCount}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })()}
+
+                {/* Filter dropdown panel */}
+                {filterPanelOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl border border-gray-200 shadow-2xl z-50 overflow-hidden">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                      <span className="text-sm font-bold text-gray-900">
+                        Filters
+                      </span>
+                      <button
+                        onClick={() => {
+                          setFilters((f) => ({
+                            ...f,
+                            botId: "",
+                            questionId: "",
+                            optionId: "",
+                          }));
+                        }}
+                        className="text-xs text-gray-400 hover:text-red-500 transition-colors font-medium"
+                      >
+                        Reset all
+                      </button>
+                    </div>
+
+                    <div className="p-4 space-y-5 max-h-[70vh] overflow-y-auto">
+                      {/* ── Bot ──────────────────────────────── */}
+                      {bots.length > 0 && (
+                        <div>
                           <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2.5">
-                            {qLabel}
+                            Bot
                           </p>
                           <div className="space-y-1.5">
-                            {/* "Any" option */}
-                            {[
-                              { id: "", text: "Any" },
-                              ...q.options.map((o: any) => ({
-                                id: o.id,
-                                text: o.translations?.[0]?.text || "Option",
-                              })),
-                            ].map((opt) => {
-                              const selected =
-                                opt.id === ""
-                                  ? filters.questionId !== q.id
-                                  : filters.questionId === q.id &&
-                                    filters.optionId === opt.id;
-                              return (
-                                <label
-                                  key={opt.id || "__any__"}
-                                  className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors
-                                  ${selected ? "bg-indigo-50 border border-indigo-200" : "hover:bg-gray-50 border border-transparent"}`}
-                                  onClick={() =>
-                                    setFilters((f) => ({
-                                      ...f,
-                                      questionId: opt.id ? q.id : "",
-                                      optionId: opt.id || "",
-                                    }))
-                                  }
-                                >
-                                  <div
-                                    className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all
-                                    ${selected ? "border-indigo-600" : "border-gray-300"}`}
+                            {[{ id: "", name: "All bots" }, ...bots].map(
+                              (b) => {
+                                const selected = filters.botId === b.id;
+                                return (
+                                  <label
+                                    key={b.id}
+                                    className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors
+                                ${selected ? "bg-violet-50 border border-violet-200" : "hover:bg-gray-50 border border-transparent"}`}
+                                    onClick={() =>
+                                      setFilters((f) => ({
+                                        ...f,
+                                        botId: b.id,
+                                        questionId: "",
+                                        optionId: "",
+                                      }))
+                                    }
                                   >
-                                    {selected && (
-                                      <div className="w-2 h-2 rounded-full bg-indigo-600" />
-                                    )}
-                                  </div>
-                                  <span className="text-sm text-gray-700 font-medium">
-                                    {opt.text}
-                                  </span>
-                                </label>
-                              );
-                            })}
+                                    <div
+                                      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all
+                                  ${selected ? "border-violet-600" : "border-gray-300"}`}
+                                    >
+                                      {selected && (
+                                        <div className="w-2 h-2 rounded-full bg-violet-600" />
+                                      )}
+                                    </div>
+                                    <span className="text-sm text-gray-700 font-medium">
+                                      {b.id ? "🤖 " : ""}
+                                      {b.name}
+                                    </span>
+                                  </label>
+                                );
+                              },
+                            )}
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
+                      )}
 
-                  {/* Footer */}
-                  <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
-                    <button
-                      onClick={() => setFilterPanelOpen(false)}
-                      className="w-full text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl py-2 transition-colors"
-                    >
-                      Apply Filters
-                    </button>
+                      {/* ── Choice question filters ───────────── */}
+                      {filterQuestions.map((q: any) => {
+                        const qLabel =
+                          q.filterLabel ||
+                          q.translations?.[0]?.text ||
+                          "Filter";
+                        return (
+                          <div key={q.id}>
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2.5">
+                              {qLabel}
+                            </p>
+                            <div className="space-y-1.5">
+                              {/* "Any" option */}
+                              {[
+                                { id: "", text: "Any" },
+                                ...q.options.map((o: any) => ({
+                                  id: o.id,
+                                  text: o.translations?.[0]?.text || "Option",
+                                })),
+                              ].map((opt) => {
+                                const selected =
+                                  opt.id === ""
+                                    ? filters.questionId !== q.id
+                                    : filters.questionId === q.id &&
+                                      filters.optionId === opt.id;
+                                return (
+                                  <label
+                                    key={opt.id || "__any__"}
+                                    className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors
+                                  ${selected ? "bg-indigo-50 border border-indigo-200" : "hover:bg-gray-50 border border-transparent"}`}
+                                    onClick={() =>
+                                      setFilters((f) => ({
+                                        ...f,
+                                        questionId: opt.id ? q.id : "",
+                                        optionId: opt.id || "",
+                                      }))
+                                    }
+                                  >
+                                    <div
+                                      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all
+                                    ${selected ? "border-indigo-600" : "border-gray-300"}`}
+                                    >
+                                      {selected && (
+                                        <div className="w-2 h-2 rounded-full bg-indigo-600" />
+                                      )}
+                                    </div>
+                                    <span className="text-sm text-gray-700 font-medium">
+                                      {opt.text}
+                                    </span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Footer */}
+                    <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
+                      <button
+                        onClick={() => setFilterPanelOpen(false)}
+                        className="w-full text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl py-2 transition-colors"
+                      >
+                        Apply Filters
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {loading ? (
-        <div className="flex-1 flex items-center justify-center text-gray-400">
-          Loading…
-        </div>
-      ) : (
-        <DndContext
-          sensors={sensors}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          <div className="flex-1 overflow-x-auto overflow-y-hidden">
-            <div
-              className="flex gap-5 p-6 h-full items-start"
-              style={{ minWidth: "max-content" }}
-            >
-              {/* Unassigned column — always visible */}
-              <UnassignedColumn
-                candidates={uncolumned}
-                onCardClick={handleCardClick}
-              />
-
-              {/* Custom columns */}
-              {columns.map((col) => (
-                <KanbanColumn
-                  key={col.id}
-                  column={col}
-                  candidates={visibleCandidates.filter(
-                    (c) => c.columnId === col.id,
-                  )}
+        {loading ? (
+          <div className="flex-1 flex items-center justify-center text-gray-400">
+            Loading…
+          </div>
+        ) : (
+          <DndContext
+            sensors={sensors}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="flex-1 overflow-x-auto overflow-y-hidden">
+              <div
+                className="flex gap-5 p-6 h-full items-start"
+                style={{ minWidth: "max-content" }}
+              >
+                {/* Unassigned column — always visible */}
+                <UnassignedColumn
+                  candidates={uncolumned}
                   onCardClick={handleCardClick}
-                  onArchive={handleArchiveColumn}
-                  onDelete={handleDeleteColumn}
-                  onRename={handleRenameColumn}
                 />
-              ))}
 
-              {/* Add column button/form — always to the right of existing columns */}
-              {addingColumn ? (
-                <AddColumnForm
-                  onAdd={handleAddColumn}
-                  onCancel={() => setAddingColumn(false)}
-                />
-              ) : (
-                <button
-                  onClick={() => setAddingColumn(true)}
-                  className="flex flex-col items-center justify-center w-40 min-h-[120px] rounded-xl border-2 border-dashed border-gray-200 text-gray-300 hover:border-blue-300 hover:text-blue-400 transition-all flex-shrink-0 gap-2 text-sm font-medium"
-                >
-                  <span className="text-2xl">+</span>
-                  Add Stage
-                </button>
-              )}
+                {/* Custom columns */}
+                {columns.map((col) => (
+                  <KanbanColumn
+                    key={col.id}
+                    column={col}
+                    candidates={visibleCandidates.filter(
+                      (c) => c.columnId === col.id,
+                    )}
+                    onCardClick={handleCardClick}
+                    onArchive={handleArchiveColumn}
+                    onDelete={handleDeleteColumn}
+                    onRename={handleRenameColumn}
+                  />
+                ))}
 
-              {/* Hire / Archive drop zones */}
-              <div className="flex flex-col gap-3 flex-shrink-0 justify-start mt-10">
-                <DropZone
-                  id="__hire__"
-                  label="Hire"
-                  icon="✅"
-                  activeColor="bg-emerald-100 text-emerald-700 border-emerald-400"
-                />
-                <DropZone
-                  id="__archive__"
-                  label="Archive"
-                  icon="🗃"
-                  activeColor="bg-gray-200 text-gray-600 border-gray-400"
-                />
-              </div>
-            </div>
-          </div>
+                {/* Add column button/form — always to the right of existing columns */}
+                {addingColumn ? (
+                  <AddColumnForm
+                    onAdd={handleAddColumn}
+                    onCancel={() => setAddingColumn(false)}
+                  />
+                ) : (
+                  <button
+                    onClick={() => setAddingColumn(true)}
+                    className="flex flex-col items-center justify-center w-40 min-h-[120px] rounded-xl border-2 border-dashed border-gray-200 text-gray-300 hover:border-blue-300 hover:text-blue-400 transition-all flex-shrink-0 gap-2 text-sm font-medium"
+                  >
+                    <span className="text-2xl">+</span>
+                    Add Stage
+                  </button>
+                )}
 
-          <DragOverlay dropAnimation={null}>
-            {activeCandidate ? (
-              <div className="w-72 bg-white rounded-xl border-2 border-blue-400 shadow-2xl p-3.5 rotate-2 opacity-95 pointer-events-none">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-sm font-bold">
-                    {(
-                      (activeCandidate.fullName ||
-                        activeCandidate.username ||
-                        "?")[0] || "?"
-                    ).toUpperCase()}
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-800 text-sm">
-                      {activeCandidate.fullName ||
-                        activeCandidate.username ||
-                        "Unknown"}
-                    </p>
-                  </div>
+                {/* Hire / Archive drop zones */}
+                <div className="flex flex-col gap-3 flex-shrink-0 justify-start mt-10">
+                  <DropZone
+                    id="__hire__"
+                    label="Hire"
+                    icon="✅"
+                    activeColor="bg-emerald-100 text-emerald-700 border-emerald-400"
+                  />
+                  <DropZone
+                    id="__archive__"
+                    label="Archive"
+                    icon="🗃"
+                    activeColor="bg-gray-200 text-gray-600 border-gray-400"
+                  />
                 </div>
               </div>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
-      )}
+            </div>
 
-      <DetailPanel
-        candidateId={selectedCandidateId}
-        columns={columns}
-        onClose={() => setSelectedCandidateId(null)}
-        onStatusChange={handleStatusChangeFromPanel}
-      />
-    </div>
+            <DragOverlay dropAnimation={null}>
+              {activeCandidate ? (
+                <div className="w-72 bg-white rounded-xl border-2 border-blue-400 shadow-2xl p-3.5 rotate-2 opacity-95 pointer-events-none">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-sm font-bold">
+                      {(
+                        (activeCandidate.fullName ||
+                          activeCandidate.username ||
+                          "?")[0] || "?"
+                      ).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-800 text-sm">
+                        {activeCandidate.fullName ||
+                          activeCandidate.username ||
+                          "Unknown"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+        )}
+
+        <DetailPanel
+          candidateId={selectedCandidateId}
+          columns={columns}
+          onClose={() => setSelectedCandidateId(null)}
+          onStatusChange={handleStatusChangeFromPanel}
+        />
+      </div>
+    </>
   );
 };

@@ -86,7 +86,10 @@ const Avatar: React.FC<{ conv: any; size?: "sm" | "md" | "lg" }> = ({
 
 // ─── Message Bubble ───────────────────────────────────────────────────────────
 
-const MessageBubble: React.FC<{ msg: any }> = ({ msg }) => {
+const MessageBubble: React.FC<{
+  msg: any;
+  onImageClick?: (src: string) => void;
+}> = ({ msg, onImageClick }) => {
   const isOut = msg.direction === "outbound";
 
   const content = () => {
@@ -98,17 +101,14 @@ const MessageBubble: React.FC<{ msg: any }> = ({ msg }) => {
       );
     if (msg.type === "photo")
       return (
-        <a
-          href={filesApi.serveUrl(msg.id)}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img
-            src={filesApi.serveUrl(msg.id)}
-            alt="photo"
-            className="max-w-[260px] max-h-[320px] rounded-xl object-cover cursor-zoom-in"
-          />
-        </a>
+        <img
+          src={filesApi.serveUrl(msg.id)}
+          alt="photo"
+          className="max-w-[260px] max-h-[320px] rounded-xl object-cover cursor-zoom-in"
+          onClick={() =>
+            onImageClick && onImageClick(filesApi.serveUrl(msg.id))
+          }
+        />
       );
     if (msg.type === "voice")
       return (
@@ -221,6 +221,7 @@ const DaySeparator: React.FC<{ date: string }> = ({ date }) => {
 export const ChatsPage: React.FC = () => {
   const [conversations, setConversations] = useState<any[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [loadingConvs, setLoadingConvs] = useState(true);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
@@ -384,224 +385,264 @@ export const ChatsPage: React.FC = () => {
   );
 
   return (
-    <div className="flex h-full overflow-hidden" style={{ marginLeft: 0 }}>
-      {/* ── LEFT PANEL: Conversation list ─────────────────────────────────── */}
-      <div className="w-80 flex-shrink-0 border-r border-gray-200 bg-white flex flex-col">
-        {/* Header */}
-        <div className="px-4 pt-5 pb-3 border-b border-gray-100">
-          <h1 className="text-lg font-bold text-gray-900 mb-3">Chats</h1>
-          {/* Search */}
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
-              🔍
-            </span>
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search conversations…"
-              className="w-full pl-8 pr-3 py-2 text-sm bg-gray-100 rounded-xl border-0 focus:outline-none focus:ring-2 focus:ring-blue-300 placeholder-gray-400"
-            />
+    <>
+      <div className="flex h-full overflow-hidden" style={{ marginLeft: 0 }}>
+        {/* ── LEFT PANEL: Conversation list ─────────────────────────────────── */}
+        <div className="w-80 flex-shrink-0 border-r border-gray-200 bg-white flex flex-col">
+          {/* Header */}
+          <div className="px-4 pt-5 pb-3 border-b border-gray-100">
+            <h1 className="text-lg font-bold text-gray-900 mb-3">Chats</h1>
+            {/* Search */}
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                🔍
+              </span>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search conversations…"
+                className="w-full pl-8 pr-3 py-2 text-sm bg-gray-100 rounded-xl border-0 focus:outline-none focus:ring-2 focus:ring-blue-300 placeholder-gray-400"
+              />
+            </div>
+          </div>
+
+          {/* List */}
+          <div className="flex-1 overflow-y-auto">
+            {loadingConvs ? (
+              <div className="flex items-center justify-center py-12 text-gray-400 text-sm">
+                Loading…
+              </div>
+            ) : filteredConvs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                <p className="text-3xl mb-2">💬</p>
+                <p className="text-sm font-medium">
+                  {search ? "No results" : "No conversations yet"}
+                </p>
+                <p className="text-xs mt-1 text-gray-300">
+                  {search
+                    ? "Try a different name"
+                    : "Messages from bot users will appear here"}
+                </p>
+              </div>
+            ) : (
+              filteredConvs.map((conv) => {
+                const isSelected = conv.id === selectedId;
+                const hasUnread = conv.unreadCount > 0;
+                return (
+                  <button
+                    key={conv.id}
+                    onClick={() => setSelectedId(conv.id)}
+                    className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-gray-50 border-b border-gray-50
+                    ${isSelected ? "bg-blue-50 border-l-2 border-l-blue-500" : ""}`}
+                  >
+                    <div className="relative flex-shrink-0">
+                      <Avatar conv={conv} />
+                      {hasUnread && (
+                        <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-blue-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                          {conv.unreadCount > 99 ? "99+" : conv.unreadCount}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline justify-between gap-1">
+                        <p
+                          className={`text-sm truncate ${hasUnread ? "font-bold text-gray-900" : "font-medium text-gray-800"}`}
+                        >
+                          {candidateName(conv)}
+                        </p>
+                        {conv.lastActivity && (
+                          <span
+                            className={`text-[11px] flex-shrink-0 ${hasUnread ? "text-blue-500 font-semibold" : "text-gray-400"}`}
+                          >
+                            {formatConvTime(conv.lastActivity)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between gap-1 mt-0.5">
+                        <p
+                          className={`text-xs truncate ${hasUnread ? "text-gray-700 font-medium" : "text-gray-400"}`}
+                        >
+                          {conv.lastMessage?.direction === "outbound" && (
+                            <span className="text-gray-400">You: </span>
+                          )}
+                          {lastMsgPreview(conv.lastMessage)}
+                        </p>
+                        {conv.botName && (
+                          <span className="text-[10px] text-gray-300 flex-shrink-0 bg-gray-100 px-1.5 py-0.5 rounded-full truncate max-w-[60px]">
+                            {conv.botName}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })
+            )}
           </div>
         </div>
 
-        {/* List */}
-        <div className="flex-1 overflow-y-auto">
-          {loadingConvs ? (
-            <div className="flex items-center justify-center py-12 text-gray-400 text-sm">
-              Loading…
-            </div>
-          ) : filteredConvs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-gray-400">
-              <p className="text-3xl mb-2">💬</p>
-              <p className="text-sm font-medium">
-                {search ? "No results" : "No conversations yet"}
+        {/* ── RIGHT PANEL: Chat ──────────────────────────────────────────────── */}
+        <div className="flex-1 flex flex-col bg-gray-50 min-w-0">
+          {!selectedId ? (
+            /* Empty state */
+            <div className="flex-1 flex flex-col items-center justify-center text-gray-400 select-none">
+              <div className="w-24 h-24 rounded-3xl bg-white border-2 border-gray-100 flex items-center justify-center text-4xl mb-5 shadow-sm">
+                💬
+              </div>
+              <p className="text-xl font-semibold text-gray-600">
+                Select a conversation
               </p>
-              <p className="text-xs mt-1 text-gray-300">
-                {search
-                  ? "Try a different name"
-                  : "Messages from bot users will appear here"}
+              <p className="text-sm mt-2 text-gray-400">
+                Choose from the list on the left
               </p>
             </div>
           ) : (
-            filteredConvs.map((conv) => {
-              const isSelected = conv.id === selectedId;
-              const hasUnread = conv.unreadCount > 0;
-              return (
-                <button
-                  key={conv.id}
-                  onClick={() => setSelectedId(conv.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-gray-50 border-b border-gray-50
-                    ${isSelected ? "bg-blue-50 border-l-2 border-l-blue-500" : ""}`}
-                >
-                  <div className="relative flex-shrink-0">
-                    <Avatar conv={conv} />
-                    {hasUnread && (
-                      <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-blue-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
-                        {conv.unreadCount > 99 ? "99+" : conv.unreadCount}
-                      </span>
-                    )}
+            <>
+              {/* Chat header */}
+              <div className="flex items-center gap-3 px-6 py-4 bg-white border-b border-gray-200 flex-shrink-0 shadow-sm">
+                {selectedConv && (
+                  <div
+                    className={
+                      selectedConv.profilePhoto ? "cursor-zoom-in" : ""
+                    }
+                    onClick={() => {
+                      if (selectedConv.profilePhoto)
+                        setLightboxSrc(
+                          `/uploads/${selectedConv.botId}/${selectedConv.profilePhoto.split(/[\/\\]/).pop()}`,
+                        );
+                    }}
+                  >
+                    <Avatar conv={selectedConv} size="md" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline justify-between gap-1">
-                      <p
-                        className={`text-sm truncate ${hasUnread ? "font-bold text-gray-900" : "font-medium text-gray-800"}`}
-                      >
-                        {candidateName(conv)}
-                      </p>
-                      {conv.lastActivity && (
-                        <span
-                          className={`text-[11px] flex-shrink-0 ${hasUnread ? "text-blue-500 font-semibold" : "text-gray-400"}`}
-                        >
-                          {formatConvTime(conv.lastActivity)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center justify-between gap-1 mt-0.5">
-                      <p
-                        className={`text-xs truncate ${hasUnread ? "text-gray-700 font-medium" : "text-gray-400"}`}
-                      >
-                        {conv.lastMessage?.direction === "outbound" && (
-                          <span className="text-gray-400">You: </span>
-                        )}
-                        {lastMsgPreview(conv.lastMessage)}
-                      </p>
-                      {conv.botName && (
-                        <span className="text-[10px] text-gray-300 flex-shrink-0 bg-gray-100 px-1.5 py-0.5 rounded-full truncate max-w-[60px]">
-                          {conv.botName}
-                        </span>
-                      )}
-                    </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-gray-900 truncate">
+                    {selectedConv ? candidateName(selectedConv) : "…"}
+                  </p>
+                  {selectedConv?.username && (
+                    <p className="text-xs text-gray-400">
+                      @{selectedConv.username}
+                    </p>
+                  )}
+                </div>
+                {selectedConv?.botName && (
+                  <span className="text-xs text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full flex-shrink-0">
+                    🤖 {selectedConv.botName}
+                  </span>
+                )}
+              </div>
+
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto px-6 py-4">
+                {loadingMsgs ? (
+                  <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+                    Loading…
                   </div>
-                </button>
-              );
-            })
+                ) : messages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                    <p className="text-3xl mb-2">👋</p>
+                    <p className="text-sm font-medium">No messages yet</p>
+                    <p className="text-xs mt-1">Start the conversation below</p>
+                  </div>
+                ) : (
+                  <div className="space-y-1 max-w-3xl mx-auto">
+                    {groupedMessages().map((group) => (
+                      <React.Fragment key={group.date}>
+                        <DaySeparator date={group.date} />
+                        {group.msgs.map((msg) => (
+                          <MessageBubble
+                            key={msg.id}
+                            msg={msg}
+                            onImageClick={setLightboxSrc}
+                          />
+                        ))}
+                      </React.Fragment>
+                    ))}
+                    <div ref={chatBottomRef} />
+                  </div>
+                )}
+              </div>
+
+              {/* Input bar */}
+              <div className="flex-shrink-0 bg-white border-t border-gray-200 px-6 py-4">
+                <div className="flex items-end gap-3 max-w-3xl mx-auto">
+                  {/* Attach */}
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleSendFile(f);
+                      e.target.value = "";
+                    }}
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-10 h-10 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors flex-shrink-0 mb-0.5"
+                    title="Attach file"
+                  >
+                    📎
+                  </button>
+
+                  {/* Text input */}
+                  <div className="flex-1 relative">
+                    <input
+                      ref={inputRef}
+                      value={msgText}
+                      onChange={(e) => setMsgText(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder="Write a message…"
+                      className="w-full text-sm bg-gray-100 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:bg-white transition-colors placeholder-gray-400"
+                    />
+                  </div>
+
+                  {/* Send */}
+                  <button
+                    onClick={handleSendMessage}
+                    disabled={sending || !msgText.trim()}
+                    className="w-10 h-10 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-white transition-colors flex-shrink-0 mb-0.5"
+                    title="Send"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="w-4 h-4"
+                    >
+                      <line x1="22" y1="2" x2="11" y2="13" />
+                      <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </div>
       </div>
 
-      {/* ── RIGHT PANEL: Chat ──────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col bg-gray-50 min-w-0">
-        {!selectedId ? (
-          /* Empty state */
-          <div className="flex-1 flex flex-col items-center justify-center text-gray-400 select-none">
-            <div className="w-24 h-24 rounded-3xl bg-white border-2 border-gray-100 flex items-center justify-center text-4xl mb-5 shadow-sm">
-              💬
-            </div>
-            <p className="text-xl font-semibold text-gray-600">
-              Select a conversation
-            </p>
-            <p className="text-sm mt-2 text-gray-400">
-              Choose from the list on the left
-            </p>
-          </div>
-        ) : (
-          <>
-            {/* Chat header */}
-            <div className="flex items-center gap-3 px-6 py-4 bg-white border-b border-gray-200 flex-shrink-0 shadow-sm">
-              {selectedConv && <Avatar conv={selectedConv} size="md" />}
-              <div className="flex-1 min-w-0">
-                <p className="font-bold text-gray-900 truncate">
-                  {selectedConv ? candidateName(selectedConv) : "…"}
-                </p>
-                {selectedConv?.username && (
-                  <p className="text-xs text-gray-400">
-                    @{selectedConv.username}
-                  </p>
-                )}
-              </div>
-              {selectedConv?.botName && (
-                <span className="text-xs text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full flex-shrink-0">
-                  🤖 {selectedConv.botName}
-                </span>
-              )}
-            </div>
-
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-6 py-4">
-              {loadingMsgs ? (
-                <div className="flex items-center justify-center h-full text-gray-400 text-sm">
-                  Loading…
-                </div>
-              ) : messages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                  <p className="text-3xl mb-2">👋</p>
-                  <p className="text-sm font-medium">No messages yet</p>
-                  <p className="text-xs mt-1">Start the conversation below</p>
-                </div>
-              ) : (
-                <div className="space-y-1 max-w-3xl mx-auto">
-                  {groupedMessages().map((group) => (
-                    <React.Fragment key={group.date}>
-                      <DaySeparator date={group.date} />
-                      {group.msgs.map((msg) => (
-                        <MessageBubble key={msg.id} msg={msg} />
-                      ))}
-                    </React.Fragment>
-                  ))}
-                  <div ref={chatBottomRef} />
-                </div>
-              )}
-            </div>
-
-            {/* Input bar */}
-            <div className="flex-shrink-0 bg-white border-t border-gray-200 px-6 py-4">
-              <div className="flex items-end gap-3 max-w-3xl mx-auto">
-                {/* Attach */}
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) handleSendFile(f);
-                    e.target.value = "";
-                  }}
-                />
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-10 h-10 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors flex-shrink-0 mb-0.5"
-                  title="Attach file"
-                >
-                  📎
-                </button>
-
-                {/* Text input */}
-                <div className="flex-1 relative">
-                  <input
-                    ref={inputRef}
-                    value={msgText}
-                    onChange={(e) => setMsgText(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Write a message…"
-                    className="w-full text-sm bg-gray-100 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:bg-white transition-colors placeholder-gray-400"
-                  />
-                </div>
-
-                {/* Send */}
-                <button
-                  onClick={handleSendMessage}
-                  disabled={sending || !msgText.trim()}
-                  className="w-10 h-10 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-white transition-colors flex-shrink-0 mb-0.5"
-                  title="Send"
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="w-4 h-4"
-                  >
-                    <line x1="22" y1="2" x2="11" y2="13" />
-                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
+      {/* Lightbox */}
+      {lightboxSrc && (
+        <div
+          className="fixed inset-0 z-[200] bg-black/80 flex items-center justify-center"
+          onClick={() => setLightboxSrc(null)}
+        >
+          <img
+            src={lightboxSrc}
+            alt=""
+            className="max-w-[90vw] max-h-[90vh] rounded-2xl object-contain shadow-2xl"
+          />
+          <button
+            className="absolute top-4 right-4 text-white text-3xl leading-none opacity-70 hover:opacity-100"
+            onClick={() => setLightboxSrc(null)}
+          >
+            ×
+          </button>
+        </div>
+      )}
+    </>
   );
 };

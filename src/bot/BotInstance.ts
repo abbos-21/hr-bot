@@ -264,16 +264,14 @@ export class BotInstance {
           },
         });
 
-        const ack =
-          this.getQuestionMessage(question, candidate.lang, "success") ||
-          (await this.getTranslation(
-            botId,
-            candidate.lang,
-            "answer_saved",
-            "✅ Answer saved.",
-          ));
-        // Send ack and remove the contact keyboard in one message
-        await ctx.reply(ack, { reply_markup: { remove_keyboard: true } });
+        const ack = this.getQuestionMessage(
+          question,
+          candidate.lang,
+          "success",
+        );
+        // Remove keyboard (send custom ack if configured)
+        if (ack) await ctx.reply(ack);
+        await ctx.reply("✅", { reply_markup: { remove_keyboard: true } });
         await this.sendNextQuestion(ctx, candidate.id, candidate.lang, botId);
       } catch (err) {
         console.error("contact handler error", err);
@@ -348,7 +346,10 @@ export class BotInstance {
     await this.sendNextQuestion(ctx, candidate.id, lang, botId);
   }
 
-  // ─── Send next question ────────────────────────────────────────────────────
+  // Escape all MarkdownV2 reserved characters
+  private escapeMd(text: string): string {
+    return text.replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, "\\$&");
+  }
 
   private async sendNextQuestion(
     ctx: any,
@@ -410,7 +411,7 @@ export class BotInstance {
       return;
     }
 
-    const questionText = `(${currentStep + 1}/${questions.length}) ${translation.text}`;
+    const questionText = `*${this.escapeMd(translation.text)}*`;
 
     if (question.type === "choice" && question.options.length > 0) {
       const keyboard = new InlineKeyboard();
@@ -421,7 +422,10 @@ export class BotInstance {
           option.translations[0];
         if (optTr) keyboard.text(optTr.text, `ans:${option.id}`).row();
       }
-      await ctx.reply(questionText, { reply_markup: keyboard });
+      await ctx.reply(questionText, {
+        reply_markup: keyboard,
+        parse_mode: "MarkdownV2",
+      });
     } else if (question.type === "attachment") {
       const hint =
         question.fieldKey === "profilePhoto"
@@ -437,7 +441,9 @@ export class BotInstance {
               "upload_file",
               "📎 Please send a file or photo.",
             );
-      await ctx.reply(`${questionText}\n\n${hint}`);
+      await ctx.reply(`${questionText}\n\n${this.escapeMd(hint)}`, {
+        parse_mode: "MarkdownV2",
+      });
     } else if (question.fieldKey === "phone") {
       // Phone: send request_contact keyboard
       const buttonLabel =
@@ -448,9 +454,12 @@ export class BotInstance {
             ? "📱 Raqamni ulashish"
             : "📱 Share phone number");
       const kb = new Keyboard().requestContact(buttonLabel).resized();
-      await ctx.reply(questionText, { reply_markup: kb });
+      await ctx.reply(questionText, {
+        reply_markup: kb,
+        parse_mode: "MarkdownV2",
+      });
     } else {
-      await ctx.reply(questionText);
+      await ctx.reply(questionText, { parse_mode: "MarkdownV2" });
     }
   }
 
@@ -573,15 +582,8 @@ export class BotInstance {
       },
     });
 
-    const ack =
-      this.getQuestionMessage(question, candidate.lang, "success") ||
-      (await this.getTranslation(
-        candidate.botId,
-        candidate.lang,
-        "answer_saved",
-        "✅ Answer saved.",
-      ));
-    await ctx.reply(ack);
+    const ack = this.getQuestionMessage(question, candidate.lang, "success");
+    if (ack) await ctx.reply(ack);
 
     await this.sendNextQuestion(
       ctx,
@@ -641,15 +643,8 @@ export class BotInstance {
       },
     });
 
-    const ack =
-      this.getQuestionMessage(question, candidate.lang, "success") ||
-      (await this.getTranslation(
-        candidate.botId,
-        candidate.lang,
-        "answer_saved",
-        "✅ Answer saved.",
-      ));
-    await ctx.reply(ack);
+    const ack = this.getQuestionMessage(question, candidate.lang, "success");
+    if (ack) await ctx.reply(ack);
 
     await this.sendNextQuestion(
       ctx,
@@ -800,15 +795,8 @@ export class BotInstance {
       },
     });
 
-    const ackMsg =
-      this.getQuestionMessage(question, candidate.lang, "success") ||
-      (await this.getTranslation(
-        candidate.botId,
-        candidate.lang,
-        "answer_saved",
-        "✅ File received!",
-      ));
-    await ctx.reply(ackMsg);
+    const ackMsg = this.getQuestionMessage(question, candidate.lang, "success");
+    if (ackMsg) await ctx.reply(ackMsg);
 
     await this.sendNextQuestion(
       ctx,
@@ -825,7 +813,7 @@ export class BotInstance {
     fieldKey: string,
     value: string,
   ): Promise<void> {
-    const allowedFields = ["fullName", "age", "phone", "email"];
+    const allowedFields = ["fullName", "age", "phone", "email", "position"];
     if (allowedFields.includes(fieldKey)) {
       await prisma.candidate.update({
         where: { id: candidateId },

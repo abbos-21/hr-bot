@@ -109,16 +109,16 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
     await tx.question.update({
       where: { id: req.params.id },
       data: {
-        ...(type !== undefined && { type }),
-        // Required questions: only type + translations can change, not order/fieldKey/isActive
+        // Required questions: type, order, fieldKey, isActive are locked; translations, options, filterLabel are editable
         ...(existing.isRequired
           ? {}
           : {
+              ...(type !== undefined && { type }),
               ...(order !== undefined && { order }),
               ...(fieldKey !== undefined && { fieldKey }),
-              ...(filterLabel !== undefined && { filterLabel }),
               ...(isActive !== undefined && { isActive }),
             }),
+        ...(filterLabel !== undefined && { filterLabel }),
       },
     });
 
@@ -152,7 +152,7 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
       }
     }
 
-    if (options && !existing.isRequired) {
+    if (options) {
       await tx.questionOption.deleteMany({
         where: { questionId: req.params.id },
       });

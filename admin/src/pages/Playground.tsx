@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { botsApi, questionsApi } from "../api";
 import toast from "react-hot-toast";
+import { useConfirm } from "../components/ConfirmModal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -61,6 +62,7 @@ const REQUIRED_FIELD_LABELS: Record<string, string> = {
   age: "🎂 Age",
   phone: "📱 Phone",
   profilePhoto: "📸 Profile Photo",
+  position: "💼 Position",
 };
 
 function qText(q: Question) {
@@ -212,6 +214,16 @@ const RequiredQuestionRow: React.FC<{
       question.translations.map((t) => [t.lang, t.phoneButtonText || ""]),
     ),
   );
+  const [options, setOptions] = useState<
+    { translations: Record<string, string> }[]
+  >(
+    question.options.map((o) => ({
+      translations: Object.fromEntries(
+        o.translations.map((t) => [t.lang, t.text]),
+      ),
+    })),
+  );
+  const [filterLabel, setFilterLabel] = useState(question.filterLabel || "");
   const [showMessages, setShowMessages] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -219,12 +231,24 @@ const RequiredQuestionRow: React.FC<{
     setSaving(true);
     try {
       const updated = await questionsApi.update(question.id, {
+        filterLabel:
+          question.type === "choice" && filterLabel.trim()
+            ? filterLabel.trim()
+            : null,
         translations: Object.entries(translations).map(([lang, text]) => ({
           lang,
           text,
           phoneButtonText:
             question.fieldKey === "phone" ? phoneButtons[lang] || null : null,
         })),
+        ...(question.type === "choice" && {
+          options: options.map((opt, i) => ({
+            order: i,
+            translations: Object.entries(opt.translations)
+              .filter(([, v]) => v.trim())
+              .map(([lang, text]) => ({ lang, text })),
+          })),
+        }),
       });
       onUpdate(updated);
       setEditing(false);
@@ -329,6 +353,96 @@ const RequiredQuestionRow: React.FC<{
                   )}
                 </div>
               ))}
+              {/* Choice options editor */}
+              {question.type === "choice" && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Options
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOptions((o) => [
+                          ...o,
+                          {
+                            translations: Object.fromEntries(
+                              langs.map((l: any) => [l.code, ""]),
+                            ),
+                          },
+                        ])
+                      }
+                      className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      + Add option
+                    </button>
+                  </div>
+                  {options.map((opt, i) => (
+                    <div
+                      key={i}
+                      className="bg-gray-50 rounded-lg p-2 space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-400">
+                          Option {i + 1}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOptions((o) => o.filter((_, j) => j !== i))
+                          }
+                          className="text-xs text-red-400 hover:text-red-600"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      {langs.map((l: any) => (
+                        <div key={l.code} className="flex gap-2">
+                          <span className="text-xs font-mono bg-white px-2 py-1.5 rounded w-10 text-center text-gray-400 flex-shrink-0 border border-gray-200">
+                            {l.code}
+                          </span>
+                          <input
+                            value={opt.translations[l.code] || ""}
+                            onChange={(e) =>
+                              setOptions((o) =>
+                                o.map((x, j) =>
+                                  j === i
+                                    ? {
+                                        ...x,
+                                        translations: {
+                                          ...x.translations,
+                                          [l.code]: e.target.value,
+                                        },
+                                      }
+                                    : x,
+                                ),
+                              )
+                            }
+                            className="input flex-1 text-xs"
+                            placeholder={`Option in ${l.name}…`}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                  {/* Filter label */}
+                  <div>
+                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 block">
+                      Filter Label{" "}
+                      <span className="font-normal text-gray-400">
+                        (shown in Pipeline filters)
+                      </span>
+                    </label>
+                    <input
+                      value={filterLabel}
+                      onChange={(e) => setFilterLabel(e.target.value)}
+                      placeholder="e.g. Position, Department…"
+                      className="input w-full text-sm"
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-2 mt-1">
                 <button
                   onClick={handleSave}
@@ -346,7 +460,28 @@ const RequiredQuestionRow: React.FC<{
               </div>
             </div>
           ) : (
-            <p className="text-sm text-gray-800 mt-0.5">{qText(question)}</p>
+            <>
+              <p className="text-sm text-gray-800 mt-0.5">{qText(question)}</p>
+              {question.type === "choice" && (
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  {question.options.length > 0 ? (
+                    <span className="text-xs text-gray-400">
+                      {question.options.length}{" "}
+                      {question.options.length !== 1 ? "options" : "option"}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-red-400">
+                      No options yet — click ✏️ to add
+                    </span>
+                  )}
+                  {question.filterLabel && (
+                    <span className="text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                      🔽 {question.filterLabel}
+                    </span>
+                  )}
+                </div>
+              )}
+            </>
           )}
           {question.translations.some(
             (t) => t.successMessage || t.errorMessage || t.phoneButtonText,
@@ -383,7 +518,22 @@ const RequiredQuestionRow: React.FC<{
             💬
           </button>
           <button
-            onClick={() => setEditing((e) => !e)}
+            onClick={() => {
+              setTranslations(
+                Object.fromEntries(
+                  question.translations.map((t) => [t.lang, t.text]),
+                ),
+              );
+              setOptions(
+                question.options.map((o) => ({
+                  translations: Object.fromEntries(
+                    o.translations.map((t) => [t.lang, t.text]),
+                  ),
+                })),
+              );
+              setFilterLabel(question.filterLabel || "");
+              setEditing((e) => !e);
+            }}
             title="Edit question text"
             className="text-xs px-2 py-1 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
           >
@@ -415,6 +565,7 @@ const CustomQuestionCard: React.FC<{
   const [showMessages, setShowMessages] = useState(false);
   const [saving, setSaving] = useState(false);
   const meta = TYPE_META[question.type];
+  const { confirm, element: confirmElement } = useConfirm();
 
   // Form state (only initialised when editing opens)
   const [type, setType] = useState<QType>(question.type);
@@ -511,7 +662,13 @@ const CustomQuestionCard: React.FC<{
   };
 
   const handleDelete = async () => {
-    if (!confirm("Delete this question?")) return;
+    const ok = await confirm({
+      title: "Delete this question?",
+      message: "This will permanently remove the question and all its answers.",
+      danger: true,
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
     try {
       await questionsApi.delete(question.id);
       onDelete(question.id);
@@ -522,237 +679,243 @@ const CustomQuestionCard: React.FC<{
   };
 
   return (
-    <div className={`bg-white rounded-xl border-2 ${meta.border} p-4`}>
-      {!editing ? (
-        <div className="flex items-start gap-3">
-          <div
-            className={`flex-shrink-0 w-8 h-8 rounded-lg ${meta.bg} flex items-center justify-center text-sm`}
-          >
-            {meta.icon}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <span
-                className={`text-xs font-semibold ${meta.color} ${meta.bg} px-2 py-0.5 rounded-full`}
-              >
-                {meta.label}
-              </span>
+    <>
+      {confirmElement}
+      <div className={`bg-white rounded-xl border-2 ${meta.border} p-4`}>
+        {!editing ? (
+          <div className="flex items-start gap-3">
+            <div
+              className={`flex-shrink-0 w-8 h-8 rounded-lg ${meta.bg} flex items-center justify-center text-sm`}
+            >
+              {meta.icon}
             </div>
-            <p className="text-sm text-gray-800">{qText(question)}</p>
-            {question.type === "choice" && question.options.length > 0 && (
-              <div className="flex items-center gap-2 mt-1">
-                <p className="text-xs text-gray-400">
-                  {question.options.length} options
-                </p>
-                {question.filterLabel && (
-                  <span className="text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
-                    🔽 {question.filterLabel}
-                  </span>
-                )}
-              </div>
-            )}
-            {question.translations.some(
-              (t) => t.successMessage || t.errorMessage,
-            ) &&
-              (() => {
-                const tr = question.translations[0];
-                return (
-                  <div className="mt-2 flex gap-3 flex-wrap text-xs text-gray-400">
-                    {tr?.successMessage && (
-                      <span>
-                        ✅ "{tr.successMessage.slice(0, 40)}
-                        {tr.successMessage.length > 40 ? "…" : ""}"
-                      </span>
-                    )}
-                    {tr?.errorMessage && (
-                      <span>
-                        ❌ "{tr.errorMessage.slice(0, 40)}
-                        {tr.errorMessage.length > 40 ? "…" : ""}"
-                      </span>
-                    )}
-                  </div>
-                );
-              })()}
-          </div>
-          <div className="flex gap-1 flex-shrink-0">
-            <button
-              onClick={() => setShowMessages(true)}
-              title="Edit response messages"
-              className="text-xs px-2 py-1 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-            >
-              💬
-            </button>
-            <button
-              onClick={openEdit}
-              className="text-xs px-2 py-1 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-            >
-              ✏️
-            </button>
-            <button
-              onClick={handleDelete}
-              className="text-xs px-2 py-1 rounded text-red-300 hover:text-red-600 hover:bg-red-50 transition-colors"
-            >
-              🗑
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {/* Type selector */}
-          <div className="flex gap-2">
-            {(Object.keys(TYPE_META) as QType[]).map((t) => {
-              const m = TYPE_META[t];
-              return (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => {
-                    setType(t);
-                    setOptions([]);
-                  }}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border-2 text-sm font-medium transition-all
-                    ${type === t ? `${m.border} ${m.bg} ${m.color}` : "border-gray-200 text-gray-500 hover:border-gray-300"}`}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span
+                  className={`text-xs font-semibold ${meta.color} ${meta.bg} px-2 py-0.5 rounded-full`}
                 >
-                  {m.icon} {m.label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Translations */}
-          <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 block">
-              Question Text
-            </label>
-            {langs.map((l: any) => (
-              <div key={l.code} className="flex gap-2 mb-2">
-                <span className="text-xs font-mono bg-gray-100 px-2 py-2 rounded w-10 text-center text-gray-500 flex-shrink-0">
-                  {l.code}
+                  {meta.label}
                 </span>
-                <input
-                  value={translations[l.code] || ""}
-                  onChange={(e) =>
-                    setTranslations((p) => ({ ...p, [l.code]: e.target.value }))
-                  }
-                  className="input flex-1 text-sm"
-                  placeholder={`In ${l.name}…`}
-                />
               </div>
-            ))}
-          </div>
-
-          {/* Choice options */}
-          {type === "choice" && (
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Options
-                </label>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setOptions((o) => [...o, { translations: {} }])
-                  }
-                  className="text-xs text-blue-600 font-medium"
-                >
-                  + Add option
-                </button>
-              </div>
-              {options.map((opt, idx) => (
-                <div
-                  key={idx}
-                  className="bg-gray-50 rounded-xl p-3 mb-2 space-y-1.5"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-gray-500">
-                      Option {idx + 1}
+              <p className="text-sm text-gray-800">{qText(question)}</p>
+              {question.type === "choice" && question.options.length > 0 && (
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-xs text-gray-400">
+                    {question.options.length} options
+                  </p>
+                  {question.filterLabel && (
+                    <span className="text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                      🔽 {question.filterLabel}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setOptions((o) => o.filter((_, i) => i !== idx))
-                      }
-                      className="text-xs text-red-400"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                  {langs.map((l: any) => (
-                    <div key={l.code} className="flex gap-2">
-                      <span className="text-xs font-mono bg-white border border-gray-200 px-2 py-1.5 rounded w-10 text-center text-gray-500 flex-shrink-0">
-                        {l.code}
-                      </span>
-                      <input
-                        value={opt.translations[l.code] || ""}
-                        onChange={(e) =>
-                          setOptions((o) => {
-                            const n = [...o];
-                            n[idx] = {
-                              ...n[idx],
-                              translations: {
-                                ...n[idx].translations,
-                                [l.code]: e.target.value,
-                              },
-                            };
-                            return n;
-                          })
-                        }
-                        className="input flex-1 text-sm"
-                        placeholder={`Option in ${l.name}`}
-                      />
+                  )}
+                </div>
+              )}
+              {question.translations.some(
+                (t) => t.successMessage || t.errorMessage,
+              ) &&
+                (() => {
+                  const tr = question.translations[0];
+                  return (
+                    <div className="mt-2 flex gap-3 flex-wrap text-xs text-gray-400">
+                      {tr?.successMessage && (
+                        <span>
+                          ✅ "{tr.successMessage.slice(0, 40)}
+                          {tr.successMessage.length > 40 ? "…" : ""}"
+                        </span>
+                      )}
+                      {tr?.errorMessage && (
+                        <span>
+                          ❌ "{tr.errorMessage.slice(0, 40)}
+                          {tr.errorMessage.length > 40 ? "…" : ""}"
+                        </span>
+                      )}
                     </div>
-                  ))}
+                  );
+                })()}
+            </div>
+            <div className="flex gap-1 flex-shrink-0">
+              <button
+                onClick={() => setShowMessages(true)}
+                title="Edit response messages"
+                className="text-xs px-2 py-1 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+              >
+                💬
+              </button>
+              <button
+                onClick={openEdit}
+                className="text-xs px-2 py-1 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+              >
+                ✏️
+              </button>
+              <button
+                onClick={handleDelete}
+                className="text-xs px-2 py-1 rounded text-red-300 hover:text-red-600 hover:bg-red-50 transition-colors"
+              >
+                🗑
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Type selector */}
+            <div className="flex gap-2">
+              {(Object.keys(TYPE_META) as QType[]).map((t) => {
+                const m = TYPE_META[t];
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => {
+                      setType(t);
+                      setOptions([]);
+                    }}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border-2 text-sm font-medium transition-all
+                    ${type === t ? `${m.border} ${m.bg} ${m.color}` : "border-gray-200 text-gray-500 hover:border-gray-300"}`}
+                  >
+                    {m.icon} {m.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Translations */}
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 block">
+                Question Text
+              </label>
+              {langs.map((l: any) => (
+                <div key={l.code} className="flex gap-2 mb-2">
+                  <span className="text-xs font-mono bg-gray-100 px-2 py-2 rounded w-10 text-center text-gray-500 flex-shrink-0">
+                    {l.code}
+                  </span>
+                  <input
+                    value={translations[l.code] || ""}
+                    onChange={(e) =>
+                      setTranslations((p) => ({
+                        ...p,
+                        [l.code]: e.target.value,
+                      }))
+                    }
+                    className="input flex-1 text-sm"
+                    placeholder={`In ${l.name}…`}
+                  />
                 </div>
               ))}
             </div>
-          )}
 
-          {/* Filter label — only for choice questions */}
-          {type === "choice" && (
-            <div>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">
-                Filter Label{" "}
-                <span className="font-normal text-gray-400">
-                  (optional — shown in Pipeline filters)
-                </span>
-              </label>
-              <input
-                type="text"
-                value={filterLabel}
-                onChange={(e) => setFilterLabel(e.target.value)}
-                placeholder="e.g. Position, Department, Experience…"
-                className="input w-full text-sm"
-              />
+            {/* Choice options */}
+            {type === "choice" && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Options
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOptions((o) => [...o, { translations: {} }])
+                    }
+                    className="text-xs text-blue-600 font-medium"
+                  >
+                    + Add option
+                  </button>
+                </div>
+                {options.map((opt, idx) => (
+                  <div
+                    key={idx}
+                    className="bg-gray-50 rounded-xl p-3 mb-2 space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-gray-500">
+                        Option {idx + 1}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setOptions((o) => o.filter((_, i) => i !== idx))
+                        }
+                        className="text-xs text-red-400"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    {langs.map((l: any) => (
+                      <div key={l.code} className="flex gap-2">
+                        <span className="text-xs font-mono bg-white border border-gray-200 px-2 py-1.5 rounded w-10 text-center text-gray-500 flex-shrink-0">
+                          {l.code}
+                        </span>
+                        <input
+                          value={opt.translations[l.code] || ""}
+                          onChange={(e) =>
+                            setOptions((o) => {
+                              const n = [...o];
+                              n[idx] = {
+                                ...n[idx],
+                                translations: {
+                                  ...n[idx].translations,
+                                  [l.code]: e.target.value,
+                                },
+                              };
+                              return n;
+                            })
+                          }
+                          className="input flex-1 text-sm"
+                          placeholder={`Option in ${l.name}`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Filter label — only for choice questions */}
+            {type === "choice" && (
+              <div>
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">
+                  Filter Label{" "}
+                  <span className="font-normal text-gray-400">
+                    (optional — shown in Pipeline filters)
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  value={filterLabel}
+                  onChange={(e) => setFilterLabel(e.target.value)}
+                  placeholder="e.g. Position, Department, Experience…"
+                  className="input w-full text-sm"
+                />
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="btn-primary text-sm py-1.5 flex-1"
+              >
+                {saving ? "Saving…" : "Save"}
+              </button>
+              <button
+                onClick={() => setEditing(false)}
+                className="btn-secondary text-sm py-1.5"
+              >
+                Cancel
+              </button>
             </div>
-          )}
-
-          <div className="flex gap-2">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="btn-primary text-sm py-1.5 flex-1"
-            >
-              {saving ? "Saving…" : "Save"}
-            </button>
-            <button
-              onClick={() => setEditing(false)}
-              className="btn-secondary text-sm py-1.5"
-            >
-              Cancel
-            </button>
           </div>
-        </div>
-      )}
+        )}
 
-      {showMessages && (
-        <MessageEditorModal
-          question={question}
-          langs={langs}
-          onSave={handleSaveMessages}
-          onClose={() => setShowMessages(false)}
-        />
-      )}
-    </div>
+        {showMessages && (
+          <MessageEditorModal
+            question={question}
+            langs={langs}
+            onSave={handleSaveMessages}
+            onClose={() => setShowMessages(false)}
+          />
+        )}
+      </div>
+    </>
   );
 };
 

@@ -85,6 +85,17 @@ router.post("/", async (req: AuthRequest, res: Response) => {
                 ],
               },
             },
+            {
+              type: "choice",
+              order: 4,
+              isRequired: true,
+              fieldKey: "position",
+              translations: {
+                create: [
+                  { lang: "en", text: "Which position are you applying for?" },
+                ],
+              },
+            },
           ],
         },
       },

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useConfirm } from "../components/ConfirmModal";
 import { candidatesApi } from "../api";
 import { format } from "date-fns";
 import toast from "react-hot-toast";
@@ -9,6 +10,7 @@ export const PastCandidatesPage: React.FC = () => {
   const [search, setSearch] = useState("");
   const [restoring, setRestoring] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const { confirm, element: confirmElement } = useConfirm();
 
   const fetchArchived = () => {
     setLoading(true);
@@ -38,7 +40,14 @@ export const PastCandidatesPage: React.FC = () => {
 
   const handleDelete = async (candidate: any) => {
     const name = candidate.fullName || candidate.username || "This candidate";
-    if (!confirm(`Permanently delete ${name}? This cannot be undone.`)) return;
+    const ok = await confirm({
+      title: `Delete ${name}?`,
+      message:
+        "This will permanently delete the candidate and all their data. This cannot be undone.",
+      danger: true,
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
     setDeleting(candidate.id);
     try {
       await candidatesApi.delete(candidate.id);
