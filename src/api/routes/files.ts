@@ -110,6 +110,28 @@ router.get(
   },
 );
 
+// GET /api/files/serve-file/:fileId  – candidate uploaded files (inline, for viewable types)
+router.get(
+  "/serve-file/:fileId",
+  tokenQueryAuth,
+  async (req: AuthRequest, res: Response) => {
+    const file = await prisma.candidateFile.findUnique({
+      where: { id: req.params.fileId },
+    });
+    if (!file) return res.status(404).json({ error: "File not found" });
+
+    if (file.localPath && fs.existsSync(file.localPath)) {
+      if (file.mimeType) res.setHeader("Content-Type", file.mimeType);
+      res.setHeader(
+        "Content-Disposition",
+        `inline; filename="${file.fileName}"`,
+      );
+      return res.sendFile(require("path").resolve(file.localPath));
+    }
+    return res.status(404).json({ error: "File not found on disk" });
+  },
+);
+
 // GET /api/files/message/:messageId  – message attachment download
 router.get(
   "/message/:messageId",

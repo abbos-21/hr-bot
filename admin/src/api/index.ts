@@ -155,6 +155,10 @@ export const filesApi = {
     const token = localStorage.getItem("token") || "";
     return `${API_BASE}/files/serve/${messageId}?token=${token}`;
   },
+  serveFileUrl: (fileId: string) => {
+    const token = localStorage.getItem("token") || "";
+    return `${API_BASE}/files/serve-file/${fileId}?token=${token}`;
+  },
   messageDownloadUrl: (messageId: string) => {
     const token = localStorage.getItem("token") || "";
     return `${API_BASE}/files/message/${messageId}?token=${token}`;

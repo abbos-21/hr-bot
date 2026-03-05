@@ -36,6 +36,17 @@ const COLOR_PRESETS = [
   { color: "bg-orange-50", dot: "bg-orange-500", label: "Orange" },
 ];
 
+function isViewableInBrowser(mimeType?: string | null): boolean {
+  if (!mimeType) return false;
+  return (
+    mimeType.startsWith("image/") ||
+    mimeType.startsWith("video/") ||
+    mimeType.startsWith("audio/") ||
+    mimeType.startsWith("text/") ||
+    mimeType === "application/pdf"
+  );
+}
+
 // ─── Confirm modal ───────────────────────────────────────────────────────────
 
 const ConfirmModal: React.FC<{
@@ -761,15 +772,28 @@ const DetailPanel: React.FC<{
                                 }
                               />
                             )}
-                            {msg.type === "document" && (
-                              <a
-                                href={filesApi.serveUrl(msg.id)}
-                                download
-                                className={`flex items-center gap-1 ${isOut ? "text-blue-100" : "text-blue-600"}`}
-                              >
-                                📎 {msg.fileName || "File"}
-                              </a>
-                            )}
+                            {msg.type === "document" &&
+                              (() => {
+                                const viewable = isViewableInBrowser(
+                                  msg.mimeType,
+                                );
+                                return (
+                                  <a
+                                    href={filesApi.serveUrl(msg.id)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    {...(!viewable
+                                      ? { download: msg.fileName }
+                                      : {})}
+                                    className={`flex items-center gap-1 ${isOut ? "text-blue-100" : "text-blue-600"}`}
+                                  >
+                                    {msg.mimeType === "application/pdf"
+                                      ? "📄"
+                                      : "📎"}{" "}
+                                    {msg.fileName || "File"}
+                                  </a>
+                                );
+                              })()}
                             {msg.type === "voice" && (
                               <audio
                                 controls
@@ -833,26 +857,39 @@ const DetailPanel: React.FC<{
                       No files uploaded
                     </p>
                   ) : (
-                    candidate.files.map((f: any) => (
-                      <a
-                        key={f.id}
-                        href={filesApi.downloadUrl(f.id)}
-                        download={f.fileName}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors mb-1"
-                      >
-                        <span className="text-2xl">📄</span>
-                        <div>
-                          <p className="text-sm font-medium text-gray-800">
-                            {f.fileName}
-                          </p>
-                          <p className="text-xs text-gray-400">
-                            {format(new Date(f.createdAt), "MMM d, HH:mm")}
-                          </p>
-                        </div>
-                      </a>
-                    ))
+                    candidate.files.map((f: any) => {
+                      const viewable = isViewableInBrowser(f.mimeType);
+                      return (
+                        <a
+                          key={f.id}
+                          href={
+                            viewable
+                              ? filesApi.serveFileUrl(f.id)
+                              : filesApi.downloadUrl(f.id)
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          {...(!viewable ? { download: f.fileName } : {})}
+                          className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors mb-1"
+                        >
+                          <span className="text-2xl">
+                            {f.mimeType === "application/pdf"
+                              ? "📄"
+                              : viewable
+                                ? "🖼️"
+                                : "📎"}
+                          </span>
+                          <div>
+                            <p className="text-sm font-medium text-gray-800">
+                              {f.fileName}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              {format(new Date(f.createdAt), "MMM d, HH:mm")}
+                            </p>
+                          </div>
+                        </a>
+                      );
+                    })
                   )}
                 </div>
               )}

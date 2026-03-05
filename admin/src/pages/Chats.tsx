@@ -31,6 +31,17 @@ function candidateInitials(c: any) {
     .toUpperCase();
 }
 
+function isViewableInBrowser(mimeType?: string | null): boolean {
+  if (!mimeType) return false;
+  return (
+    mimeType.startsWith("image/") ||
+    mimeType.startsWith("video/") ||
+    mimeType.startsWith("audio/") ||
+    mimeType.startsWith("text/") ||
+    mimeType === "application/pdf"
+  );
+}
+
 function avatarGradient(id: string) {
   const gradients = [
     "from-blue-400 to-indigo-500",
@@ -141,23 +152,28 @@ const MessageBubble: React.FC<{
         </div>
       );
     // document / unknown
+    const viewable = isViewableInBrowser(msg.mimeType);
     return (
       <a
         href={filesApi.serveUrl(msg.id)}
-        download={msg.fileName}
+        target="_blank"
+        rel="noopener noreferrer"
+        {...(!viewable ? { download: msg.fileName } : {})}
         className={`flex items-center gap-2.5 hover:opacity-80 transition-opacity ${isOut ? "text-blue-100" : "text-blue-600"}`}
       >
         <div
           className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${isOut ? "bg-blue-500" : "bg-blue-100"}`}
         >
-          <span className="text-sm">📎</span>
+          <span className="text-sm">
+            {msg.mimeType === "application/pdf" ? "📄" : "📎"}
+          </span>
         </div>
         <div className="min-w-0">
           <p className="text-sm font-medium truncate max-w-[180px]">
             {msg.fileName || "File"}
           </p>
           <p className={`text-xs ${isOut ? "text-blue-200" : "text-gray-400"}`}>
-            Download
+            {viewable ? "Open" : "Download"}
           </p>
         </div>
       </a>
