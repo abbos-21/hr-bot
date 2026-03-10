@@ -53,6 +53,7 @@ export function useConfirm() {
     danger?: boolean;
     confirmLabel?: string;
     onConfirm: () => void;
+    onCancel: () => void;
   } | null>(null);
 
   const confirm = (opts: {
@@ -68,6 +69,10 @@ export function useConfirm() {
           setModal(null);
           resolve(true);
         },
+        onCancel: () => {
+          setModal(null);
+          resolve(false);
+        },
       });
     });
 
@@ -78,9 +83,7 @@ export function useConfirm() {
       danger={modal.danger}
       confirmLabel={modal.confirmLabel}
       onConfirm={modal.onConfirm}
-      onCancel={() => {
-        setModal(null);
-      }}
+      onCancel={modal.onCancel}
     />
   ) : null;
 

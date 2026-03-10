@@ -81,6 +81,56 @@ router.get("/:candidateId", async (req: AuthRequest, res: Response) => {
   return res.json(messages);
 });
 
+// POST /api/messages/broadcast — send the same text to many candidates at once
+router.post("/broadcast", async (req: AuthRequest, res: Response) => {
+  const { candidateIds, text } = req.body;
+  if (!Array.isArray(candidateIds) || !candidateIds.length)
+    return res.status(400).json({ error: "candidateIds array required" });
+  if (!text?.trim()) return res.status(400).json({ error: "text required" });
+
+  const candidates = await prisma.candidate.findMany({
+    where: { id: { in: candidateIds } },
+  });
+
+  let sent = 0;
+  let failed = 0;
+  for (const candidate of candidates) {
+    try {
+      const botInstance = botManager.getInstance(candidate.botId);
+      let telegramMsgId: number | undefined;
+      if (botInstance && candidate.telegramId) {
+        telegramMsgId = await botInstance.sendMessageToCandidate(
+          candidate.telegramId,
+          { type: "text", text: text.trim() },
+        );
+      }
+      const message = await prisma.message.create({
+        data: {
+          candidateId: candidate.id,
+          adminId: req.admin!.adminId,
+          direction: "outbound",
+          type: "text",
+          text: text.trim(),
+          telegramMsgId,
+        },
+        include: { admin: { select: { id: true, name: true } } },
+      });
+      await prisma.candidate.update({
+        where: { id: candidate.id },
+        data: { lastActivity: new Date() },
+      });
+      wsManager.broadcast({
+        type: "NEW_MESSAGE",
+        payload: { candidateId: candidate.id, message },
+      });
+      sent++;
+    } catch {
+      failed++;
+    }
+  }
+  return res.json({ sent, failed, total: candidates.length });
+});
+
 // POST /api/messages/:candidateId - send text message
 router.post("/:candidateId", async (req: AuthRequest, res: Response) => {
   const { text, type } = req.body;

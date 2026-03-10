@@ -1,4 +1,16 @@
-import React, { useEffect, useState, useCallback } from "react";
+/**
+ * Playground.tsx — Question management with branching
+ *
+ * Architecture notes:
+ * - QuestionCard and BranchSection are mutually recursive.
+ *   Both use `function` declarations (hoisted) so neither needs a
+ *   forward-reference variable.
+ * - All state lives in PlaygroundPage; callbacks flow down.
+ * - Create/edit uses a single scrollable modal — no fake multi-step nav.
+ * - Language inputs are shown stacked (all at once), not hidden behind tabs.
+ */
+
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { botsApi, questionsApi } from "../api";
 import toast from "react-hot-toast";
 import { useConfirm } from "../components/ConfirmModal";
@@ -6,6 +18,11 @@ import { useConfirm } from "../components/ConfirmModal";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type QType = "text" | "choice" | "attachment";
+
+interface Lang {
+  code: string;
+  name: string;
+}
 
 interface Translation {
   lang: string;
@@ -19,652 +36,968 @@ interface QOption {
   order: number;
   translations: { lang: string; text: string }[];
 }
-
 interface Question {
   id: string;
+  botId?: string;
   type: QType;
+  order?: number;
   isRequired?: boolean;
   fieldKey?: string | null;
   filterLabel?: string | null;
+  parentOptionId?: string | null;
+  branchOrder?: number | null;
   translations: Translation[];
   options: QOption[];
 }
 
+// ─── Meta / helpers ────────────────────────────────────────────────────────────
+
 const TYPE_META: Record<
   QType,
-  { icon: string; label: string; color: string; bg: string; border: string }
+  {
+    icon: string;
+    label: string;
+    desc: string;
+    color: string;
+    bg: string;
+    border: string;
+  }
 > = {
   text: {
     icon: "✏️",
     label: "Text",
-    color: "text-blue-700",
-    bg: "bg-blue-50",
-    border: "border-blue-200",
+    desc: "Free-text answer",
+    color: "text-sky-700",
+    bg: "bg-sky-50",
+    border: "border-sky-200",
   },
   choice: {
     icon: "☑️",
     label: "Choice",
-    color: "text-amber-700",
-    bg: "bg-amber-50",
-    border: "border-amber-200",
+    desc: "Pick from a list",
+    color: "text-violet-700",
+    bg: "bg-violet-50",
+    border: "border-violet-200",
   },
   attachment: {
     icon: "📎",
-    label: "Attachment",
+    label: "File",
+    desc: "Photo or document",
     color: "text-emerald-700",
     bg: "bg-emerald-50",
     border: "border-emerald-200",
   },
 };
 
-const REQUIRED_FIELD_LABELS: Record<string, string> = {
-  fullName: "👤 Full Name",
-  age: "🎂 Age",
-  phone: "📱 Phone",
-  profilePhoto: "📸 Profile Photo",
-  position: "💼 Position",
+const REQUIRED_META: Record<string, { label: string; hint?: string }> = {
+  fullName: { label: "👤 Full name" },
+  age: {
+    label: "🎂 Date of birth",
+    hint: "Expects DD.MM.YYYY · age auto-calculated",
+  },
+  phone: { label: "📱 Phone", hint: "Uses Telegram contact button" },
+  profilePhoto: { label: "📸 Profile photo" },
+  position: { label: "💼 Position" },
 };
 
-function qText(q: Question) {
-  return q.translations[0]?.text || "Untitled question";
+function qText(q: Question): string {
+  return q.translations[0]?.text || "";
 }
 
-// ─── Message Editor Modal ─────────────────────────────────────────────────────
+function optText(opt: QOption, preferLang?: string): string {
+  if (preferLang) {
+    return (
+      opt.translations.find((t) => t.lang === preferLang)?.text ||
+      opt.translations[0]?.text ||
+      ""
+    );
+  }
+  return opt.translations[0]?.text || "";
+}
 
-const MessageEditorModal: React.FC<{
-  question: Question;
-  langs: any[];
-  onSave: (
-    translations: {
-      lang: string;
-      successMessage: string | null;
-      errorMessage: string | null;
-    }[],
-  ) => Promise<void>;
-  onClose: () => void;
-}> = ({ question, langs, onSave, onClose }) => {
-  // Build initial state: { [lang]: { success, error } }
-  const init: Record<string, { success: string; error: string }> = {};
-  langs.forEach((l: any) => {
-    const tr = question.translations.find((t) => t.lang === l.code);
-    init[l.code] = {
-      success: tr?.successMessage || "",
-      error: tr?.errorMessage || "",
-    };
-  });
-  const [msgs, setMsgs] =
-    useState<Record<string, { success: string; error: string }>>(init);
-  const isPhoneQuestion = question.fieldKey === "phone";
-  const [saving, setSaving] = useState(false);
+// ─── Shared: Language row inputs ──────────────────────────────────────────────
+// Shows all language inputs stacked vertically — no hidden tabs.
 
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await onSave(
-        langs.map((l: any) => ({
-          lang: l.code,
-          successMessage: msgs[l.code]?.success || null,
-          errorMessage: msgs[l.code]?.error || null,
-        })),
-      );
-      onClose();
-    } finally {
-      setSaving(false);
-    }
-  };
-
+function LangInputs({
+  langs,
+  values,
+  onChange,
+  placeholder,
+  multiline = false,
+  inputRef,
+}: {
+  langs: Lang[];
+  values: Record<string, string>;
+  onChange: (lang: string, val: string) => void;
+  placeholder?: (lang: Lang) => string;
+  multiline?: boolean;
+  inputRef?: React.RefObject<HTMLTextAreaElement | HTMLInputElement>;
+}) {
   return (
-    <div
-      className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-2xl w-full max-w-lg shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between">
-          <h3 className="font-bold text-gray-900">Response Messages</h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-xl leading-none"
-          >
-            ×
-          </button>
-        </div>
-        <p className="text-xs text-gray-500">
-          Leave blank to use the default system message. Set per language.
-        </p>
-        {langs.map((l: any) => (
-          <div
-            key={l.code}
-            className="border border-gray-100 rounded-xl p-3 space-y-2 bg-gray-50"
-          >
-            <p className="text-xs font-semibold text-gray-600 flex items-center gap-1.5">
-              <span className="font-mono bg-white border border-gray-200 px-1.5 py-0.5 rounded text-xs">
-                {l.code}
-              </span>
-              {l.name}
-            </p>
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">
-                ✅ Success message
-              </label>
+    <div className="space-y-2">
+      {langs.map((l, idx) => {
+        const val = values[l.code] || "";
+        const ph = placeholder ? placeholder(l) : `In ${l.name}…`;
+        const missingOther =
+          langs.some((x) => x.code !== l.code && values[x.code]?.trim()) &&
+          !val.trim();
+        return (
+          <div key={l.code} className="flex gap-2 items-start">
+            <span
+              className={`flex-shrink-0 text-xs font-semibold font-mono mt-2.5 w-7 text-right ${
+                val.trim()
+                  ? "text-gray-500"
+                  : missingOther
+                    ? "text-amber-500"
+                    : "text-gray-300"
+              }`}
+            >
+              {l.code}
+            </span>
+            {multiline ? (
               <textarea
-                value={msgs[l.code]?.success || ""}
-                onChange={(e) =>
-                  setMsgs((m) => ({
-                    ...m,
-                    [l.code]: { ...m[l.code], success: e.target.value },
-                  }))
+                ref={
+                  idx === 0
+                    ? (inputRef as React.RefObject<HTMLTextAreaElement>)
+                    : undefined
                 }
-                placeholder={`e.g. Great, got it! ✅`}
+                value={val}
+                onChange={(e) => onChange(l.code, e.target.value)}
                 rows={2}
-                className="input resize-none text-sm"
+                className="input flex-1 text-sm resize-none"
+                placeholder={ph}
               />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">
-                ❌ Error message
-              </label>
-              <textarea
-                value={msgs[l.code]?.error || ""}
-                onChange={(e) =>
-                  setMsgs((m) => ({
-                    ...m,
-                    [l.code]: { ...m[l.code], error: e.target.value },
-                  }))
+            ) : (
+              <input
+                ref={
+                  idx === 0
+                    ? (inputRef as React.RefObject<HTMLInputElement>)
+                    : undefined
                 }
-                placeholder={`e.g. Please send a photo, not text.`}
-                rows={2}
-                className="input resize-none text-sm"
+                value={val}
+                onChange={(e) => onChange(l.code, e.target.value)}
+                className="input flex-1 text-sm"
+                placeholder={ph}
               />
-            </div>
+            )}
           </div>
-        ))}
-        <div className="flex gap-2 pt-1">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="btn-primary flex-1"
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
-          <button onClick={onClose} className="btn-secondary flex-1">
-            Cancel
-          </button>
-        </div>
-      </div>
+        );
+      })}
     </div>
   );
-};
+}
 
-// ─── Required Question Row ────────────────────────────────────────────────────
+// ─── Question Create / Edit Modal ─────────────────────────────────────────────
+// Single scrollable form — no fake multi-step navigation.
 
-const RequiredQuestionRow: React.FC<{
-  question: Question;
-  langs: any[];
-  onUpdate: (q: Question) => void;
-}> = ({ question, langs, onUpdate }) => {
-  const [editing, setEditing] = useState(false);
-  const [translations, setTranslations] = useState<Record<string, string>>(
-    Object.fromEntries(question.translations.map((t) => [t.lang, t.text])),
-  );
-  const [phoneButtons, setPhoneButtons] = useState<Record<string, string>>(
+function QuestionModal({
+  mode,
+  langs,
+  botId,
+  question,
+  parentOptionId,
+  parentOptionLabel,
+  existingCount = 0,
+  onSave,
+  onClose,
+}: {
+  mode: "create" | "edit";
+  langs: Lang[];
+  botId: string;
+  question?: Question;
+  parentOptionId?: string;
+  parentOptionLabel?: string;
+  existingCount?: number;
+  onSave: (q: Question) => void;
+  onClose: () => void;
+}) {
+  const isEdit = mode === "edit";
+  const isRequired = !!question?.isRequired;
+  const isPhone = question?.fieldKey === "phone";
+  const isBranchCreate = !!parentOptionId;
+
+  // ── form state ──
+  const [type, setType] = useState<QType>(question?.type || "text");
+  const [texts, setTexts] = useState<Record<string, string>>(
     Object.fromEntries(
-      question.translations.map((t) => [t.lang, t.phoneButtonText || ""]),
+      langs.map((l) => [
+        l.code,
+        question?.translations.find((t) => t.lang === l.code)?.text || "",
+      ]),
+    ),
+  );
+  const [successMsgs, setSuccessMsgs] = useState<Record<string, string>>(
+    Object.fromEntries(
+      langs.map((l) => [
+        l.code,
+        question?.translations.find((t) => t.lang === l.code)?.successMessage ||
+          "",
+      ]),
+    ),
+  );
+  const [errorMsgs, setErrorMsgs] = useState<Record<string, string>>(
+    Object.fromEntries(
+      langs.map((l) => [
+        l.code,
+        question?.translations.find((t) => t.lang === l.code)?.errorMessage ||
+          "",
+      ]),
+    ),
+  );
+  const [phoneLabels, setPhoneLabels] = useState<Record<string, string>>(
+    Object.fromEntries(
+      langs.map((l) => [
+        l.code,
+        question?.translations.find((t) => t.lang === l.code)
+          ?.phoneButtonText || "",
+      ]),
     ),
   );
   const [options, setOptions] = useState<
     { translations: Record<string, string> }[]
   >(
-    question.options.map((o) => ({
+    question?.options.map((o) => ({
       translations: Object.fromEntries(
-        o.translations.map((t) => [t.lang, t.text]),
+        langs.map((l) => [
+          l.code,
+          o.translations.find((t) => t.lang === l.code)?.text || "",
+        ]),
       ),
-    })),
+    })) || [],
   );
-  const [filterLabel, setFilterLabel] = useState(question.filterLabel || "");
+  const [filterLabel, setFilterLabel] = useState(question?.filterLabel || "");
   const [showMessages, setShowMessages] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const handleSave = async () => {
+  const firstRef = useRef<HTMLTextAreaElement | HTMLInputElement>(null);
+
+  useEffect(() => {
+    const id = setTimeout(() => (firstRef.current as HTMLElement)?.focus(), 60);
+    return () => clearTimeout(id);
+  }, []);
+
+  useEffect(() => {
+    const fn = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", fn);
+    return () => window.removeEventListener("keydown", fn);
+  }, [onClose]);
+
+  // translation completeness
+  const hasMissingText =
+    langs.some((l) => !texts[l.code]?.trim()) &&
+    langs.some((l) => texts[l.code]?.trim());
+  const hasNoText = langs.every((l) => !texts[l.code]?.trim());
+  const hasEnoughOpts =
+    type !== "choice" ||
+    options.filter((o) => langs.some((l) => o.translations[l.code]?.trim()))
+      .length >= 1;
+
+  const canSave = !hasNoText && hasEnoughOpts;
+
+  async function handleSave() {
+    if (!canSave) {
+      if (hasNoText) {
+        toast.error("Add question text in at least one language");
+        return;
+      }
+      if (!hasEnoughOpts) {
+        toast.error("Add at least one answer option");
+        return;
+      }
+    }
     setSaving(true);
     try {
-      const updated = await questionsApi.update(question.id, {
+      const payload: Record<string, any> = {
+        ...(isEdit
+          ? {}
+          : {
+              botId,
+              order: existingCount,
+              parentOptionId: parentOptionId || null,
+              branchOrder: existingCount,
+            }),
+        ...(isRequired ? {} : { type }),
         filterLabel:
-          question.type === "choice" && filterLabel.trim()
-            ? filterLabel.trim()
-            : null,
-        translations: Object.entries(translations).map(([lang, text]) => ({
-          lang,
-          text,
-          phoneButtonText:
-            question.fieldKey === "phone" ? phoneButtons[lang] || null : null,
-        })),
-        ...(question.type === "choice" && {
-          options: options.map((opt, i) => ({
-            order: i,
-            translations: Object.entries(opt.translations)
-              .filter(([, v]) => v.trim())
-              .map(([lang, text]) => ({ lang, text })),
+          type === "choice" && filterLabel.trim() ? filterLabel.trim() : null,
+        translations: langs
+          .filter((l) => texts[l.code]?.trim())
+          .map((l) => ({
+            lang: l.code,
+            text: texts[l.code].trim(),
+            successMessage: successMsgs[l.code]?.trim() || null,
+            errorMessage: errorMsgs[l.code]?.trim() || null,
+            phoneButtonText: isPhone
+              ? phoneLabels[l.code]?.trim() || null
+              : null,
           })),
-        }),
-      });
-      onUpdate(updated);
-      setEditing(false);
-      toast.success("Question updated");
-    } catch {
-      toast.error("Failed to save");
+        options:
+          type === "choice"
+            ? options.map((o, i) => ({
+                order: i,
+                translations: langs
+                  .filter((l) => o.translations[l.code]?.trim())
+                  .map((l) => ({
+                    lang: l.code,
+                    text: o.translations[l.code].trim(),
+                  })),
+              }))
+            : [],
+      };
+      const saved = isEdit
+        ? await questionsApi.update(question!.id, payload)
+        : await questionsApi.create(payload);
+      onSave(saved);
+      toast.success(isEdit ? "Question saved" : "Question added");
+      onClose();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || "Failed to save");
     }
     setSaving(false);
-  };
+  }
 
-  const handleSaveMessages = async (
-    msgTranslations: {
-      lang: string;
-      successMessage: string | null;
-      errorMessage: string | null;
-    }[],
-  ) => {
-    // Merge with existing translations
-    const existing = Object.fromEntries(
-      question.translations.map((t) => [t.lang, t]),
+  function addOption() {
+    setOptions((o) => [
+      ...o,
+      { translations: Object.fromEntries(langs.map((l) => [l.code, ""])) },
+    ]);
+  }
+  function removeOption(i: number) {
+    setOptions((o) => o.filter((_, j) => j !== i));
+  }
+  function setOptLang(i: number, lang: string, val: string) {
+    setOptions((o) =>
+      o.map((x, j) =>
+        j !== i
+          ? x
+          : { ...x, translations: { ...x.translations, [lang]: val } },
+      ),
     );
-    const merged = langs.map((l: any) => {
-      const msg = msgTranslations.find((m) => m.lang === l.code);
-      return {
-        lang: l.code,
-        text: existing[l.code]?.text || "",
-        successMessage:
-          msg?.successMessage ?? existing[l.code]?.successMessage ?? null,
-        errorMessage:
-          msg?.errorMessage ?? existing[l.code]?.errorMessage ?? null,
-      };
-    });
-    const updated = await questionsApi.update(question.id, {
-      translations: merged,
-    });
-    onUpdate(updated);
-    toast.success("Messages updated");
-  };
+  }
 
-  const label =
-    REQUIRED_FIELD_LABELS[question.fieldKey || ""] || question.fieldKey;
-  const fieldHint: Record<string, string> = {
-    age: "Expects DD.MM.YYYY → auto-calculates age",
-    phone: "Uses Telegram contact button",
-  };
-  const hint = fieldHint[question.fieldKey || ""];
+  const m = TYPE_META[type];
 
   return (
-    <div className="bg-white rounded-xl border-2 border-blue-100 p-4">
-      <div className="flex items-start gap-3">
-        <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-sm">
-          🔒
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-              Required
-            </span>
-            <span className="text-xs text-gray-400">{label}</span>
-            {hint && (
-              <span className="text-xs text-amber-500 bg-amber-50 px-2 py-0.5 rounded-full">
-                {hint}
-              </span>
-            )}
-          </div>
-          {editing ? (
-            <div className="space-y-3 mt-2">
-              {/* Question text translations */}
-              {langs.map((l: any) => (
-                <div key={l.code} className="space-y-1.5">
-                  <div className="flex gap-2">
-                    <span className="text-xs font-mono bg-gray-100 px-2 py-2 rounded w-10 text-center text-gray-500 flex-shrink-0">
-                      {l.code}
-                    </span>
-                    <input
-                      value={translations[l.code] || ""}
-                      onChange={(e) =>
-                        setTranslations((t) => ({
-                          ...t,
-                          [l.code]: e.target.value,
-                        }))
-                      }
-                      className="input flex-1 text-sm"
-                      placeholder={`Question text in ${l.name}…`}
-                    />
-                  </div>
-                  {/* Phone button label per language */}
-                  {question.fieldKey === "phone" && (
-                    <div className="flex gap-2 pl-12">
-                      <input
-                        value={phoneButtons[l.code] || ""}
-                        onChange={(e) =>
-                          setPhoneButtons((b) => ({
-                            ...b,
-                            [l.code]: e.target.value,
-                          }))
-                        }
-                        className="input flex-1 text-xs"
-                        placeholder={`Button label in ${l.name} (e.g. 📱 Share number)`}
-                      />
-                    </div>
-                  )}
-                </div>
-              ))}
-              {/* Choice options editor */}
-              {question.type === "choice" && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Options
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setOptions((o) => [
-                          ...o,
-                          {
-                            translations: Object.fromEntries(
-                              langs.map((l: any) => [l.code, ""]),
-                            ),
-                          },
-                        ])
-                      }
-                      className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                    >
-                      + Add option
-                    </button>
-                  </div>
-                  {options.map((opt, i) => (
-                    <div
-                      key={i}
-                      className="bg-gray-50 rounded-lg p-2 space-y-1.5"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-400">
-                          Option {i + 1}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setOptions((o) => o.filter((_, j) => j !== i))
-                          }
-                          className="text-xs text-red-400 hover:text-red-600"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                      {langs.map((l: any) => (
-                        <div key={l.code} className="flex gap-2">
-                          <span className="text-xs font-mono bg-white px-2 py-1.5 rounded w-10 text-center text-gray-400 flex-shrink-0 border border-gray-200">
-                            {l.code}
-                          </span>
-                          <input
-                            value={opt.translations[l.code] || ""}
-                            onChange={(e) =>
-                              setOptions((o) =>
-                                o.map((x, j) =>
-                                  j === i
-                                    ? {
-                                        ...x,
-                                        translations: {
-                                          ...x.translations,
-                                          [l.code]: e.target.value,
-                                        },
-                                      }
-                                    : x,
-                                ),
-                              )
-                            }
-                            className="input flex-1 text-xs"
-                            placeholder={`Option in ${l.name}…`}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                  {/* Filter label */}
-                  <div>
-                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 block">
-                      Filter Label{" "}
-                      <span className="font-normal text-gray-400">
-                        (shown in Pipeline filters)
-                      </span>
-                    </label>
-                    <input
-                      value={filterLabel}
-                      onChange={(e) => setFilterLabel(e.target.value)}
-                      placeholder="e.g. Position, Department…"
-                      className="input w-full text-sm"
-                    />
-                  </div>
-                </div>
+    <div
+      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={isEdit ? "Edit question" : "Create question"}
+    >
+      <div
+        className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[92dvh] sm:max-h-[88vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* ── Header ── */}
+        <div className="px-5 pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-sm font-bold text-gray-900 leading-snug">
+                {isEdit
+                  ? isRequired
+                    ? "Edit required question"
+                    : "Edit question"
+                  : isBranchCreate
+                    ? "Add follow-up question"
+                    : "Add question"}
+              </h2>
+              {isBranchCreate && parentOptionLabel && (
+                <p className="text-xs text-violet-600 mt-0.5 truncate">
+                  ↳ Shown when candidate picks{" "}
+                  <strong>"{parentOptionLabel}"</strong>
+                </p>
               )}
+              {isEdit && qText(question!) && (
+                <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">
+                  {qText(question!)}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={onClose}
+              className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+              aria-label="Close"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
 
-              <div className="flex gap-2 mt-1">
+          {/* Type picker — hidden for required questions */}
+          {!isRequired && (
+            <div
+              className="grid grid-cols-3 gap-2 mt-4"
+              role="group"
+              aria-label="Question type"
+            >
+              {(
+                Object.entries(TYPE_META) as [
+                  QType,
+                  (typeof TYPE_META)[QType],
+                ][]
+              ).map(([t, meta]) => (
                 <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="btn-primary text-xs py-1.5 px-3"
+                  key={t}
+                  type="button"
+                  onClick={() => {
+                    setType(t);
+                    if (t !== "choice") setOptions([]);
+                  }}
+                  aria-pressed={type === t}
+                  className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 text-xs font-semibold transition-all text-left ${
+                    type === t
+                      ? `${meta.border} ${meta.bg} ${meta.color}`
+                      : "border-gray-100 text-gray-500 hover:border-gray-200 hover:bg-gray-50"
+                  }`}
                 >
-                  {saving ? "…" : "Save"}
+                  <span className="text-base leading-none">{meta.icon}</span>
+                  <span className="leading-tight">
+                    {meta.label}
+                    <span className="block font-normal text-[10px] opacity-60 mt-0.5">
+                      {meta.desc}
+                    </span>
+                  </span>
                 </button>
-                <button
-                  onClick={() => setEditing(false)}
-                  className="btn-secondary text-xs py-1.5 px-3"
-                >
-                  Cancel
-                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── Scrollable form body ── */}
+        <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-4 space-y-5">
+          {/* Question text */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              Question text
+              {hasMissingText && (
+                <span className="ml-2 font-normal text-amber-500 normal-case tracking-normal">
+                  · missing in{" "}
+                  {langs
+                    .filter((l) => !texts[l.code]?.trim())
+                    .map((l) => l.name)
+                    .join(", ")}
+                </span>
+              )}
+            </label>
+            <LangInputs
+              langs={langs}
+              values={texts}
+              onChange={(lang, val) => setTexts((t) => ({ ...t, [lang]: val }))}
+              placeholder={(l) => `What do you want to ask in ${l.name}?`}
+              multiline
+              inputRef={firstRef as React.RefObject<HTMLTextAreaElement>}
+            />
+          </div>
+
+          {/* Phone button label */}
+          {isPhone && (
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                Button label
+                <span className="ml-1 font-normal text-gray-400 normal-case tracking-normal">
+                  — the "Share phone" button text
+                </span>
+              </label>
+              <LangInputs
+                langs={langs}
+                values={phoneLabels}
+                onChange={(lang, val) =>
+                  setPhoneLabels((t) => ({ ...t, [lang]: val }))
+                }
+                placeholder={() => "📱 Share phone number"}
+              />
+            </div>
+          )}
+
+          {/* Attachment note */}
+          {type === "attachment" && (
+            <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-100 rounded-xl p-3.5 text-sm text-emerald-700">
+              <span className="text-xl leading-none mt-0.5">📎</span>
+              <div>
+                <p className="font-semibold text-sm">File / photo upload</p>
+                <p className="text-xs text-emerald-600 mt-0.5">
+                  The candidate will be prompted to send a file or photo. No
+                  options needed.
+                </p>
               </div>
             </div>
-          ) : (
-            <>
-              <p className="text-sm text-gray-800 mt-0.5">{qText(question)}</p>
-              {question.type === "choice" && (
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  {question.options.length > 0 ? (
-                    <span className="text-xs text-gray-400">
-                      {question.options.length}{" "}
-                      {question.options.length !== 1 ? "options" : "option"}
-                    </span>
-                  ) : (
-                    <span className="text-xs text-red-400">
-                      No options yet — click ✏️ to add
-                    </span>
-                  )}
-                  {question.filterLabel && (
-                    <span className="text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
-                      🔽 {question.filterLabel}
-                    </span>
-                  )}
-                </div>
-              )}
-            </>
           )}
-          {question.translations.some(
-            (t) => t.successMessage || t.errorMessage || t.phoneButtonText,
-          ) &&
-            (() => {
-              const tr = question.translations[0];
-              return (
-                <div className="mt-2 flex gap-3 flex-wrap text-xs text-gray-400">
-                  {tr?.successMessage && (
-                    <span>
-                      ✅ "{tr.successMessage.slice(0, 40)}
-                      {tr.successMessage.length > 40 ? "…" : ""}"
+
+          {/* Options — choice only */}
+          {type === "choice" && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Answer options
+                  {options.length === 0 && (
+                    <span className="ml-2 font-normal text-red-400 normal-case tracking-normal">
+                      · required
                     </span>
                   )}
-                  {tr?.errorMessage && (
-                    <span>
-                      ❌ "{tr.errorMessage.slice(0, 40)}
-                      {tr.errorMessage.length > 40 ? "…" : ""}"
-                    </span>
-                  )}
-                  {tr?.phoneButtonText && (
-                    <span>📱 "{tr.phoneButtonText.slice(0, 30)}"</span>
-                  )}
+                </label>
+                <button
+                  type="button"
+                  onClick={addOption}
+                  className="text-xs font-semibold text-violet-600 hover:text-violet-800 transition-colors"
+                >
+                  + Add option
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {options.map((opt, i) => (
+                  <div key={i} className="bg-gray-50 rounded-xl p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-gray-400">
+                        Option {i + 1}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeOption(i)}
+                        className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-red-500 transition-colors rounded"
+                        aria-label={`Remove option ${i + 1}`}
+                      >
+                        <svg
+                          className="w-3.5 h-3.5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                    <LangInputs
+                      langs={langs}
+                      values={opt.translations}
+                      onChange={(lang, val) => setOptLang(i, lang, val)}
+                      placeholder={(l) => `Option ${i + 1} in ${l.name}…`}
+                    />
+                  </div>
+                ))}
+
+                {options.length === 0 && (
+                  <button
+                    type="button"
+                    onClick={addOption}
+                    className="w-full py-3 border-2 border-dashed border-violet-200 rounded-xl text-sm text-violet-400 hover:border-violet-400 hover:text-violet-600 hover:bg-violet-50 transition-colors"
+                  >
+                    + Add first option
+                  </button>
+                )}
+              </div>
+
+              {/* Filter label */}
+              <div className="mt-3">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">
+                  Pipeline filter label
+                  <span className="ml-1 font-normal text-gray-400 normal-case tracking-normal">
+                    — optional
+                  </span>
+                </label>
+                <input
+                  value={filterLabel}
+                  onChange={(e) => setFilterLabel(e.target.value)}
+                  className="input w-full text-sm"
+                  placeholder="e.g. Position, Experience level, Framework…"
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  When set, this question becomes a filter in the Candidates
+                  pipeline.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Response messages — collapsible */}
+          <div className="border border-gray-100 rounded-xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowMessages((v) => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 text-xs font-semibold text-gray-500 hover:bg-gray-50 transition-colors"
+              aria-expanded={showMessages}
+            >
+              <span className="flex items-center gap-2">
+                <span>💬</span>
+                Response messages
+                <span className="font-normal text-gray-400">— optional</span>
+              </span>
+              <svg
+                className={`w-3.5 h-3.5 transition-transform ${showMessages ? "rotate-180" : ""}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </button>
+
+            {showMessages && (
+              <div className="px-4 pb-4 pt-1 space-y-4 border-t border-gray-100">
+                <p className="text-xs text-gray-400">
+                  Custom messages sent to the candidate immediately after they
+                  answer.
+                </p>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                    ✅ After a valid answer
+                  </label>
+                  <LangInputs
+                    langs={langs}
+                    values={successMsgs}
+                    onChange={(lang, val) =>
+                      setSuccessMsgs((m) => ({ ...m, [lang]: val }))
+                    }
+                    placeholder={() => "e.g. Great, thank you!"}
+                  />
                 </div>
-              );
-            })()}
+                {!isPhone && type !== "choice" && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                      ❌ After an invalid answer
+                    </label>
+                    <LangInputs
+                      langs={langs}
+                      values={errorMsgs}
+                      onChange={(lang, val) =>
+                        setErrorMsgs((m) => ({ ...m, [lang]: val }))
+                      }
+                      placeholder={() => "e.g. Please try again."}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-        <div className="flex gap-1 flex-shrink-0">
-          <button
-            onClick={() => setShowMessages(true)}
-            title="Edit response messages"
-            className="text-xs px-2 py-1 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-          >
-            💬
+
+        {/* ── Footer ── */}
+        <div className="flex-shrink-0 px-5 py-4 border-t border-gray-100 flex items-center justify-end gap-3">
+          <button onClick={onClose} className="btn-secondary text-sm py-2 px-4">
+            Cancel
           </button>
           <button
-            onClick={() => {
-              setTranslations(
-                Object.fromEntries(
-                  question.translations.map((t) => [t.lang, t.text]),
-                ),
-              );
-              setOptions(
-                question.options.map((o) => ({
-                  translations: Object.fromEntries(
-                    o.translations.map((t) => [t.lang, t.text]),
-                  ),
-                })),
-              );
-              setFilterLabel(question.filterLabel || "");
-              setEditing((e) => !e);
-            }}
-            title="Edit question text"
-            className="text-xs px-2 py-1 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+            onClick={handleSave}
+            disabled={saving || !canSave}
+            className="btn-primary text-sm py-2 px-5 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            ✏️
+            {saving ? "Saving…" : isEdit ? "Save changes" : "Add question"}
           </button>
         </div>
       </div>
-      {showMessages && (
-        <MessageEditorModal
-          question={question}
+    </div>
+  );
+}
+
+// ─── BranchSection + QuestionCard (mutually recursive via function hoisting) ──
+
+interface SharedCardProps {
+  langs: Lang[];
+  allQuestions: Question[];
+  botId: string;
+  onUpdate: (q: Question) => void;
+  onDelete: (id: string) => void;
+  onAdd: (q: Question) => void;
+}
+
+// BranchSection — the indented panel shown below a choice option
+function BranchSection({
+  optionId,
+  optionLabel,
+  depth,
+  langs,
+  allQuestions,
+  botId,
+  onUpdate,
+  onDelete,
+  onAdd,
+}: SharedCardProps & {
+  optionId: string;
+  optionLabel: string;
+  depth: number;
+}) {
+  const [showCreate, setShowCreate] = useState(false);
+
+  const branchQs = allQuestions
+    .filter((q) => q.parentOptionId === optionId)
+    .sort((a, b) => (a.branchOrder ?? 0) - (b.branchOrder ?? 0));
+
+  async function move(q: Question, dir: "up" | "down") {
+    const idx = branchQs.findIndex((x) => x.id === q.id);
+    const swapIdx = dir === "up" ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= branchQs.length) return;
+    const sibling = branchQs[swapIdx];
+    try {
+      await Promise.all([
+        questionsApi.update(q.id, { branchOrder: swapIdx }),
+        questionsApi.update(sibling.id, { branchOrder: idx }),
+      ]);
+      onUpdate({ ...q, branchOrder: swapIdx });
+      onUpdate({ ...sibling, branchOrder: idx });
+    } catch {
+      toast.error("Failed to reorder");
+    }
+  }
+
+  // Depth-indexed left-border colors for visual nesting
+  const accentColors = [
+    "border-violet-300",
+    "border-sky-300",
+    "border-emerald-300",
+    "border-amber-300",
+  ];
+  const accent = accentColors[depth % accentColors.length];
+
+  return (
+    <div className={`mt-2 pl-3 border-l-2 ${accent}`}>
+      <p className="text-[11px] text-gray-400 mb-2 flex items-center gap-1.5">
+        <span className="text-gray-300">↳</span>
+        If <span className="font-semibold text-gray-600">"{optionLabel}"</span>,
+        also ask:
+      </p>
+      <div className="space-y-2">
+        {branchQs.map((q, idx) => (
+          <div key={q.id} className="flex gap-1.5 items-start">
+            {/* Reorder arrows */}
+            <div className="flex flex-col flex-shrink-0 mt-2 gap-0.5">
+              <button
+                onClick={() => move(q, "up")}
+                disabled={idx === 0}
+                className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-gray-600 hover:bg-gray-100 rounded text-[10px] disabled:invisible transition-colors"
+                aria-label="Move up"
+              >
+                ▲
+              </button>
+              <button
+                onClick={() => move(q, "down")}
+                disabled={idx === branchQs.length - 1}
+                className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-gray-600 hover:bg-gray-100 rounded text-[10px] disabled:invisible transition-colors"
+                aria-label="Move down"
+              >
+                ▼
+              </button>
+            </div>
+            <div className="flex-1 min-w-0">
+              {/* QuestionCard is function-hoisted, safe to call here */}
+              <QuestionCard
+                question={q}
+                depth={depth + 1}
+                langs={langs}
+                allQuestions={allQuestions}
+                botId={botId}
+                onUpdate={onUpdate}
+                onDelete={onDelete}
+                onAdd={onAdd}
+              />
+            </div>
+          </div>
+        ))}
+
+        {branchQs.length === 0 && !showCreate && (
+          <p className="text-xs text-gray-400 italic">
+            No follow-up questions yet.
+          </p>
+        )}
+
+        {/* Create button */}
+        <button
+          onClick={() => setShowCreate(true)}
+          className="flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-violet-600 hover:bg-violet-50 px-2 py-1.5 rounded-lg transition-colors"
+        >
+          <svg
+            className="w-3.5 h-3.5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 4v16m8-8H4"
+            />
+          </svg>
+          Add follow-up question
+        </button>
+      </div>
+
+      {showCreate && (
+        <QuestionModal
+          mode="create"
           langs={langs}
-          onSave={handleSaveMessages}
-          onClose={() => setShowMessages(false)}
+          botId={botId}
+          parentOptionId={optionId}
+          parentOptionLabel={optionLabel}
+          existingCount={branchQs.length}
+          onSave={(q) => {
+            onAdd(q);
+            setShowCreate(false);
+          }}
+          onClose={() => setShowCreate(false)}
         />
       )}
     </div>
   );
-};
+}
 
-// ─── Custom Question Card ─────────────────────────────────────────────────────
+// OptionsView — the in-card option list with branch expand toggles
+function OptionsView({
+  question,
+  depth,
+  langs,
+  allQuestions,
+  botId,
+  onUpdate,
+  onDelete,
+  onAdd,
+}: SharedCardProps & { question: Question; depth: number }) {
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set());
 
-const CustomQuestionCard: React.FC<{
+  const toggle = (id: string) =>
+    setOpenIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  if (question.options.length === 0)
+    return (
+      <p className="text-xs text-red-400 mt-1">
+        No options — click Edit to add
+      </p>
+    );
+
+  const primaryLang = langs[0]?.code;
+
+  return (
+    <div className="mt-2 space-y-1">
+      {question.options.map((opt, i) => {
+        const id = opt.id || `_${i}`;
+        const label = optText(opt, primaryLang) || `Option ${i + 1}`;
+        const branchCount = allQuestions.filter(
+          (q) => q.parentOptionId === opt.id,
+        ).length;
+        const isOpen = openIds.has(id);
+
+        return (
+          <div key={id}>
+            <div className="flex items-center gap-2 group/opt py-0.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-gray-200 flex-shrink-0" />
+              <span className="text-sm text-gray-600 flex-1 min-w-0 truncate">
+                {label}
+              </span>
+              {opt.id && (
+                <button
+                  onClick={() => toggle(id)}
+                  className={`flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border transition-colors flex-shrink-0 ${
+                    branchCount > 0
+                      ? isOpen
+                        ? "bg-violet-100 text-violet-700 border-violet-200"
+                        : "bg-violet-50 text-violet-600 border-violet-100 hover:bg-violet-100"
+                      : "border-transparent text-gray-300 hover:text-violet-500 hover:bg-violet-50 hover:border-violet-100"
+                  }`}
+                  aria-expanded={isOpen}
+                  title={
+                    branchCount > 0
+                      ? `${branchCount} follow-up question${branchCount !== 1 ? "s" : ""}`
+                      : "Add follow-up questions"
+                  }
+                >
+                  <span>↳</span>
+                  {branchCount > 0 ? (
+                    <span>{branchCount}</span>
+                  ) : (
+                    <span>branch</span>
+                  )}
+                </button>
+              )}
+            </div>
+
+            {isOpen && opt.id && (
+              <BranchSection
+                optionId={opt.id}
+                optionLabel={label}
+                depth={depth}
+                langs={langs}
+                allQuestions={allQuestions}
+                botId={botId}
+                onUpdate={onUpdate}
+                onDelete={onDelete}
+                onAdd={onAdd}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// QuestionCard — unified card for both required and custom questions (view-only)
+// Editing always opens QuestionModal.
+function QuestionCard({
+  question,
+  depth = 0,
+  canReorder,
+  onMoveUp,
+  onMoveDown,
+  isFirst,
+  isLast,
+  langs,
+  allQuestions,
+  botId,
+  onUpdate,
+  onDelete,
+  onAdd,
+}: SharedCardProps & {
   question: Question;
-  langs: any[];
-  onUpdate: (q: Question) => void;
-  onDelete: (id: string) => void;
-}> = ({ question, langs, onUpdate, onDelete }) => {
-  const [editing, setEditing] = useState(false);
-  const [showMessages, setShowMessages] = useState(false);
-  const [saving, setSaving] = useState(false);
+  depth?: number;
+  canReorder?: boolean;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  isFirst?: boolean;
+  isLast?: boolean;
+}) {
+  const [showEdit, setShowEdit] = useState(false);
+  const { confirm, element: confirmEl } = useConfirm();
   const meta = TYPE_META[question.type];
-  const { confirm, element: confirmElement } = useConfirm();
+  const isRequired = !!question.isRequired;
+  const isBranch = !!question.parentOptionId;
+  const reqMeta =
+    isRequired && question.fieldKey ? REQUIRED_META[question.fieldKey] : null;
 
-  // Form state (only initialised when editing opens)
-  const [type, setType] = useState<QType>(question.type);
-  const [translations, setTranslations] = useState<Record<string, string>>(
-    Object.fromEntries(question.translations.map((t) => [t.lang, t.text])),
-  );
-  const [options, setOptions] = useState<
-    { translations: Record<string, string> }[]
-  >(
-    question.options.map((o) => ({
-      translations: Object.fromEntries(
-        o.translations.map((t) => [t.lang, t.text]),
-      ),
-    })),
-  );
-  const [filterLabel, setFilterLabel] = useState(question.filterLabel || "");
+  // preview of response messages
+  const tr0 = question.translations[0];
+  const hasMessages = !!(tr0?.successMessage || tr0?.errorMessage);
 
-  const openEdit = () => {
-    setType(question.type);
-    setTranslations(
-      Object.fromEntries(question.translations.map((t) => [t.lang, t.text])),
-    );
-    setOptions(
-      question.options.map((o) => ({
-        translations: Object.fromEntries(
-          o.translations.map((t) => [t.lang, t.text]),
-        ),
-      })),
-    );
-    setFilterLabel(question.filterLabel || "");
-    setEditing(true);
-  };
-
-  const handleSave = async () => {
-    if (type === "choice" && options.length === 0) {
-      toast.error("Add at least one option");
-      return;
-    }
-    setSaving(true);
-    try {
-      const updated = await questionsApi.update(question.id, {
-        type,
-        filterLabel:
-          type === "choice" && filterLabel.trim() ? filterLabel.trim() : null,
-        translations: Object.entries(translations)
-          .filter(([, v]) => v)
-          .map(([lang, text]) => ({ lang, text })),
-        options:
-          type === "choice"
-            ? options.map((opt, i) => ({
-                order: i,
-                translations: Object.entries(opt.translations)
-                  .filter(([, v]) => v)
-                  .map(([lang, text]) => ({ lang, text })),
-              }))
-            : [],
-      });
-      onUpdate(updated);
-      setEditing(false);
-      toast.success("Question updated");
-    } catch {
-      toast.error("Failed to save");
-    }
-    setSaving(false);
-  };
-
-  const handleSaveMessages = async (
-    msgTranslations: {
-      lang: string;
-      successMessage: string | null;
-      errorMessage: string | null;
-    }[],
-  ) => {
-    // Merge with existing translations
-    const existing = Object.fromEntries(
-      question.translations.map((t) => [t.lang, t]),
-    );
-    const merged = langs.map((l: any) => {
-      const msg = msgTranslations.find((m) => m.lang === l.code);
-      return {
-        lang: l.code,
-        text: existing[l.code]?.text || "",
-        successMessage:
-          msg?.successMessage ?? existing[l.code]?.successMessage ?? null,
-        errorMessage:
-          msg?.errorMessage ?? existing[l.code]?.errorMessage ?? null,
-      };
-    });
-    const updated = await questionsApi.update(question.id, {
-      translations: merged,
-    });
-    onUpdate(updated);
-    toast.success("Messages updated");
-  };
-
-  const handleDelete = async () => {
+  async function handleDelete() {
     const ok = await confirm({
       title: "Delete this question?",
-      message: "This will permanently remove the question and all its answers.",
+      message:
+        "This permanently removes the question, all branch questions attached to its options, and all recorded answers.",
       danger: true,
       confirmLabel: "Delete",
     });
@@ -672,464 +1005,212 @@ const CustomQuestionCard: React.FC<{
     try {
       await questionsApi.delete(question.id);
       onDelete(question.id);
-      toast.success("Question deleted");
+      toast.success("Deleted");
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Failed to delete");
+      toast.error(err?.response?.data?.error || "Failed to delete");
     }
-  };
+  }
+
+  const cardCls =
+    depth > 0
+      ? "bg-gray-50 rounded-xl border border-gray-200 p-3"
+      : isRequired
+        ? "bg-white rounded-xl border-2 border-blue-100 p-4"
+        : "bg-white rounded-xl border border-gray-200 hover:border-gray-300 p-4 transition-colors";
 
   return (
     <>
-      {confirmElement}
-      <div className={`bg-white rounded-xl border-2 ${meta.border} p-4`}>
-        {!editing ? (
-          <div className="flex items-start gap-3">
-            <div
-              className={`flex-shrink-0 w-8 h-8 rounded-lg ${meta.bg} flex items-center justify-center text-sm`}
-            >
-              {meta.icon}
+      {confirmEl}
+      <div className={cardCls}>
+        <div className="flex items-start gap-3">
+          {/* Reorder handles */}
+          {canReorder && (
+            <div className="flex flex-col flex-shrink-0 mt-0.5 gap-0.5">
+              <button
+                onClick={onMoveUp}
+                disabled={isFirst}
+                className="w-5 h-5 flex items-center justify-center text-gray-200 hover:text-gray-600 hover:bg-gray-100 rounded text-[10px] disabled:invisible transition-colors"
+                aria-label="Move question up"
+              >
+                ▲
+              </button>
+              <button
+                onClick={onMoveDown}
+                disabled={isLast}
+                className="w-5 h-5 flex items-center justify-center text-gray-200 hover:text-gray-600 hover:bg-gray-100 rounded text-[10px] disabled:invisible transition-colors"
+                aria-label="Move question down"
+              >
+                ▼
+              </button>
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
+          )}
+
+          {/* Type icon */}
+          <div
+            className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-base ${
+              isRequired ? "bg-blue-50" : meta.bg
+            }`}
+          >
+            {isRequired ? "🔒" : meta.icon}
+          </div>
+
+          {/* Body */}
+          <div className="flex-1 min-w-0">
+            {/* Tag row */}
+            <div className="flex flex-wrap items-center gap-1.5 mb-1">
+              {isRequired ? (
+                <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                  Required
+                </span>
+              ) : (
                 <span
-                  className={`text-xs font-semibold ${meta.color} ${meta.bg} px-2 py-0.5 rounded-full`}
+                  className={`text-xs font-medium px-2 py-0.5 rounded-full ${meta.bg} ${meta.color}`}
                 >
                   {meta.label}
                 </span>
-              </div>
-              <p className="text-sm text-gray-800">{qText(question)}</p>
-              {question.type === "choice" && question.options.length > 0 && (
-                <div className="flex items-center gap-2 mt-1">
-                  <p className="text-xs text-gray-400">
-                    {question.options.length} options
-                  </p>
-                  {question.filterLabel && (
-                    <span className="text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
-                      🔽 {question.filterLabel}
-                    </span>
-                  )}
-                </div>
               )}
-              {question.translations.some(
-                (t) => t.successMessage || t.errorMessage,
-              ) &&
-                (() => {
-                  const tr = question.translations[0];
-                  return (
-                    <div className="mt-2 flex gap-3 flex-wrap text-xs text-gray-400">
-                      {tr?.successMessage && (
-                        <span>
-                          ✅ "{tr.successMessage.slice(0, 40)}
-                          {tr.successMessage.length > 40 ? "…" : ""}"
-                        </span>
-                      )}
-                      {tr?.errorMessage && (
-                        <span>
-                          ❌ "{tr.errorMessage.slice(0, 40)}
-                          {tr.errorMessage.length > 40 ? "…" : ""}"
-                        </span>
-                      )}
-                    </div>
-                  );
-                })()}
+              {isBranch && (
+                <span className="text-xs text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full">
+                  ↳ Branch
+                </span>
+              )}
+              {question.filterLabel && (
+                <span className="text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                  🔽 {question.filterLabel}
+                </span>
+              )}
+              {reqMeta && (
+                <span className="text-xs text-gray-400">{reqMeta.label}</span>
+              )}
             </div>
-            <div className="flex gap-1 flex-shrink-0">
-              <button
-                onClick={() => setShowMessages(true)}
-                title="Edit response messages"
-                className="text-xs px-2 py-1 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-              >
-                💬
-              </button>
-              <button
-                onClick={openEdit}
-                className="text-xs px-2 py-1 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-              >
-                ✏️
-              </button>
+
+            {/* Question text */}
+            <p
+              className={`text-sm font-medium ${qText(question) ? "text-gray-800" : "text-gray-300 italic"}`}
+            >
+              {qText(question) || "No text yet"}
+            </p>
+
+            {/* Required field hint */}
+            {reqMeta?.hint && (
+              <p className="text-xs text-amber-500 mt-0.5">{reqMeta.hint}</p>
+            )}
+
+            {/* Options with branch toggles */}
+            {question.type === "choice" && (
+              <OptionsView
+                question={question}
+                depth={depth + 1}
+                langs={langs}
+                allQuestions={allQuestions}
+                botId={botId}
+                onUpdate={onUpdate}
+                onDelete={onDelete}
+                onAdd={onAdd}
+              />
+            )}
+
+            {/* Response message previews */}
+            {hasMessages && (
+              <div className="mt-1.5 flex flex-wrap gap-3">
+                {tr0?.successMessage && (
+                  <span className="text-xs text-gray-400 truncate max-w-[200px]">
+                    ✅ "{tr0.successMessage}"
+                  </span>
+                )}
+                {tr0?.errorMessage && (
+                  <span className="text-xs text-gray-400 truncate max-w-[200px]">
+                    ❌ "{tr0.errorMessage}"
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              onClick={() => setShowEdit(true)}
+              className="px-2.5 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              aria-label="Edit question"
+            >
+              Edit
+            </button>
+            {!isRequired && (
               <button
                 onClick={handleDelete}
-                className="text-xs px-2 py-1 rounded text-red-300 hover:text-red-600 hover:bg-red-50 transition-colors"
+                className="w-7 h-7 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                aria-label="Delete question"
               >
-                🗑
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {/* Type selector */}
-            <div className="flex gap-2">
-              {(Object.keys(TYPE_META) as QType[]).map((t) => {
-                const m = TYPE_META[t];
-                return (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => {
-                      setType(t);
-                      setOptions([]);
-                    }}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border-2 text-sm font-medium transition-all
-                    ${type === t ? `${m.border} ${m.bg} ${m.color}` : "border-gray-200 text-gray-500 hover:border-gray-300"}`}
-                  >
-                    {m.icon} {m.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Translations */}
-            <div>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 block">
-                Question Text
-              </label>
-              {langs.map((l: any) => (
-                <div key={l.code} className="flex gap-2 mb-2">
-                  <span className="text-xs font-mono bg-gray-100 px-2 py-2 rounded w-10 text-center text-gray-500 flex-shrink-0">
-                    {l.code}
-                  </span>
-                  <input
-                    value={translations[l.code] || ""}
-                    onChange={(e) =>
-                      setTranslations((p) => ({
-                        ...p,
-                        [l.code]: e.target.value,
-                      }))
-                    }
-                    className="input flex-1 text-sm"
-                    placeholder={`In ${l.name}…`}
+                <svg
+                  className="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                   />
-                </div>
-              ))}
-            </div>
-
-            {/* Choice options */}
-            {type === "choice" && (
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Options
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setOptions((o) => [...o, { translations: {} }])
-                    }
-                    className="text-xs text-blue-600 font-medium"
-                  >
-                    + Add option
-                  </button>
-                </div>
-                {options.map((opt, idx) => (
-                  <div
-                    key={idx}
-                    className="bg-gray-50 rounded-xl p-3 mb-2 space-y-1.5"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-gray-500">
-                        Option {idx + 1}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setOptions((o) => o.filter((_, i) => i !== idx))
-                        }
-                        className="text-xs text-red-400"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                    {langs.map((l: any) => (
-                      <div key={l.code} className="flex gap-2">
-                        <span className="text-xs font-mono bg-white border border-gray-200 px-2 py-1.5 rounded w-10 text-center text-gray-500 flex-shrink-0">
-                          {l.code}
-                        </span>
-                        <input
-                          value={opt.translations[l.code] || ""}
-                          onChange={(e) =>
-                            setOptions((o) => {
-                              const n = [...o];
-                              n[idx] = {
-                                ...n[idx],
-                                translations: {
-                                  ...n[idx].translations,
-                                  [l.code]: e.target.value,
-                                },
-                              };
-                              return n;
-                            })
-                          }
-                          className="input flex-1 text-sm"
-                          placeholder={`Option in ${l.name}`}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Filter label — only for choice questions */}
-            {type === "choice" && (
-              <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">
-                  Filter Label{" "}
-                  <span className="font-normal text-gray-400">
-                    (optional — shown in Pipeline filters)
-                  </span>
-                </label>
-                <input
-                  type="text"
-                  value={filterLabel}
-                  onChange={(e) => setFilterLabel(e.target.value)}
-                  placeholder="e.g. Position, Department, Experience…"
-                  className="input w-full text-sm"
-                />
-              </div>
-            )}
-
-            <div className="flex gap-2">
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="btn-primary text-sm py-1.5 flex-1"
-              >
-                {saving ? "Saving…" : "Save"}
+                </svg>
               </button>
-              <button
-                onClick={() => setEditing(false)}
-                className="btn-secondary text-sm py-1.5"
-              >
-                Cancel
-              </button>
-            </div>
+            )}
           </div>
-        )}
-
-        {showMessages && (
-          <MessageEditorModal
-            question={question}
-            langs={langs}
-            onSave={handleSaveMessages}
-            onClose={() => setShowMessages(false)}
-          />
-        )}
+        </div>
       </div>
+
+      {showEdit && (
+        <QuestionModal
+          mode="edit"
+          langs={langs}
+          botId={botId}
+          question={question}
+          onSave={onUpdate}
+          onClose={() => setShowEdit(false)}
+        />
+      )}
     </>
   );
-};
+}
 
-// ─── Add Question Form ────────────────────────────────────────────────────────
+// ─── Section divider ──────────────────────────────────────────────────────────
 
-const AddQuestionForm: React.FC<{
-  botId: string;
-  langs: any[];
-  existingCount: number;
-  onAdd: (q: Question) => void;
-  onCancel: () => void;
-}> = ({ botId, langs, existingCount, onAdd, onCancel }) => {
-  const [type, setType] = useState<QType>("text");
-  const [translations, setTranslations] = useState<Record<string, string>>({});
-  const [options, setOptions] = useState<
-    { translations: Record<string, string> }[]
-  >([]);
-  const [filterLabel, setFilterLabel] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (
-      type === "choice" &&
-      options.filter((o) => Object.values(o.translations).some((v) => v.trim()))
-        .length === 0
-    ) {
-      toast.error("Add at least one option");
-      return;
-    }
-    setSaving(true);
-    try {
-      const q = await questionsApi.create({
-        botId,
-        type,
-        order: existingCount,
-        filterLabel:
-          type === "choice" && filterLabel.trim() ? filterLabel.trim() : null,
-        translations: Object.entries(translations)
-          .filter(([, v]) => v.trim())
-          .map(([lang, text]) => ({ lang, text })),
-        options:
-          type === "choice"
-            ? options.map((opt, i) => ({
-                order: i,
-                translations: Object.entries(opt.translations)
-                  .filter(([, v]) => v.trim())
-                  .map(([lang, text]) => ({ lang, text })),
-              }))
-            : [],
-      });
-      onAdd(q);
-      toast.success("Question added");
-    } catch {
-      toast.error("Failed to add");
-    }
-    setSaving(false);
-  };
-
+function SectionHeader({
+  title,
+  note,
+  action,
+}: {
+  title: string;
+  note: string;
+  action?: React.ReactNode;
+}) {
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="bg-blue-50 border-2 border-blue-100 rounded-xl p-4 space-y-4"
-    >
-      <p className="text-sm font-semibold text-blue-900">New Question</p>
-
-      <div className="flex gap-2">
-        {(Object.keys(TYPE_META) as QType[]).map((t) => {
-          const m = TYPE_META[t];
-          return (
-            <button
-              key={t}
-              type="button"
-              onClick={() => {
-                setType(t);
-                setOptions([]);
-              }}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border-2 text-sm font-medium transition-all
-                ${type === t ? `${m.border} ${m.bg} ${m.color}` : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"}`}
-            >
-              {m.icon} {m.label}
-            </button>
-          );
-        })}
-      </div>
-
-      <div>
-        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 block">
-          Question Text
-        </label>
-        {langs.map((l: any) => (
-          <div key={l.code} className="flex gap-2 mb-2">
-            <span className="text-xs font-mono bg-white px-2 py-2 rounded w-10 text-center text-gray-500 flex-shrink-0 border border-gray-200">
-              {l.code}
-            </span>
-            <input
-              value={translations[l.code] || ""}
-              onChange={(e) =>
-                setTranslations((p) => ({ ...p, [l.code]: e.target.value }))
-              }
-              className="input flex-1 text-sm"
-              placeholder={`In ${l.name}…`}
-              required={l.isDefault}
-            />
-          </div>
-        ))}
-      </div>
-
-      {type === "choice" && (
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Options
-            </label>
-            <button
-              type="button"
-              onClick={() => setOptions((o) => [...o, { translations: {} }])}
-              className="text-xs text-blue-600 font-medium"
-            >
-              + Add option
-            </button>
-          </div>
-          {options.map((opt, idx) => (
-            <div
-              key={idx}
-              className="bg-white rounded-xl p-3 mb-2 space-y-1.5 border border-gray-200"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-gray-500">
-                  Option {idx + 1}
-                </span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setOptions((o) => o.filter((_, i) => i !== idx))
-                  }
-                  className="text-xs text-red-400"
-                >
-                  Remove
-                </button>
-              </div>
-              {langs.map((l: any) => (
-                <div key={l.code} className="flex gap-2">
-                  <span className="text-xs font-mono bg-gray-50 border border-gray-200 px-2 py-1.5 rounded w-10 text-center text-gray-500 flex-shrink-0">
-                    {l.code}
-                  </span>
-                  <input
-                    value={opt.translations[l.code] || ""}
-                    onChange={(e) =>
-                      setOptions((o) => {
-                        const n = [...o];
-                        n[idx] = {
-                          ...n[idx],
-                          translations: {
-                            ...n[idx].translations,
-                            [l.code]: e.target.value,
-                          },
-                        };
-                        return n;
-                      })
-                    }
-                    className="input flex-1 text-sm"
-                    placeholder={`Option in ${l.name}`}
-                  />
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
+    <div className="flex items-center gap-3 mb-3">
+      <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest whitespace-nowrap">
+        {title}
+      </h2>
+      <div className="flex-1 h-px bg-gray-100" />
+      {note && (
+        <span className="text-xs text-gray-400 whitespace-nowrap">{note}</span>
       )}
-
-      {/* Filter label — only for choice questions */}
-      {type === "choice" && (
-        <div>
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">
-            Filter Label{" "}
-            <span className="font-normal text-gray-400">
-              (optional — shown in Pipeline filters)
-            </span>
-          </label>
-          <input
-            type="text"
-            value={filterLabel}
-            onChange={(e) => setFilterLabel(e.target.value)}
-            placeholder="e.g. Position, Department, Experience…"
-            className="input w-full text-sm bg-white"
-          />
-        </div>
-      )}
-
-      <div className="flex gap-2">
-        <button type="submit" disabled={saving} className="btn-primary flex-1">
-          {saving ? "Adding…" : "Add Question"}
-        </button>
-        <button type="button" onClick={onCancel} className="btn-secondary">
-          Cancel
-        </button>
-      </div>
-    </form>
+      {action}
+    </div>
   );
-};
+}
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+// ─── Main page ────────────────────────────────────────────────────────────────
 
 export const PlaygroundPage: React.FC = () => {
   const [bots, setBots] = useState<any[]>([]);
   const [selectedBotId, setSelectedBotId] = useState("");
-  const [requiredQuestions, setRequiredQuestions] = useState<Question[]>([]);
-  const [customQuestions, setCustomQuestions] = useState<Question[]>([]);
+  const [allQuestions, setAllQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
-  const [addingQ, setAddingQ] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
 
   useEffect(() => {
-    botsApi.list().then((b) => {
+    botsApi.list().then((b: any[]) => {
       setBots(b);
       if (b.length > 0) setSelectedBotId(b[0].id);
     });
@@ -1140,146 +1221,244 @@ export const PlaygroundPage: React.FC = () => {
     setLoading(true);
     questionsApi
       .list({ botId: selectedBotId })
-      .then((qs) => {
-        setRequiredQuestions(
-          qs
-            .filter((q: any) => q.isRequired)
-            .sort((a: any, b: any) => a.order - b.order),
-        );
-        setCustomQuestions(
-          qs
-            .filter((q: any) => !q.isRequired)
-            .sort((a: any, b: any) => a.order - b.order),
-        );
-      })
+      .then((qs: Question[]) => setAllQuestions(qs))
       .finally(() => setLoading(false));
   }, [selectedBotId]);
 
   const selectedBot = bots.find((b) => b.id === selectedBotId);
-  const langs = selectedBot?.languages || [];
+  const langs: Lang[] = selectedBot?.languages || [];
 
-  const updateQuestion = useCallback((updated: Question) => {
-    if (updated.isRequired) {
-      setRequiredQuestions((prev) =>
-        prev.map((q) => (q.id === updated.id ? updated : q)),
-      );
-    } else {
-      setCustomQuestions((prev) =>
-        prev.map((q) => (q.id === updated.id ? updated : q)),
-      );
+  const requiredQuestions = allQuestions
+    .filter((q) => q.isRequired && !q.parentOptionId)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+  const customQuestions = allQuestions
+    .filter((q) => !q.isRequired && !q.parentOptionId)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+  const branchCount = allQuestions.filter((q) => q.parentOptionId).length;
+
+  const updateQuestion = useCallback(
+    (updated: Question) =>
+      setAllQuestions((prev) =>
+        prev.map((q) => (q.id === updated.id ? { ...q, ...updated } : q)),
+      ),
+    [],
+  );
+
+  const deleteQuestion = useCallback(
+    (id: string) =>
+      setAllQuestions((prev) => {
+        const gone = new Set([id]);
+        let changed = true;
+        while (changed) {
+          changed = false;
+          prev.forEach((q) => {
+            if (q.parentOptionId && !gone.has(q.id)) {
+              const owner = prev.find((pq) =>
+                pq.options.some((o) => o.id === q.parentOptionId),
+              );
+              if (owner && gone.has(owner.id)) {
+                gone.add(q.id);
+                changed = true;
+              }
+            }
+          });
+        }
+        return prev.filter((q) => !gone.has(q.id));
+      }),
+    [],
+  );
+
+  const addQuestion = useCallback(
+    (q: Question) => setAllQuestions((prev) => [...prev, q]),
+    [],
+  );
+
+  async function moveCustom(q: Question, dir: "up" | "down") {
+    const idx = customQuestions.findIndex((x) => x.id === q.id);
+    const swapIdx = dir === "up" ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= customQuestions.length) return;
+    const sibling = customQuestions[swapIdx];
+    try {
+      await Promise.all([
+        questionsApi.update(q.id, { order: swapIdx }),
+        questionsApi.update(sibling.id, { order: idx }),
+      ]);
+      updateQuestion({ ...q, order: swapIdx });
+      updateQuestion({ ...sibling, order: idx });
+    } catch {
+      toast.error("Failed to reorder");
     }
-  }, []);
-
-  const deleteQuestion = useCallback((id: string) => {
-    setCustomQuestions((prev) => prev.filter((q) => q.id !== id));
-  }, []);
+  }
 
   return (
-    <div className="overflow-auto flex-1 p-8 max-w-2xl">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">
-            Question Playground
-          </h1>
-          <p className="text-xs text-gray-400 mt-0.5">
-            Manage all bot questions and their response messages
-          </p>
+    <div className="flex-1 overflow-auto">
+      {/* ── Sticky header ── */}
+      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-gray-100 px-8 py-3.5">
+        <div className="flex items-center justify-between max-w-2xl mx-auto">
+          <div>
+            <h1 className="text-base font-bold text-gray-900">
+              Question Playground
+            </h1>
+            {!loading && selectedBotId && (
+              <p className="text-xs text-gray-400 mt-0.5 leading-none">
+                {requiredQuestions.length} required
+                {customQuestions.length > 0 &&
+                  ` · ${customQuestions.length} custom`}
+                {branchCount > 0 && ` · ${branchCount} branch`}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-2.5">
+            <select
+              value={selectedBotId}
+              onChange={(e) => setSelectedBotId(e.target.value)}
+              className="text-sm border border-gray-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 max-w-[160px]"
+            >
+              {bots.length === 0 && <option value="">No bots</option>}
+              {bots.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+            {selectedBotId && !loading && (
+              <button
+                onClick={() => setShowCreate(true)}
+                className="btn-primary text-sm py-2 px-3.5 flex items-center gap-1.5"
+              >
+                <svg
+                  className="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2.5}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                Add question
+              </button>
+            )}
+          </div>
         </div>
-        <select
-          value={selectedBotId}
-          onChange={(e) => {
-            setSelectedBotId(e.target.value);
-            setAddingQ(false);
-          }}
-          className="text-sm border border-gray-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-blue-300"
-        >
-          {bots.length === 0 && <option value="">No bots configured</option>}
-          {bots.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.name}
-            </option>
-          ))}
-        </select>
       </div>
 
-      {loading && <p className="text-gray-400 text-sm">Loading…</p>}
-
-      {!loading && selectedBotId && (
-        <div className="space-y-8">
-          {/* Required Questions */}
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <h2 className="text-sm font-bold text-gray-700">
-                🔒 Required Questions
-              </h2>
-              <span className="text-xs text-gray-400">
-                — always asked first, cannot be removed
-              </span>
-            </div>
-            <div className="space-y-3">
-              {requiredQuestions.map((q) => (
-                <RequiredQuestionRow
-                  key={q.id}
-                  question={q}
-                  langs={langs}
-                  onUpdate={updateQuestion}
-                />
-              ))}
-            </div>
+      {/* ── Body ── */}
+      <div className="px-8 py-6 max-w-2xl mx-auto">
+        {/* Loading */}
+        {loading && (
+          <div className="text-center py-20 text-gray-400">
+            <p className="text-2xl mb-3 animate-pulse">⚙️</p>
+            <p className="text-sm">Loading questions…</p>
           </div>
+        )}
 
-          {/* Custom Questions */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-bold text-gray-700">
-                ✏️ Additional Questions
-              </h2>
-              {!addingQ && (
-                <button
-                  onClick={() => setAddingQ(true)}
-                  className="btn-primary text-xs py-1.5 px-3"
-                >
-                  + Add Question
-                </button>
-              )}
-            </div>
-            <div className="space-y-3">
-              {customQuestions.length === 0 && !addingQ && (
-                <div className="text-center py-10 border-2 border-dashed border-gray-200 rounded-xl text-gray-400">
-                  <p className="text-2xl mb-2">✏️</p>
-                  <p className="text-sm font-medium">
+        {/* No bot */}
+        {!loading && !selectedBotId && (
+          <div className="text-center py-20 text-gray-400">
+            <p className="text-3xl mb-3">🤖</p>
+            <p className="text-sm font-medium text-gray-500">
+              No bots configured
+            </p>
+            <p className="text-xs mt-1">Add a bot in the Bots page first.</p>
+          </div>
+        )}
+
+        {!loading && selectedBotId && (
+          <div className="space-y-8">
+            {/* ── Required questions ── */}
+            <section aria-label="Required questions">
+              <SectionHeader
+                title="Required questions"
+                note="Always asked first · cannot be removed"
+              />
+              <div className="space-y-2">
+                {requiredQuestions.map((q) => (
+                  <QuestionCard
+                    key={q.id}
+                    question={q}
+                    depth={0}
+                    langs={langs}
+                    allQuestions={allQuestions}
+                    botId={selectedBotId}
+                    onUpdate={updateQuestion}
+                    onDelete={deleteQuestion}
+                    onAdd={addQuestion}
+                  />
+                ))}
+              </div>
+            </section>
+
+            {/* ── Custom questions ── */}
+            <section aria-label="Additional questions">
+              <SectionHeader
+                title="Additional questions"
+                note="Asked after required questions"
+              />
+
+              {customQuestions.length === 0 ? (
+                <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-2xl">
+                  <p className="text-3xl mb-3">💬</p>
+                  <p className="text-sm font-semibold text-gray-700 mb-1">
                     No additional questions yet
                   </p>
-                  <p className="text-xs mt-1">
-                    Click "Add Question" to create one
+                  <p className="text-xs text-gray-400 mb-5 max-w-xs mx-auto">
+                    Add custom questions to collect more info. Use{" "}
+                    <strong>Choice</strong> questions to create conditional
+                    follow-up paths.
                   </p>
+                  <button
+                    onClick={() => setShowCreate(true)}
+                    className="btn-primary text-sm py-2 px-5"
+                  >
+                    + Add first question
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {customQuestions.map((q, idx) => (
+                    <QuestionCard
+                      key={q.id}
+                      question={q}
+                      depth={0}
+                      canReorder={customQuestions.length > 1}
+                      onMoveUp={() => moveCustom(q, "up")}
+                      onMoveDown={() => moveCustom(q, "down")}
+                      isFirst={idx === 0}
+                      isLast={idx === customQuestions.length - 1}
+                      langs={langs}
+                      allQuestions={allQuestions}
+                      botId={selectedBotId}
+                      onUpdate={updateQuestion}
+                      onDelete={deleteQuestion}
+                      onAdd={addQuestion}
+                    />
+                  ))}
                 </div>
               )}
-              {customQuestions.map((q) => (
-                <CustomQuestionCard
-                  key={q.id}
-                  question={q}
-                  langs={langs}
-                  onUpdate={updateQuestion}
-                  onDelete={deleteQuestion}
-                />
-              ))}
-              {addingQ && (
-                <AddQuestionForm
-                  botId={selectedBotId}
-                  langs={langs}
-                  existingCount={customQuestions.length}
-                  onAdd={(q) => {
-                    setCustomQuestions((prev) => [...prev, q]);
-                    setAddingQ(false);
-                  }}
-                  onCancel={() => setAddingQ(false)}
-                />
-              )}
-            </div>
+            </section>
           </div>
-        </div>
+        )}
+      </div>
+
+      {/* Create modal */}
+      {showCreate && (
+        <QuestionModal
+          mode="create"
+          langs={langs}
+          botId={selectedBotId}
+          existingCount={customQuestions.length}
+          onSave={(q) => {
+            addQuestion(q);
+            setShowCreate(false);
+          }}
+          onClose={() => setShowCreate(false)}
+        />
       )}
     </div>
   );

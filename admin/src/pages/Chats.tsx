@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import { format, isToday, isYesterday } from "date-fns";
 import { messagesApi, filesApi } from "../api";
 import { useWebSocket } from "../hooks/useWebSocket";
+import { CandidateDetailPanel } from "../components/Candidatedetailpanel";
 import toast from "react-hot-toast";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -11,10 +12,6 @@ function formatConvTime(dateStr: string) {
   if (isToday(d)) return format(d, "HH:mm");
   if (isYesterday(d)) return "Yesterday";
   return format(d, "MMM d");
-}
-
-function formatMsgTime(dateStr: string) {
-  return format(new Date(dateStr), "HH:mm");
 }
 
 function candidateName(c: any) {
@@ -51,8 +48,7 @@ function avatarGradient(id: string) {
     "from-purple-400 to-violet-500",
     "from-cyan-400 to-sky-500",
   ];
-  const idx = id.charCodeAt(0) % gradients.length;
-  return gradients[idx];
+  return gradients[id.charCodeAt(0) % gradients.length];
 }
 
 function lastMsgPreview(msg: any) {
@@ -151,68 +147,44 @@ const MessageBubble: React.FC<{
           />
         </div>
       );
-    // document / unknown
-    const viewable = isViewableInBrowser(msg.mimeType);
-    return (
-      <a
-        href={filesApi.serveUrl(msg.id)}
-        target="_blank"
-        rel="noopener noreferrer"
-        {...(!viewable ? { download: msg.fileName } : {})}
-        className={`flex items-center gap-2.5 hover:opacity-80 transition-opacity ${isOut ? "text-blue-100" : "text-blue-600"}`}
-      >
-        <div
-          className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${isOut ? "bg-blue-500" : "bg-blue-100"}`}
+    if (msg.type === "document") {
+      const viewable = isViewableInBrowser(msg.mimeType);
+      return (
+        <a
+          href={filesApi.serveUrl(msg.id)}
+          target="_blank"
+          rel="noopener noreferrer"
+          {...(!viewable ? { download: msg.fileName } : {})}
+          className={`flex items-center gap-1.5 text-sm ${isOut ? "text-blue-100 hover:text-white" : "text-blue-600 hover:text-blue-700"}`}
         >
-          <span className="text-sm">
-            {msg.mimeType === "application/pdf" ? "📄" : "📎"}
-          </span>
-        </div>
-        <div className="min-w-0">
-          <p className="text-sm font-medium truncate max-w-[180px]">
-            {msg.fileName || "File"}
-          </p>
-          <p className={`text-xs ${isOut ? "text-blue-200" : "text-gray-400"}`}>
-            {viewable ? "Open" : "Download"}
-          </p>
-        </div>
-      </a>
-    );
+          {msg.mimeType === "application/pdf" ? "📄" : "📎"}{" "}
+          {msg.fileName || "File"}
+        </a>
+      );
+    }
+    return <p className="text-sm text-gray-400 italic">Unsupported message</p>;
   };
 
   return (
-    <div
-      className={`flex items-end gap-2 group ${isOut ? "flex-row-reverse" : "flex-row"}`}
-    >
+    <div className={`flex ${isOut ? "justify-end" : "justify-start"} mb-1`}>
       <div
-        className={`max-w-[72%] rounded-2xl px-3.5 py-2.5 shadow-sm
-        ${
-          isOut
-            ? "bg-blue-600 text-white rounded-br-sm"
-            : "bg-white text-gray-800 rounded-bl-sm border border-gray-100"
-        }`}
+        className={`max-w-[70%] rounded-2xl px-3.5 py-2.5 ${isOut ? "bg-blue-600 text-white rounded-tr-sm" : "bg-white text-gray-800 rounded-tl-sm shadow-sm border border-gray-100"}`}
       >
         {content()}
-        <div
-          className={`flex items-center gap-1 mt-1 ${isOut ? "justify-end" : "justify-start"}`}
+        <p
+          className={`text-[11px] mt-1 ${isOut ? "text-blue-200" : "text-gray-400"}`}
         >
-          <span
-            className={`text-[10px] ${isOut ? "text-blue-200" : "text-gray-400"}`}
-          >
-            {formatMsgTime(msg.createdAt)}
-          </span>
-          {isOut && (
-            <span className="text-[10px] text-blue-200">
-              {msg.telegramMsgId ? "✓✓" : "✓"}
-            </span>
-          )}
-        </div>
+          {msg.direction === "outbound" && msg.admin?.name
+            ? `${msg.admin.name} · `
+            : ""}
+          {format(new Date(msg.createdAt), "HH:mm")}
+        </p>
       </div>
     </div>
   );
 };
 
-// ─── Day Separator ────────────────────────────────────────────────────────────
+// ─── Day separator ────────────────────────────────────────────────────────────
 
 const DaySeparator: React.FC<{ date: string }> = ({ date }) => {
   const d = new Date(date);
@@ -237,6 +209,7 @@ const DaySeparator: React.FC<{ date: string }> = ({ date }) => {
 export const ChatsPage: React.FC = () => {
   const [conversations, setConversations] = useState<any[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showInfo, setShowInfo] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [loadingConvs, setLoadingConvs] = useState(true);
@@ -249,7 +222,6 @@ export const ChatsPage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Load conversation list
   const loadConversations = useCallback(() => {
     messagesApi
       .conversations()
@@ -261,7 +233,6 @@ export const ChatsPage: React.FC = () => {
     loadConversations();
   }, [loadConversations]);
 
-  // Load messages when conversation selected
   useEffect(() => {
     if (!selectedId) return;
     setLoadingMsgs(true);
@@ -270,32 +241,25 @@ export const ChatsPage: React.FC = () => {
       .then(setMessages)
       .finally(() => setLoadingMsgs(false));
     messagesApi.markAsRead(selectedId).catch(() => {});
-    // Clear unread badge
     setConversations((prev) =>
       prev.map((c) => (c.id === selectedId ? { ...c, unreadCount: 0 } : c)),
     );
   }, [selectedId]);
 
-  // Scroll to bottom on new messages
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Focus input when conversation selected
   useEffect(() => {
     if (selectedId) setTimeout(() => inputRef.current?.focus(), 100);
   }, [selectedId]);
 
-  // WebSocket
   useWebSocket({
     NEW_MESSAGE: (payload) => {
       const { candidateId, message } = payload;
-
-      // Update conversation list: bump to top, update last message & unread
       setConversations((prev) => {
         const existing = prev.find((c) => c.id === candidateId);
         if (!existing) {
-          // New conversation — reload the full list
           loadConversations();
           return prev;
         }
@@ -310,8 +274,6 @@ export const ChatsPage: React.FC = () => {
         };
         return [updated, ...prev.filter((c) => c.id !== candidateId)];
       });
-
-      // Add to open chat (inbound only — outbound added optimistically)
       if (candidateId === selectedId && message.direction === "inbound") {
         setMessages((prev) =>
           prev.some((m) => m.id === message.id) ? prev : [...prev, message],
@@ -320,13 +282,12 @@ export const ChatsPage: React.FC = () => {
       }
     },
     MESSAGES_READ: (payload) => {
-      if (payload?.candidateId) {
+      if (payload?.candidateId)
         setConversations((prev) =>
           prev.map((c) =>
             c.id === payload.candidateId ? { ...c, unreadCount: 0 } : c,
           ),
         );
-      }
     },
   });
 
@@ -338,7 +299,6 @@ export const ChatsPage: React.FC = () => {
     try {
       const msg = await messagesApi.send(selectedId, { text });
       setMessages((prev) => [...prev, msg]);
-      // Update conversation last message
       setConversations((prev) => {
         const existing = prev.find((c) => c.id === selectedId);
         if (!existing) return prev;
@@ -372,16 +332,8 @@ export const ChatsPage: React.FC = () => {
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
   const selectedConv = conversations.find((c) => c.id === selectedId);
 
-  // Group messages by day
   const groupedMessages = () => {
     const groups: { date: string; msgs: any[] }[] = [];
     messages.forEach((msg) => {
@@ -402,13 +354,11 @@ export const ChatsPage: React.FC = () => {
 
   return (
     <>
-      <div className="flex h-full overflow-hidden" style={{ marginLeft: 0 }}>
-        {/* ── LEFT PANEL: Conversation list ─────────────────────────────────── */}
+      <div className="flex h-full overflow-hidden">
+        {/* ── LEFT: Conversation list ──────────────────────────────────────── */}
         <div className="w-80 flex-shrink-0 border-r border-gray-200 bg-white flex flex-col">
-          {/* Header */}
           <div className="px-4 pt-5 pb-3 border-b border-gray-100">
             <h1 className="text-lg font-bold text-gray-900 mb-3">Chats</h1>
-            {/* Search */}
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
                 🔍
@@ -422,7 +372,6 @@ export const ChatsPage: React.FC = () => {
             </div>
           </div>
 
-          {/* List */}
           <div className="flex-1 overflow-y-auto">
             {loadingConvs ? (
               <div className="flex items-center justify-center py-12 text-gray-400 text-sm">
@@ -437,7 +386,7 @@ export const ChatsPage: React.FC = () => {
                 <p className="text-xs mt-1 text-gray-300">
                   {search
                     ? "Try a different name"
-                    : "Messages from bot users will appear here"}
+                    : "Messages from bot users appear here"}
                 </p>
               </div>
             ) : (
@@ -447,9 +396,12 @@ export const ChatsPage: React.FC = () => {
                 return (
                   <button
                     key={conv.id}
-                    onClick={() => setSelectedId(conv.id)}
+                    onClick={() => {
+                      setSelectedId(conv.id);
+                      setShowInfo(false);
+                    }}
                     className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-gray-50 border-b border-gray-50
-                    ${isSelected ? "bg-blue-50 border-l-2 border-l-blue-500" : ""}`}
+                      ${isSelected ? "bg-blue-50 border-l-2 border-l-blue-500" : ""}`}
                   >
                     <div className="relative flex-shrink-0">
                       <Avatar conv={conv} />
@@ -497,10 +449,9 @@ export const ChatsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* ── RIGHT PANEL: Chat ──────────────────────────────────────────────── */}
-        <div className="flex-1 flex flex-col bg-gray-50 min-w-0">
+        {/* ── CENTER: Chat ─────────────────────────────────────────────────── */}
+        <div className="flex-1 flex flex-col bg-gray-50 min-w-0 overflow-hidden">
           {!selectedId ? (
-            /* Empty state */
             <div className="flex-1 flex flex-col items-center justify-center text-gray-400 select-none">
               <div className="w-24 h-24 rounded-3xl bg-white border-2 border-gray-100 flex items-center justify-center text-4xl mb-5 shadow-sm">
                 💬
@@ -515,22 +466,8 @@ export const ChatsPage: React.FC = () => {
           ) : (
             <>
               {/* Chat header */}
-              <div className="flex items-center gap-3 px-6 py-4 bg-white border-b border-gray-200 flex-shrink-0 shadow-sm">
-                {selectedConv && (
-                  <div
-                    className={
-                      selectedConv.profilePhoto ? "cursor-zoom-in" : ""
-                    }
-                    onClick={() => {
-                      if (selectedConv.profilePhoto)
-                        setLightboxSrc(
-                          `/uploads/${selectedConv.botId}/${selectedConv.profilePhoto.split(/[\/\\]/).pop()}`,
-                        );
-                    }}
-                  >
-                    <Avatar conv={selectedConv} size="md" />
-                  </div>
-                )}
+              <div className="flex items-center gap-3 px-6 py-3.5 bg-white border-b border-gray-200 flex-shrink-0 shadow-sm">
+                {selectedConv && <Avatar conv={selectedConv} size="md" />}
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-gray-900 truncate">
                     {selectedConv ? candidateName(selectedConv) : "…"}
@@ -546,6 +483,30 @@ export const ChatsPage: React.FC = () => {
                     🤖 {selectedConv.botName}
                   </span>
                 )}
+                {/* Info toggle button */}
+                <button
+                  onClick={() => setShowInfo((v) => !v)}
+                  title="Candidate info"
+                  className={`w-9 h-9 flex items-center justify-center rounded-xl transition-colors flex-shrink-0 ${
+                    showInfo
+                      ? "bg-blue-100 text-blue-600"
+                      : "text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                  }`}
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.8}
+                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                    />
+                  </svg>
+                </button>
               </div>
 
               {/* Messages */}
@@ -561,7 +522,7 @@ export const ChatsPage: React.FC = () => {
                     <p className="text-xs mt-1">Start the conversation below</p>
                   </div>
                 ) : (
-                  <div className="space-y-1 max-w-3xl mx-auto">
+                  <div className="space-y-0.5 max-w-3xl mx-auto">
                     {groupedMessages().map((group) => (
                       <React.Fragment key={group.date}>
                         <DaySeparator date={group.date} />
@@ -582,7 +543,6 @@ export const ChatsPage: React.FC = () => {
               {/* Input bar */}
               <div className="flex-shrink-0 bg-white border-t border-gray-200 px-6 py-4">
                 <div className="flex items-end gap-3 max-w-3xl mx-auto">
-                  {/* Attach */}
                   <input
                     type="file"
                     ref={fileInputRef}
@@ -600,20 +560,21 @@ export const ChatsPage: React.FC = () => {
                   >
                     📎
                   </button>
-
-                  {/* Text input */}
                   <div className="flex-1 relative">
                     <input
                       ref={inputRef}
                       value={msgText}
                       onChange={(e) => setMsgText(e.target.value)}
-                      onKeyDown={handleKeyDown}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
+                      }}
                       placeholder="Write a message…"
                       className="w-full text-sm bg-gray-100 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:bg-white transition-colors placeholder-gray-400"
                     />
                   </div>
-
-                  {/* Send */}
                   <button
                     onClick={handleSendMessage}
                     disabled={sending || !msgText.trim()}
@@ -638,6 +599,22 @@ export const ChatsPage: React.FC = () => {
             </>
           )}
         </div>
+
+        {/* ── RIGHT: Candidate info panel ───────────────────────────────────── */}
+        {/* Inline panel (not fixed overlay) when in chat context */}
+        {showInfo && selectedId && (
+          <div className="w-[380px] flex-shrink-0 border-l border-gray-200 bg-white flex flex-col overflow-y-auto">
+            <CandidateDetailPanel
+              candidateId={selectedId}
+              inline={true}
+              onClose={() => setShowInfo(false)}
+              onStatusChange={() => {
+                // Refresh conv list to reflect any status changes
+                loadConversations();
+              }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Lightbox */}

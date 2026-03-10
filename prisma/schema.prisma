@@ -71,6 +71,8 @@ model Question {
   isRequired Boolean @default(false)
   fieldKey   String?
   filterLabel String?
+  parentOptionId String?
+  branchOrder    Int     @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -79,6 +81,7 @@ model Question {
   translations QuestionTranslation[]
   options      QuestionOption[]
   answers      Answer[]
+  parentOption QuestionOption?       @relation("BranchQuestions", fields: [parentOptionId], references: [id], onDelete: Cascade)
 }
 
 model QuestionTranslation {
@@ -100,9 +103,10 @@ model QuestionOption {
   questionId String
   order      Int    @default(0)
 
-  question     Question                    @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  translations QuestionOptionTranslation[]
-  answers      Answer[]
+  question        Question                    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  translations    QuestionOptionTranslation[]
+  answers         Answer[]
+  branchQuestions Question[]                  @relation("BranchQuestions")
 }
 
 model QuestionOptionTranslation {
@@ -131,6 +135,7 @@ model Candidate {
   status       String   @default("incomplete")
   columnId     String?
   currentStep  Int      @default(0)
+  questionQueue String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   lastActivity DateTime @default(now())

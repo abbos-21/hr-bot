@@ -76,6 +76,14 @@ export const questionsApi = {
   delete: (id: string) => api.delete(`/questions/${id}`).then((r) => r.data),
   reorder: (questions: { id: string; order: number }[]) =>
     api.put("/questions/batch/reorder", { questions }).then((r) => r.data),
+  reorderBranch: (questions: { id: string; branchOrder: number }[]) =>
+    Promise.all(
+      questions.map((q) =>
+        api
+          .put(`/questions/${q.id}`, { branchOrder: q.branchOrder })
+          .then((r: any) => r.data),
+      ),
+    ),
 };
 
 // Candidates
@@ -123,6 +131,8 @@ export const messagesApi = {
   },
   markAsRead: (candidateId: string) =>
     api.post(`/messages/${candidateId}/read`).then((r) => r.data),
+  broadcast: (candidateIds: string[], text: string) =>
+    api.post("/messages/broadcast", { candidateIds, text }).then((r) => r.data),
 };
 
 // Analytics

@@ -71,6 +71,7 @@ export const PastCandidatesPage: React.FC = () => {
 
   return (
     <div className="overflow-auto flex-1 p-8">
+      {confirmElement}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900">

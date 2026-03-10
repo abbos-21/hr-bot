@@ -231,12 +231,13 @@ export class BotInstance {
         });
         if (!candidate) return;
 
-        const questions = await prisma.question.findMany({
-          where: { botId, isActive: true },
+        const queue = await this.getQueue(candidate as any);
+        if (!queue.length) return;
+
+        const question = await prisma.question.findUnique({
+          where: { id: queue[0] },
           include: { translations: true },
-          orderBy: [{ isRequired: "desc" }, { order: "asc" }],
         });
-        const question = questions[candidate.currentStep];
         if (!question || question.fieldKey !== "phone") return;
 
         const phone = ctx.message.contact.phone_number;
@@ -256,20 +257,13 @@ export class BotInstance {
           },
         });
         await this.updateCandidateField(candidate.id, "phone", phone);
-        await prisma.candidate.update({
-          where: { id: candidate.id },
-          data: {
-            currentStep: candidate.currentStep + 1,
-            lastActivity: new Date(),
-          },
-        });
+        await this.advanceQueue(candidate.id, queue, null);
 
         const ack = this.getQuestionMessage(
           question,
           candidate.lang,
           "success",
         );
-        // Remove keyboard (send custom ack if configured)
         if (ack) await ctx.reply(ack);
         await ctx.reply("✅", { reply_markup: { remove_keyboard: true } });
         await this.sendNextQuestion(ctx, candidate.id, candidate.lang, botId);
@@ -305,6 +299,72 @@ export class BotInstance {
     });
   }
 
+  // ─── Queue helpers ────────────────────────────────────────────────────────
+
+  /** Build initial queue from all top-level (non-branch) questions for a bot */
+  private async buildInitialQueue(botId: string): Promise<string[]> {
+    const questions = await prisma.question.findMany({
+      where: { botId, isActive: true, parentOptionId: null },
+      orderBy: [{ isRequired: "desc" }, { order: "asc" }],
+      select: { id: true },
+    });
+    return questions.map((q: any) => q.id);
+  }
+
+  /** Get the candidate's question queue, reconstructing from currentStep if needed (backwards compat) */
+  private async getQueue(candidate: {
+    id: string;
+    questionQueue: string | null;
+    currentStep: number;
+    botId: string;
+  }): Promise<string[]> {
+    if (candidate.questionQueue !== null) {
+      try {
+        return JSON.parse(candidate.questionQueue);
+      } catch {
+        return [];
+      }
+    }
+    // Backwards compat: reconstruct from currentStep
+    const questions = await prisma.question.findMany({
+      where: { botId: candidate.botId, isActive: true, parentOptionId: null },
+      orderBy: [{ isRequired: "desc" }, { order: "asc" }],
+      select: { id: true },
+    });
+    const queue = questions.slice(candidate.currentStep).map((q: any) => q.id);
+    await this.setQueue(candidate.id, queue);
+    return queue;
+  }
+
+  /** Persist queue to DB */
+  private async setQueue(candidateId: string, queue: string[]): Promise<void> {
+    await prisma.candidate.update({
+      where: { id: candidateId },
+      data: { questionQueue: JSON.stringify(queue), lastActivity: new Date() },
+    });
+  }
+
+  /**
+   * Advance queue: remove current question (queue[0]).
+   * If selectedOptionId is provided, prepend that option's branch questions to remaining queue.
+   */
+  private async advanceQueue(
+    candidateId: string,
+    currentQueue: string[],
+    selectedOptionId: string | null,
+  ): Promise<void> {
+    let remaining = currentQueue.slice(1);
+    if (selectedOptionId) {
+      const branchQs = await prisma.question.findMany({
+        where: { parentOptionId: selectedOptionId, isActive: true },
+        orderBy: { branchOrder: "asc" },
+        select: { id: true },
+      });
+      remaining = [...branchQs.map((q: any) => q.id), ...remaining];
+    }
+    await this.setQueue(candidateId, remaining);
+  }
+
   // ─── Survey start ──────────────────────────────────────────────────────────
 
   private async startSurvey(
@@ -319,6 +379,7 @@ export class BotInstance {
     });
 
     if (!candidate) {
+      const queue = await this.buildInitialQueue(botId);
       candidate = await prisma.candidate.create({
         data: {
           botId,
@@ -327,6 +388,7 @@ export class BotInstance {
           lang,
           status: "incomplete",
           currentStep: 0,
+          questionQueue: JSON.stringify(queue),
         },
       });
       wsManager.broadcast({
@@ -337,10 +399,18 @@ export class BotInstance {
       await ctx.reply("You have already submitted your application.");
       return;
     } else {
+      // Re-init queue if missing (in case bot was restarted mid-survey)
+      const updateData: any = { lang, lastActivity: new Date() };
+      if (candidate.questionQueue === null) {
+        updateData.questionQueue = JSON.stringify(
+          await this.buildInitialQueue(botId),
+        );
+      }
       await prisma.candidate.update({
         where: { id: candidate.id },
-        data: { lang, lastActivity: new Date() },
+        data: updateData,
       });
+      candidate = { ...candidate, ...updateData };
     }
 
     await this.sendNextQuestion(ctx, candidate.id, lang, botId);
@@ -362,18 +432,9 @@ export class BotInstance {
     });
     if (!candidate) return;
 
-    const questions = await prisma.question.findMany({
-      where: { botId, isActive: true },
-      include: {
-        translations: true,
-        options: { include: { translations: true }, orderBy: { order: "asc" } },
-      },
-      orderBy: [{ isRequired: "desc" }, { order: "asc" }], // required questions first
-    });
+    const queue = await this.getQueue(candidate as any);
 
-    const currentStep = candidate.currentStep;
-
-    if (currentStep >= questions.length) {
+    if (queue.length === 0) {
       // Survey complete
       await prisma.candidate.update({
         where: { id: candidateId },
@@ -393,7 +454,21 @@ export class BotInstance {
       return;
     }
 
-    const question = questions[currentStep];
+    const question = await prisma.question.findUnique({
+      where: { id: queue[0] },
+      include: {
+        translations: true,
+        options: { include: { translations: true }, orderBy: { order: "asc" } },
+      },
+    });
+
+    if (!question || !question.isActive) {
+      // Skip missing/inactive question
+      await this.advanceQueue(candidateId, queue, null);
+      await this.sendNextQuestion(ctx, candidateId, lang, botId);
+      return;
+    }
+
     const botData = await prisma.bot.findUnique({ where: { id: botId } });
     const defaultLang = botData?.defaultLang || "en";
 
@@ -403,10 +478,7 @@ export class BotInstance {
       question.translations[0];
 
     if (!translation) {
-      await prisma.candidate.update({
-        where: { id: candidateId },
-        data: { currentStep: currentStep + 1 },
-      });
+      await this.advanceQueue(candidateId, queue, null);
       await this.sendNextQuestion(ctx, candidateId, lang, botId);
       return;
     }
@@ -445,12 +517,11 @@ export class BotInstance {
         parse_mode: "MarkdownV2",
       });
     } else if (question.fieldKey === "phone") {
-      // Phone: send request_contact keyboard
       const buttonLabel =
         translation.phoneButtonText ||
-        (candidate.lang === "ru"
+        (lang === "ru"
           ? "📱 Поделиться номером"
-          : candidate.lang === "uz"
+          : lang === "uz"
             ? "📱 Raqamni ulashish"
             : "📱 Share phone number");
       const kb = new Keyboard().requestContact(buttonLabel).resized();
@@ -469,12 +540,13 @@ export class BotInstance {
     const text = ctx.message?.text;
     if (!text) return;
 
-    const questions = await prisma.question.findMany({
-      where: { botId: candidate.botId, isActive: true },
-      orderBy: [{ isRequired: "desc" }, { order: "asc" }],
-    });
+    const queue = await this.getQueue(candidate);
+    if (!queue.length) return;
 
-    const question = questions[candidate.currentStep];
+    const question = await prisma.question.findUnique({
+      where: { id: queue[0] },
+      include: { translations: true },
+    });
     if (!question) return;
 
     if (question.type === "choice") {
@@ -574,13 +646,7 @@ export class BotInstance {
       );
     }
 
-    await prisma.candidate.update({
-      where: { id: candidate.id },
-      data: {
-        currentStep: candidate.currentStep + 1,
-        lastActivity: new Date(),
-      },
-    });
+    await this.advanceQueue(candidate.id, queue, null);
 
     const ack = this.getQuestionMessage(question, candidate.lang, "success");
     if (ack) await ctx.reply(ack);
@@ -605,6 +671,15 @@ export class BotInstance {
       where: { id: candidateId },
     });
     if (!candidate || candidate.status !== "incomplete") return;
+
+    // Validate the answered question matches the current queue head
+    const queue = await this.getQueue(candidate as any);
+    if (!queue.length || queue[0] !== questionId) {
+      await ctx
+        .answerCallbackQuery("This question has already been answered.")
+        .catch(() => {});
+      return;
+    }
 
     const question = await prisma.question.findUnique({
       where: { id: questionId },
@@ -635,13 +710,8 @@ export class BotInstance {
       );
     }
 
-    await prisma.candidate.update({
-      where: { id: candidateId },
-      data: {
-        currentStep: candidate.currentStep + 1,
-        lastActivity: new Date(),
-      },
-    });
+    // Advance queue, injecting branch questions for the chosen option
+    await this.advanceQueue(candidateId, queue, optionId);
 
     const ack = this.getQuestionMessage(question, candidate.lang, "success");
     if (ack) await ctx.reply(ack);
@@ -682,21 +752,19 @@ export class BotInstance {
     ctx: any,
     candidate: any,
   ): Promise<void> {
-    const questions = await prisma.question.findMany({
-      where: { botId: candidate.botId, isActive: true },
-      orderBy: [{ isRequired: "desc" }, { order: "asc" }],
-    });
+    const queue = await this.getQueue(candidate);
+    if (!queue.length) return;
 
-    const question = questions[candidate.currentStep];
+    const question = await prisma.question.findUnique({
+      where: { id: queue[0] },
+    });
     if (!question || question.type !== "attachment") {
-      const msg =
-        this.getQuestionMessage(question, candidate.lang, "error") ||
-        (await this.getTranslation(
-          candidate.botId,
-          candidate.lang,
-          "please_send_file",
-          "📎 Please answer the current question.",
-        ));
+      const msg = await this.getTranslation(
+        candidate.botId,
+        candidate.lang,
+        "please_send_file",
+        "📎 Please answer the current question.",
+      );
       await ctx.reply(msg);
       return;
     }
@@ -706,7 +774,6 @@ export class BotInstance {
     let fileName: string | undefined;
     let mimeType: string | undefined;
     let localPath: string | undefined;
-    let isPhoto = false;
 
     if (msg.photo) {
       const photo = msg.photo[msg.photo.length - 1];
@@ -714,7 +781,6 @@ export class BotInstance {
       fileName = "photo.jpg";
       mimeType = "image/jpeg";
       localPath = await this.downloadFile(fileId, candidate.botId, "photo.jpg");
-      isPhoto = true;
     } else if (msg.document) {
       fileId = msg.document.file_id;
       fileName = msg.document.file_name || "document";
@@ -779,7 +845,6 @@ export class BotInstance {
       },
     });
 
-    // If this is the profile photo question, save the localPath to candidate
     if (question.fieldKey === "profilePhoto" && localPath) {
       await prisma.candidate.update({
         where: { id: candidate.id },
@@ -787,13 +852,7 @@ export class BotInstance {
       });
     }
 
-    await prisma.candidate.update({
-      where: { id: candidate.id },
-      data: {
-        currentStep: candidate.currentStep + 1,
-        lastActivity: new Date(),
-      },
-    });
+    await this.advanceQueue(candidate.id, queue, null);
 
     const ackMsg = this.getQuestionMessage(question, candidate.lang, "success");
     if (ackMsg) await ctx.reply(ackMsg);

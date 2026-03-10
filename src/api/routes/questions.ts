@@ -17,7 +17,7 @@ router.get("/", async (req: AuthRequest, res: Response) => {
       translations: true,
       options: { include: { translations: true }, orderBy: { order: "asc" } },
     },
-    orderBy: { order: "asc" },
+    orderBy: [{ isRequired: "desc" }, { order: "asc" }],
   });
   return res.json(questions);
 });
@@ -33,8 +33,20 @@ router.post("/", async (req: AuthRequest, res: Response) => {
     translations,
     options,
     isActive,
+    parentOptionId,
+    branchOrder,
   } = req.body;
   if (!botId) return res.status(400).json({ error: "botId required" });
+
+  // Validate circular reference: parentOptionId's question must not be a descendant of any of our options
+  // (basic protection — deep cycles are rare but we guard against direct self-reference)
+  if (parentOptionId) {
+    const parentOption = await prisma.questionOption.findUnique({
+      where: { id: parentOptionId },
+    });
+    if (!parentOption)
+      return res.status(400).json({ error: "parentOptionId not found" });
+  }
 
   const question = await prisma.question.create({
     data: {
@@ -45,6 +57,8 @@ router.post("/", async (req: AuthRequest, res: Response) => {
       filterLabel: filterLabel || null,
       isActive: isActive !== undefined ? isActive : true,
       isRequired: false,
+      parentOptionId: parentOptionId || null,
+      branchOrder: branchOrder ?? 0,
       translations: {
         create: (translations || []).map((t: any) => ({
           lang: t.lang,
@@ -98,6 +112,7 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
     isActive,
     translations,
     options,
+    branchOrder,
   } = req.body;
 
   const existing = await prisma.question.findUnique({
@@ -119,6 +134,7 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
               ...(isActive !== undefined && { isActive }),
             }),
         ...(filterLabel !== undefined && { filterLabel }),
+        ...(branchOrder !== undefined && { branchOrder }),
       },
     });
 

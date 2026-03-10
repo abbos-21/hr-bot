@@ -14,14 +14,13 @@ import {
   candidatesApi,
   messagesApi,
   botsApi,
-  filesApi,
   columnsApi,
   questionsApi,
 } from "../api";
 import { useWebSocket } from "../hooks/useWebSocket";
 import { format } from "date-fns";
 import toast from "react-hot-toast";
-import { useAuthStore } from "../store/auth";
+import { CandidateDetailPanel } from "../components/Candidatedetailpanel";
 
 // ─── Color presets ────────────────────────────────────────────────────────────
 
@@ -47,7 +46,87 @@ function isViewableInBrowser(mimeType?: string | null): boolean {
   );
 }
 
-// ─── Confirm modal ───────────────────────────────────────────────────────────
+// ─── Broadcast modal ──────────────────────────────────────────────────────────
+
+const BroadcastModal: React.FC<{
+  columnName: string;
+  candidateCount: number;
+  onSend: (text: string) => Promise<void>;
+  onClose: () => void;
+}> = ({ columnName, candidateCount, onSend, onClose }) => {
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    setTimeout(() => ref.current?.focus(), 60);
+    const fn = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", fn);
+    return () => window.removeEventListener("keydown", fn);
+  }, [onClose]);
+
+  const handleSend = async () => {
+    if (!text.trim() || sending) return;
+    setSending(true);
+    try {
+      await onSend(text.trim());
+      onClose();
+    } catch {
+      toast.error("Broadcast failed");
+      setSending(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[200] bg-black/40 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-6 pt-6 pb-4 border-b border-gray-100">
+          <h3 className="font-bold text-gray-900">📣 Notify column</h3>
+          <p className="text-xs text-gray-400 mt-1">
+            Sends the same message to <strong>{candidateCount}</strong>{" "}
+            candidate{candidateCount !== 1 ? "s" : ""} in{" "}
+            <strong>"{columnName}"</strong>.
+          </p>
+        </div>
+        <div className="p-6 space-y-4">
+          <textarea
+            ref={ref}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={4}
+            placeholder="Type your message…"
+            className="w-full text-sm border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
+          />
+          <div className="flex gap-3 justify-end">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSend}
+              disabled={!text.trim() || sending || candidateCount === 0}
+              className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 rounded-xl transition-colors"
+            >
+              {sending ? "Sending…" : `Send to ${candidateCount}`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Confirm modal ────────────────────────────────────────────────────────────
 
 const ConfirmModal: React.FC<{
   title: string;
@@ -94,12 +173,13 @@ const ConfirmModal: React.FC<{
 
 // ─── Candidate card ───────────────────────────────────────────────────────────
 
-const CandidateCard: React.FC<{ candidate: any; onClick: () => void }> = ({
-  candidate,
-  onClick,
-}) => {
+const CandidateCard: React.FC<{
+  candidate: any;
+  onClick: () => void;
+  faded?: boolean;
+}> = ({ candidate, onClick, faded }) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({ id: candidate.id });
+    useDraggable({ id: candidate.id, disabled: !!faded });
   const style = transform
     ? { transform: `translate(${transform.x}px,${transform.y}px)`, zIndex: 50 }
     : undefined;
@@ -114,13 +194,15 @@ const CandidateCard: React.FC<{ candidate: any; onClick: () => void }> = ({
       onClick={onClick}
       {...listeners}
       {...attributes}
-      className={`bg-white rounded-xl border border-gray-200 p-3.5 select-none cursor-grab active:cursor-grabbing
-        hover:shadow-md hover:border-gray-300 transition-all duration-150 ${isDragging ? "opacity-30" : ""}`}
+      className={`bg-white rounded-xl border border-gray-200 p-3.5 select-none
+        hover:shadow-md hover:border-gray-300 transition-all duration-150
+        ${faded ? "opacity-60 cursor-not-allowed" : "cursor-grab active:cursor-grabbing"}
+        ${isDragging ? "opacity-30" : ""}`}
     >
       <div className="flex items-center gap-3">
         {candidate.profilePhoto ? (
           <img
-            src={`/uploads/${candidate.botId}/${candidate.profilePhoto.split(/[\\/]/).pop()}`}
+            src={`/uploads/${candidate.botId}/${candidate.profilePhoto.split(/[\/\\]/).pop()}`}
             className="w-9 h-9 rounded-full object-cover flex-shrink-0 border border-gray-100"
             alt=""
           />
@@ -174,7 +256,16 @@ const KanbanColumn: React.FC<{
   onArchive: (id: string) => void;
   onDelete: (id: string) => void;
   onRename: (id: string, name: string) => void;
-}> = ({ column, candidates, onCardClick, onArchive, onDelete, onRename }) => {
+  onBroadcast: (col: any, candidates: any[]) => void;
+}> = ({
+  column,
+  candidates,
+  onCardClick,
+  onArchive,
+  onDelete,
+  onRename,
+  onBroadcast,
+}) => {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(column.name);
@@ -235,11 +326,19 @@ const KanbanColumn: React.FC<{
             ···
           </button>
           {menuOpen && (
-            <div className="absolute right-0 top-7 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden w-44">
+            <div className="absolute right-0 top-7 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden w-52">
               <button
                 onClick={() => {
                   setMenuOpen(false);
-                  onRename(column.id, column.name + "");
+                  onBroadcast(column, candidates);
+                }}
+                className="w-full text-left px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 font-medium border-b border-gray-100"
+              >
+                📣 Notify all candidates
+              </button>
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
                   setEditing(true);
                 }}
                 className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
@@ -287,6 +386,81 @@ const KanbanColumn: React.FC<{
             {isOver ? "✓ Drop here" : "Drop here"}
           </div>
         )}
+      </div>
+    </div>
+  );
+};
+
+// ─── In-Progress column (incomplete survey) ───────────────────────────────────
+
+const InProgressColumn: React.FC<{
+  candidates: any[];
+  onCardClick: (id: string) => void;
+  onBroadcast: (candidates: any[]) => void;
+}> = ({ candidates, onCardClick, onBroadcast }) => {
+  const { setNodeRef, isOver } = useDroppable({ id: "__inprogress__" });
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node))
+        setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
+
+  return (
+    <div className="flex flex-col w-72 flex-shrink-0">
+      <div className="flex items-center gap-2 mb-3 px-1">
+        <span className="text-sm leading-none">⏳</span>
+        <span className="flex-1 text-xs font-semibold text-amber-600 uppercase tracking-wider">
+          In Progress
+        </span>
+        <span className="text-xs font-bold text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
+          {candidates.length}
+        </span>
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={() => setMenuOpen((o) => !o)}
+            className="w-6 h-6 flex items-center justify-center rounded-lg text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition-colors text-xs font-bold"
+          >
+            ···
+          </button>
+          {menuOpen && (
+            <div className="absolute right-0 top-7 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden w-52">
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  onBroadcast(candidates);
+                }}
+                className="w-full text-left px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 font-medium"
+              >
+                📣 Notify all candidates
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+      <div
+        ref={setNodeRef}
+        className={`flex-1 min-h-[120px] rounded-xl p-2 space-y-2 transition-colors duration-150 ${isOver ? "bg-blue-100 ring-2 ring-blue-300" : "bg-amber-50"}`}
+      >
+        {candidates.length === 0 && (
+          <div className="text-center text-xs py-8 text-amber-200 pointer-events-none">
+            No candidates yet
+          </div>
+        )}
+        {candidates.map((c) => (
+          <CandidateCard
+            key={c.id}
+            candidate={c}
+            onClick={() => onCardClick(c.id)}
+            faded
+          />
+        ))}
       </div>
     </div>
   );
@@ -381,578 +555,27 @@ const AddColumnForm: React.FC<{
   );
 };
 
-// ─── Detail Panel ─────────────────────────────────────────────────────────────
-
-const DetailPanel: React.FC<{
-  candidateId: string | null;
-  columns: any[];
-  onClose: () => void;
-  onStatusChange: (
-    id: string,
-    status: string,
-    columnId?: string | null,
-  ) => void;
-}> = ({ candidateId, columns, onClose, onStatusChange }) => {
-  const { admin } = useAuthStore();
-  const [candidate, setCandidate] = useState<any>(null);
-  const [messages, setMessages] = useState<any[]>([]);
-  const [tab, setTab] = useState<"answers" | "chat" | "files">("answers");
-  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
-  const [comment, setComment] = useState("");
-  const [msgText, setMsgText] = useState("");
-  const [sending, setSending] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const chatBottomRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!candidateId) {
-      setCandidate(null);
-      return;
-    }
-    setLoading(true);
-    setTab("answers");
-    Promise.all([candidatesApi.get(candidateId), messagesApi.list(candidateId)])
-      .then(([c, m]) => {
-        setCandidate(c);
-        setMessages(m);
-      })
-      .finally(() => setLoading(false));
-  }, [candidateId]);
-
-  useEffect(() => {
-    if (tab === "chat")
-      chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, tab]);
-
-  useWebSocket({
-    NEW_MESSAGE: (payload) => {
-      if (payload?.candidateId !== candidateId) return;
-      // Only add INBOUND messages via WebSocket.
-      // Outbound messages (sent by admin) are already added optimistically in
-      // handleSendMessage / handleSendFile — the server's broadcast would double them.
-      if (payload?.message?.direction !== "inbound") return;
-      setMessages((prev) => {
-        // Deduplicate by id — guards against any race between load and WS delivery
-        if (prev.some((m) => m.id === payload.message.id)) return prev;
-        return [...prev, payload.message];
-      });
-    },
-  });
-
-  const handleStatusChange = async (newStatus: string) => {
-    if (!candidate) return;
-    await candidatesApi.update(candidate.id, { status: newStatus });
-    setCandidate((c: any) => ({
-      ...c,
-      status: newStatus,
-      columnId:
-        newStatus === "hired" || newStatus === "archived" ? null : c.columnId,
-    }));
-    onStatusChange(candidate.id, newStatus);
-    toast.success(`Status → ${newStatus}`);
-  };
-
-  const handleColumnChange = async (columnId: string) => {
-    if (!candidate) return;
-    await candidatesApi.update(candidate.id, { columnId });
-    setCandidate((c: any) => ({ ...c, columnId }));
-    onStatusChange(candidate.id, "active", columnId);
-    toast.success("Stage updated");
-  };
-
-  const handleSendMessage = async () => {
-    if (!msgText.trim() || !candidate || sending) return;
-    setSending(true);
-    try {
-      const msg = await messagesApi.send(candidate.id, {
-        text: msgText.trim(),
-      });
-      setMessages((prev) => [...prev, msg]);
-      setMsgText("");
-    } catch {
-      toast.error("Failed to send");
-    }
-    setSending(false);
-  };
-
-  const handleSendFile = async (file: File) => {
-    if (!candidate) return;
-    try {
-      const msg = await messagesApi.sendMedia(candidate.id, file, "document");
-      setMessages((prev) => [...prev, msg]);
-    } catch {
-      toast.error("Failed to send file");
-    }
-  };
-
-  const handleAddComment = async () => {
-    if (!comment.trim() || !candidate) return;
-    const c = await candidatesApi.addComment(candidate.id, comment.trim());
-    setCandidate((prev: any) => ({
-      ...prev,
-      comments: [...(prev.comments || []), c],
-    }));
-    setComment("");
-  };
-
-  if (!candidateId) return null;
-
-  return (
-    <>
-      <div className="fixed inset-0 bg-black/10 z-30" onClick={onClose} />
-      <div className="fixed top-0 right-0 h-full w-[420px] bg-white shadow-2xl z-40 flex flex-col">
-        {loading || !candidate ? (
-          <div className="flex-1 flex items-center justify-center text-gray-400">
-            Loading…
-          </div>
-        ) : (
-          <>
-            {/* Header */}
-            <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
-              <div
-                className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-bold overflow-hidden flex-shrink-0 cursor-pointer"
-                onClick={() => {
-                  if (candidate.profilePhoto)
-                    setLightboxSrc(
-                      `/uploads/${candidate.botId}/${candidate.profilePhoto.split(/[\/\\]/).pop()}`,
-                    );
-                }}
-              >
-                {candidate.profilePhoto ? (
-                  <img
-                    src={`/uploads/${candidate.botId}/${candidate.profilePhoto.split(/[\\/]/).pop()}`}
-                    className="w-10 h-10 object-cover"
-                    alt=""
-                  />
-                ) : (
-                  (
-                    (candidate.fullName || candidate.username || "?")[0] || "?"
-                  ).toUpperCase()
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-bold text-gray-900 truncate">
-                  {candidate.fullName || candidate.username || "Unknown"}
-                </p>
-                <p className="text-xs text-gray-400">
-                  {candidate.username
-                    ? `@${candidate.username}`
-                    : "No username"}
-                </p>
-              </div>
-              <button
-                onClick={onClose}
-                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 text-xl"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto">
-              {/* Status + Stage + Contact */}
-              <div className="p-5 pb-0 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
-                      Status
-                    </p>
-                    <select
-                      value={candidate.status}
-                      onChange={(e) => handleStatusChange(e.target.value)}
-                      className="w-full text-sm font-semibold text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none"
-                    >
-                      <option value="active">Active</option>
-                      <option value="hired">Hired ✅</option>
-                      <option value="archived">Archived</option>
-                    </select>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
-                      Contact
-                    </p>
-                    <p className="text-sm font-semibold text-gray-700 truncate">
-                      {candidate.phone ||
-                        candidate.email ||
-                        (candidate.username ? `@${candidate.username}` : "—")}
-                    </p>
-                  </div>
-                </div>
-
-                {candidate.status === "active" && (
-                  <div>
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
-                      Stage
-                    </p>
-                    <select
-                      value={candidate.columnId || ""}
-                      onChange={(e) => handleColumnChange(e.target.value)}
-                      className="w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none"
-                    >
-                      <option value="">— Unassigned —</option>
-                      {columns.map((col: any) => (
-                        <option key={col.id} value={col.id}>
-                          {col.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
-
-              {/* Tabs */}
-              <div className="flex mx-5 mt-4 border-b border-gray-100">
-                {(["answers", "chat", "files"] as const).map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setTab(t)}
-                    className={`px-3 py-2 text-xs font-semibold capitalize border-b-2 -mb-px transition-colors ${tab === t ? "border-blue-500 text-blue-600" : "border-transparent text-gray-400 hover:text-gray-600"}`}
-                  >
-                    {t}
-                    {t === "chat" && messages.length > 0 && (
-                      <span className="ml-1 bg-blue-100 text-blue-600 rounded-full px-1.5 text-xs">
-                        {messages.length}
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-
-              {/* Answers tab */}
-              {tab === "answers" && (
-                <div className="p-5 space-y-4">
-                  {/* Age + Position info cards */}
-                  {(candidate.age || candidate.position) && (
-                    <div className="grid grid-cols-2 gap-2">
-                      {candidate.age && (
-                        <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
-                          <p className="text-xs text-amber-500 font-semibold uppercase tracking-wider mb-1">
-                            🎂 Age
-                          </p>
-                          <p className="text-sm font-semibold text-gray-800">
-                            {candidate.age}
-                          </p>
-                        </div>
-                      )}
-                      {candidate.position && (
-                        <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3">
-                          <p className="text-xs text-indigo-500 font-semibold uppercase tracking-wider mb-1">
-                            💼 Position
-                          </p>
-                          <p className="text-sm font-semibold text-gray-800">
-                            {candidate.position}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {/* Custom (non-required) question answers only */}
-                  {candidate.answers?.filter(
-                    (a: any) => !a.question?.isRequired,
-                  ).length > 0 && (
-                    <div className="space-y-3">
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                        🤖 Bot Answers
-                      </p>
-                      {candidate.answers
-                        .filter((a: any) => !a.question?.isRequired)
-                        .map((answer: any) => {
-                          const q =
-                            answer.question?.translations?.[0]?.text ||
-                            "Question";
-                          const isAttachment =
-                            answer.question?.type === "attachment";
-                          const a =
-                            answer.option?.translations?.[0]?.text ||
-                            answer.textValue ||
-                            "—";
-                          const matchedFile = isAttachment
-                            ? candidate.files?.find(
-                                (f: any) => f.fileName === a,
-                              )
-                            : null;
-                          return (
-                            <div key={answer.id}>
-                              <p className="text-xs text-gray-400 mb-0.5">
-                                {q}
-                              </p>
-                              {isAttachment && a !== "—" ? (
-                                matchedFile ? (
-                                  <a
-                                    href={filesApi.downloadUrl(matchedFile.id)}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:underline"
-                                  >
-                                    📎 {a}
-                                  </a>
-                                ) : (
-                                  <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-800">
-                                    📎 {a}
-                                  </p>
-                                )
-                              ) : (
-                                <p className="text-sm font-semibold text-gray-800">
-                                  {a}
-                                </p>
-                              )}
-                            </div>
-                          );
-                        })}
-                    </div>
-                  )}
-                  <div
-                    className={
-                      candidate.answers?.length > 0
-                        ? "border-t border-gray-100 pt-4"
-                        : ""
-                    }
-                  >
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                      ✏️ Notes
-                    </p>
-                    {candidate.comments?.length === 0 && (
-                      <p className="text-xs text-gray-300 mb-2">No notes yet</p>
-                    )}
-                    {candidate.comments?.map((c: any) => (
-                      <div
-                        key={c.id}
-                        className="bg-amber-50 border border-amber-100 rounded-xl p-3 mb-2"
-                      >
-                        <p className="text-sm text-gray-700">{c.text}</p>
-                        <p className="text-xs text-amber-400 mt-1">
-                          {c.admin?.name} ·{" "}
-                          {format(new Date(c.createdAt), "MMM d")}
-                        </p>
-                      </div>
-                    ))}
-                    <div className="flex gap-2 mt-2">
-                      <input
-                        value={comment}
-                        onChange={(e) => setComment(e.target.value)}
-                        onKeyDown={(e) =>
-                          e.key === "Enter" && handleAddComment()
-                        }
-                        placeholder="Add a note…"
-                        className="flex-1 text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-300"
-                      />
-                      <button
-                        onClick={handleAddComment}
-                        className="w-9 h-9 rounded-xl bg-amber-100 hover:bg-amber-200 flex items-center justify-center text-amber-600 transition-colors"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Chat tab */}
-              {tab === "chat" && (
-                <div className="flex flex-col h-[400px]">
-                  <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                    {messages.map((msg) => {
-                      const isOut = msg.direction === "outbound";
-                      return (
-                        <div
-                          key={msg.id}
-                          className={`flex ${isOut ? "justify-end" : "justify-start"}`}
-                        >
-                          <div
-                            className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${isOut ? "bg-blue-600 text-white rounded-tr-sm" : "bg-gray-100 text-gray-800 rounded-tl-sm"}`}
-                          >
-                            {msg.type === "text" && <p>{msg.text}</p>}
-                            {msg.type === "photo" && (
-                              <img
-                                src={filesApi.serveUrl(msg.id)}
-                                alt="photo"
-                                className="max-w-full rounded max-h-40 object-cover cursor-zoom-in"
-                                onClick={() =>
-                                  setLightboxSrc(filesApi.serveUrl(msg.id))
-                                }
-                              />
-                            )}
-                            {msg.type === "document" &&
-                              (() => {
-                                const viewable = isViewableInBrowser(
-                                  msg.mimeType,
-                                );
-                                return (
-                                  <a
-                                    href={filesApi.serveUrl(msg.id)}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    {...(!viewable
-                                      ? { download: msg.fileName }
-                                      : {})}
-                                    className={`flex items-center gap-1 ${isOut ? "text-blue-100" : "text-blue-600"}`}
-                                  >
-                                    {msg.mimeType === "application/pdf"
-                                      ? "📄"
-                                      : "📎"}{" "}
-                                    {msg.fileName || "File"}
-                                  </a>
-                                );
-                              })()}
-                            {msg.type === "voice" && (
-                              <audio
-                                controls
-                                src={filesApi.serveUrl(msg.id)}
-                                className="max-w-full h-8"
-                              />
-                            )}
-                            <p
-                              className={`text-xs mt-1 ${isOut ? "text-blue-200" : "text-gray-400"}`}
-                            >
-                              {format(new Date(msg.createdAt), "HH:mm")}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    <div ref={chatBottomRef} />
-                  </div>
-                  <div className="p-3 border-t border-gray-100 flex gap-2">
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) handleSendFile(f);
-                        e.target.value = "";
-                      }}
-                    />
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      className="w-9 h-9 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors"
-                    >
-                      📎
-                    </button>
-                    <input
-                      value={msgText}
-                      onChange={(e) => setMsgText(e.target.value)}
-                      onKeyDown={(e) =>
-                        e.key === "Enter" && !e.shiftKey && handleSendMessage()
-                      }
-                      placeholder="Message…"
-                      className="flex-1 text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-300"
-                    />
-                    <button
-                      onClick={handleSendMessage}
-                      disabled={sending || !msgText.trim()}
-                      className="w-9 h-9 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 flex items-center justify-center text-white transition-colors"
-                    >
-                      →
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Files tab */}
-              {tab === "files" && (
-                <div className="p-5">
-                  {!candidate.files || candidate.files.length === 0 ? (
-                    <p className="text-sm text-gray-400 text-center py-4">
-                      No files uploaded
-                    </p>
-                  ) : (
-                    candidate.files.map((f: any) => {
-                      const viewable = isViewableInBrowser(f.mimeType);
-                      return (
-                        <a
-                          key={f.id}
-                          href={
-                            viewable
-                              ? filesApi.serveFileUrl(f.id)
-                              : filesApi.downloadUrl(f.id)
-                          }
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          {...(!viewable ? { download: f.fileName } : {})}
-                          className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors mb-1"
-                        >
-                          <span className="text-2xl">
-                            {f.mimeType === "application/pdf"
-                              ? "📄"
-                              : viewable
-                                ? "🖼️"
-                                : "📎"}
-                          </span>
-                          <div>
-                            <p className="text-sm font-medium text-gray-800">
-                              {f.fileName}
-                            </p>
-                            <p className="text-xs text-gray-400">
-                              {format(new Date(f.createdAt), "MMM d, HH:mm")}
-                            </p>
-                          </div>
-                        </a>
-                      );
-                    })
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Action buttons */}
-            <div className="p-4 border-t border-gray-100 space-y-2">
-              {candidate.status !== "hired" && (
-                <button
-                  onClick={() => handleStatusChange("hired")}
-                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors"
-                >
-                  ✅ Mark as Hired
-                </button>
-              )}
-              {candidate.status === "active" && (
-                <button
-                  onClick={() => handleStatusChange("archived")}
-                  className="w-full py-2.5 border border-red-200 text-red-500 hover:bg-red-50 font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors text-sm"
-                >
-                  🗃 Archive Candidate
-                </button>
-              )}
-              {candidate.status === "archived" && (
-                <button
-                  onClick={() => handleStatusChange("active")}
-                  className="w-full py-2.5 border border-blue-200 text-blue-600 hover:bg-blue-50 font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors text-sm"
-                >
-                  ↩ Restore to Pipeline
-                </button>
-              )}
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Lightbox */}
-      {lightboxSrc && (
-        <div
-          className="fixed inset-0 z-[200] bg-black/80 flex items-center justify-center"
-          onClick={() => setLightboxSrc(null)}
-        >
-          <img
-            src={lightboxSrc}
-            alt=""
-            className="max-w-[90vw] max-h-[90vh] rounded-2xl object-contain shadow-2xl"
-          />
-          <button className="absolute top-4 right-4 text-white text-3xl leading-none opacity-70 hover:opacity-100">
-            ×
-          </button>
-        </div>
-      )}
-    </>
-  );
-};
-
-// ─── Unassigned column (always-mounted droppable) ─────────────────────────────
+// ─── Unassigned column ────────────────────────────────────────────────────────
 
 const UnassignedColumn: React.FC<{
   candidates: any[];
   onCardClick: (id: string) => void;
-}> = ({ candidates, onCardClick }) => {
+  onBroadcast: (candidates: any[]) => void;
+}> = ({ candidates, onCardClick, onBroadcast }) => {
   const { setNodeRef, isOver } = useDroppable({ id: "__unassigned__" });
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node))
+        setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
+
   return (
     <div className="flex flex-col w-72 flex-shrink-0">
       <div className="flex items-center gap-2 mb-3 px-1">
@@ -963,6 +586,27 @@ const UnassignedColumn: React.FC<{
         <span className="text-xs font-bold text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
           {candidates.length}
         </span>
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={() => setMenuOpen((o) => !o)}
+            className="w-6 h-6 flex items-center justify-center rounded-lg text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition-colors text-xs font-bold"
+          >
+            ···
+          </button>
+          {menuOpen && (
+            <div className="absolute right-0 top-7 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden w-52">
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  onBroadcast(candidates);
+                }}
+                className="w-full text-left px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 font-medium"
+              >
+                📣 Notify all candidates
+              </button>
+            </div>
+          )}
+        </div>
       </div>
       <div
         ref={setNodeRef}
@@ -985,6 +629,7 @@ const UnassignedColumn: React.FC<{
 export const CandidatesPage: React.FC = () => {
   const [columns, setColumns] = useState<any[]>([]);
   const [allCandidates, setAllCandidates] = useState<any[]>([]);
+  const [incompletes, setIncompletes] = useState<any[]>([]);
   const [bots, setBots] = useState<any[]>([]);
   const [filterQuestions, setFilterQuestions] = useState<any[]>([]);
   const [filters, setFilters] = useState({
@@ -1008,6 +653,10 @@ export const CandidatesPage: React.FC = () => {
     null,
   );
   const [addingColumn, setAddingColumn] = useState(false);
+  const [broadcast, setBroadcast] = useState<{
+    name: string;
+    candidates: any[];
+  } | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -1016,7 +665,7 @@ export const CandidatesPage: React.FC = () => {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [cols, result] = await Promise.all([
+      const [cols, result, inc] = await Promise.all([
         columnsApi.list(),
         candidatesApi.list({
           status: "active",
@@ -1029,9 +678,16 @@ export const CandidatesPage: React.FC = () => {
               optionId: filters.optionId,
             }),
         }),
+        candidatesApi.list({
+          status: "incomplete",
+          limit: 500,
+          page: 1,
+          ...(filters.botId && { botId: filters.botId }),
+        }),
       ]);
       setColumns(cols);
       setAllCandidates(result.candidates || []);
+      setIncompletes(inc.candidates || []);
     } catch {}
     setLoading(false);
   }, [filters.botId, filters.questionId, filters.optionId]);
@@ -1042,13 +698,9 @@ export const CandidatesPage: React.FC = () => {
   useEffect(() => {
     botsApi.list().then((b) => setBots(b));
   }, []);
-
-  // Load choice questions that have a filterLabel for pipeline filters
   useEffect(() => {
     const params = filters.botId ? { botId: filters.botId } : {};
     questionsApi.list(params).then((qs: any[]) => {
-      // Show any non-required choice question that has options
-      // filterLabel is used as display name; falls back to question text
       setFilterQuestions(
         qs.filter(
           (q: any) =>
@@ -1060,15 +712,13 @@ export const CandidatesPage: React.FC = () => {
     });
   }, [filters.botId]);
 
-  // Close filter panel on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (
         filterPanelRef.current &&
         !filterPanelRef.current.contains(e.target as Node)
-      ) {
+      )
         setFilterPanelOpen(false);
-      }
     };
     if (filterPanelOpen) document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -1113,6 +763,9 @@ export const CandidatesPage: React.FC = () => {
     setAllCandidates((prev) =>
       prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c)),
     );
+    setIncompletes((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c)),
+    );
     messagesApi.markAsRead(id).catch(() => {});
   }, []);
 
@@ -1125,11 +778,14 @@ export const CandidatesPage: React.FC = () => {
     if (!over) return;
     const candidateId = active.id as string;
     const overId = over.id as string;
-    const candidate = allCandidates.find((c) => c.id === candidateId);
+    const candidate =
+      allCandidates.find((c) => c.id === candidateId) ||
+      incompletes.find((c) => c.id === candidateId);
     if (!candidate) return;
 
     if (overId === "__hire__") {
       setAllCandidates((prev) => prev.filter((c) => c.id !== candidateId));
+      setIncompletes((prev) => prev.filter((c) => c.id !== candidateId));
       try {
         await candidatesApi.update(candidateId, { status: "hired" });
         toast.success("Candidate hired! 🎉");
@@ -1141,6 +797,7 @@ export const CandidatesPage: React.FC = () => {
     }
     if (overId === "__archive__") {
       setAllCandidates((prev) => prev.filter((c) => c.id !== candidateId));
+      setIncompletes((prev) => prev.filter((c) => c.id !== candidateId));
       try {
         await candidatesApi.update(candidateId, { status: "archived" });
         toast.success("Candidate archived");
@@ -1150,30 +807,47 @@ export const CandidatesPage: React.FC = () => {
       }
       return;
     }
-    // Moving to unassigned
+    if (overId === "__inprogress__") return; // read-only
     if (overId === "__unassigned__") {
-      if (candidate.columnId === null) return;
-      setAllCandidates((prev) =>
-        prev.map((c) => (c.id === candidateId ? { ...c, columnId: null } : c)),
-      );
+      if (candidate.columnId === null && candidate.status === "active") return;
+      setAllCandidates((prev) => [
+        ...prev.filter((c) => c.id !== candidateId),
+        { ...candidate, columnId: null, status: "active" },
+      ]);
+      setIncompletes((prev) => prev.filter((c) => c.id !== candidateId));
+      // Only send status:'active' for incomplete candidates — sending it for
+      // already-active candidates triggers the backend restore logic that clears columnId.
+      const isIncomplete = candidate.status === "incomplete";
       try {
-        await candidatesApi.update(candidateId, { columnId: null });
+        await candidatesApi.update(
+          candidateId,
+          isIncomplete
+            ? { columnId: null, status: "active" }
+            : { columnId: null },
+        );
       } catch {
         toast.error("Failed");
         fetchAll();
       }
       return;
     }
-    // Moving between columns
     const col = columns.find((c) => c.id === overId);
-    if (!col || candidate.columnId === overId) return;
-    setAllCandidates((prev) =>
-      prev.map((c) => (c.id === candidateId ? { ...c, columnId: overId } : c)),
-    );
-    // Only send columnId — sending status:'active' would trigger the route's
-    // individual-restore logic which clears columnId, undoing the move.
+    if (!col) return;
+    if (candidate.columnId === overId && candidate.status === "active") return;
+    setAllCandidates((prev) => [
+      ...prev.filter((c) => c.id !== candidateId),
+      { ...candidate, columnId: overId, status: "active" },
+    ]);
+    setIncompletes((prev) => prev.filter((c) => c.id !== candidateId));
+    // Same rule: only send status:'active' when promoting an incomplete candidate.
+    const isIncomplete = candidate.status === "incomplete";
     try {
-      await candidatesApi.update(candidateId, { columnId: overId });
+      await candidatesApi.update(
+        candidateId,
+        isIncomplete
+          ? { columnId: overId, status: "active" }
+          : { columnId: overId },
+      );
     } catch {
       toast.error("Failed");
       fetchAll();
@@ -1232,6 +906,17 @@ export const CandidatesPage: React.FC = () => {
     setColumns((prev) => prev.map((c) => (c.id === id ? { ...c, name } : c)));
   };
 
+  const handleBroadcastSend = async (text: string) => {
+    if (!broadcast) return;
+    const result = await messagesApi.broadcast(
+      broadcast.candidates.map((c) => c.id),
+      text,
+    );
+    toast.success(
+      `Sent to ${result.sent}${result.failed > 0 ? `, ${result.failed} failed` : ""}`,
+    );
+  };
+
   const handleStatusChangeFromPanel = (
     id: string,
     status: string,
@@ -1239,6 +924,23 @@ export const CandidatesPage: React.FC = () => {
   ) => {
     if (status === "hired" || status === "archived") {
       setAllCandidates((prev) => prev.filter((c) => c.id !== id));
+      setIncompletes((prev) => prev.filter((c) => c.id !== id));
+    } else if (status === "active") {
+      setIncompletes((prev) => prev.filter((c) => c.id !== id));
+      setAllCandidates((prev) => {
+        if (prev.find((c) => c.id === id))
+          return prev.map((c) =>
+            c.id === id
+              ? {
+                  ...c,
+                  status,
+                  columnId: columnId !== undefined ? columnId : c.columnId,
+                }
+              : c,
+          );
+        fetchAll();
+        return prev;
+      });
     } else {
       setAllCandidates((prev) =>
         prev.map((c) =>
@@ -1255,20 +957,28 @@ export const CandidatesPage: React.FC = () => {
   };
 
   const visibleCandidates = allCandidates.filter((c) => {
-    if (filters.search) {
-      const q = filters.search.toLowerCase();
-      return (
-        (c.fullName || "").toLowerCase().includes(q) ||
-        (c.phone || "").includes(q) ||
-        (c.username || "").toLowerCase().includes(q)
-      );
-    }
-    return true;
+    if (!filters.search) return true;
+    const q = filters.search.toLowerCase();
+    return (
+      (c.fullName || "").toLowerCase().includes(q) ||
+      (c.phone || "").includes(q) ||
+      (c.username || "").toLowerCase().includes(q)
+    );
+  });
+
+  const visibleInc = incompletes.filter((c) => {
+    if (!filters.search) return true;
+    const q = filters.search.toLowerCase();
+    return (
+      (c.fullName || "").toLowerCase().includes(q) ||
+      (c.username || "").toLowerCase().includes(q)
+    );
   });
 
   const uncolumned = visibleCandidates.filter((c) => !c.columnId);
   const activeCandidate = activeId
-    ? allCandidates.find((c) => c.id === activeId)
+    ? allCandidates.find((c) => c.id === activeId) ||
+      incompletes.find((c) => c.id === activeId)
     : null;
 
   return (
@@ -1283,22 +993,28 @@ export const CandidatesPage: React.FC = () => {
           onCancel={() => setConfirmModal(null)}
         />
       )}
+      {broadcast && (
+        <BroadcastModal
+          columnName={broadcast.name}
+          candidateCount={broadcast.candidates.length}
+          onSend={handleBroadcastSend}
+          onClose={() => setBroadcast(null)}
+        />
+      )}
       <div className="flex flex-col h-full overflow-hidden bg-gray-50">
         {/* Top bar */}
         <div className="px-6 py-3 bg-white border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center justify-between gap-3">
-            {/* Title */}
             <div>
               <h1 className="text-xl font-bold text-gray-900">Pipeline</h1>
               <p className="text-xs text-gray-400 mt-0.5">
-                {visibleCandidates.length} candidates
+                {visibleCandidates.length} active · {visibleInc.length} in
+                progress
               </p>
             </div>
 
             <div className="flex items-center gap-2 flex-1 justify-end">
-              {/* Active filter chips */}
               <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                {/* Bot chip */}
                 {filters.botId && (
                   <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-violet-100 text-violet-700">
                     🤖 {bots.find((b) => b.id === filters.botId)?.name || "Bot"}
@@ -1317,7 +1033,6 @@ export const CandidatesPage: React.FC = () => {
                     </button>
                   </span>
                 )}
-                {/* Answer chip */}
                 {filters.questionId &&
                   filters.optionId &&
                   (() => {
@@ -1328,10 +1043,10 @@ export const CandidatesPage: React.FC = () => {
                       (o: any) => o.id === filters.optionId,
                     );
                     if (!q || !opt) return null;
-                    const label = `${q.filterLabel || q.translations?.[0]?.text || "Filter"}: ${opt.translations?.[0]?.text || "Option"}`;
                     return (
                       <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-indigo-100 text-indigo-700">
-                        🔽 {label}
+                        🔽 {q.filterLabel || q.translations?.[0]?.text}:{" "}
+                        {opt.translations?.[0]?.text}
                         <button
                           onClick={() =>
                             setFilters((f) => ({
@@ -1349,7 +1064,6 @@ export const CandidatesPage: React.FC = () => {
                   })()}
               </div>
 
-              {/* Search */}
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">
                   🔍
@@ -1365,7 +1079,6 @@ export const CandidatesPage: React.FC = () => {
                 />
               </div>
 
-              {/* Filters button */}
               <div className="relative" ref={filterPanelRef}>
                 {(() => {
                   const activeCount = [
@@ -1376,11 +1089,7 @@ export const CandidatesPage: React.FC = () => {
                     <button
                       onClick={() => setFilterPanelOpen((o) => !o)}
                       className={`flex items-center gap-2 text-sm font-medium px-3.5 py-2 rounded-xl border transition-all
-                      ${
-                        filterPanelOpen || activeCount > 0
-                          ? "bg-blue-600 text-white border-blue-600 shadow-sm"
-                          : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600"
-                      }`}
+                        ${filterPanelOpen || activeCount > 0 ? "bg-blue-600 text-white border-blue-600 shadow-sm" : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600"}`}
                     >
                       <svg
                         viewBox="0 0 20 20"
@@ -1402,32 +1111,27 @@ export const CandidatesPage: React.FC = () => {
                     </button>
                   );
                 })()}
-
-                {/* Filter dropdown panel */}
                 {filterPanelOpen && (
                   <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl border border-gray-200 shadow-2xl z-50 overflow-hidden">
-                    {/* Header */}
                     <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                       <span className="text-sm font-bold text-gray-900">
                         Filters
                       </span>
                       <button
-                        onClick={() => {
+                        onClick={() =>
                           setFilters((f) => ({
                             ...f,
                             botId: "",
                             questionId: "",
                             optionId: "",
-                          }));
-                        }}
-                        className="text-xs text-gray-400 hover:text-red-500 transition-colors font-medium"
+                          }))
+                        }
+                        className="text-xs text-gray-400 hover:text-red-500 font-medium"
                       >
                         Reset all
                       </button>
                     </div>
-
                     <div className="p-4 space-y-5 max-h-[70vh] overflow-y-auto">
-                      {/* ── Bot ──────────────────────────────── */}
                       {bots.length > 0 && (
                         <div>
                           <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2.5">
@@ -1440,8 +1144,7 @@ export const CandidatesPage: React.FC = () => {
                                 return (
                                   <label
                                     key={b.id}
-                                    className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors
-                                ${selected ? "bg-violet-50 border border-violet-200" : "hover:bg-gray-50 border border-transparent"}`}
+                                    className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors ${selected ? "bg-violet-50 border border-violet-200" : "hover:bg-gray-50 border border-transparent"}`}
                                     onClick={() =>
                                       setFilters((f) => ({
                                         ...f,
@@ -1452,8 +1155,7 @@ export const CandidatesPage: React.FC = () => {
                                     }
                                   >
                                     <div
-                                      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all
-                                  ${selected ? "border-violet-600" : "border-gray-300"}`}
+                                      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${selected ? "border-violet-600" : "border-gray-300"}`}
                                     >
                                       {selected && (
                                         <div className="w-2 h-2 rounded-full bg-violet-600" />
@@ -1470,8 +1172,6 @@ export const CandidatesPage: React.FC = () => {
                           </div>
                         </div>
                       )}
-
-                      {/* ── Choice question filters ───────────── */}
                       {filterQuestions.map((q: any) => {
                         const qLabel =
                           q.filterLabel ||
@@ -1483,7 +1183,6 @@ export const CandidatesPage: React.FC = () => {
                               {qLabel}
                             </p>
                             <div className="space-y-1.5">
-                              {/* "Any" option */}
                               {[
                                 { id: "", text: "Any" },
                                 ...q.options.map((o: any) => ({
@@ -1499,8 +1198,7 @@ export const CandidatesPage: React.FC = () => {
                                 return (
                                   <label
                                     key={opt.id || "__any__"}
-                                    className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors
-                                  ${selected ? "bg-indigo-50 border border-indigo-200" : "hover:bg-gray-50 border border-transparent"}`}
+                                    className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors ${selected ? "bg-indigo-50 border border-indigo-200" : "hover:bg-gray-50 border border-transparent"}`}
                                     onClick={() =>
                                       setFilters((f) => ({
                                         ...f,
@@ -1510,8 +1208,7 @@ export const CandidatesPage: React.FC = () => {
                                     }
                                   >
                                     <div
-                                      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all
-                                    ${selected ? "border-indigo-600" : "border-gray-300"}`}
+                                      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${selected ? "border-indigo-600" : "border-gray-300"}`}
                                     >
                                       {selected && (
                                         <div className="w-2 h-2 rounded-full bg-indigo-600" />
@@ -1528,8 +1225,6 @@ export const CandidatesPage: React.FC = () => {
                         );
                       })}
                     </div>
-
-                    {/* Footer */}
                     <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
                       <button
                         onClick={() => setFilterPanelOpen(false)}
@@ -1560,13 +1255,22 @@ export const CandidatesPage: React.FC = () => {
                 className="flex gap-5 p-6 h-full items-start"
                 style={{ minWidth: "max-content" }}
               >
-                {/* Unassigned column — always visible */}
+                <InProgressColumn
+                  candidates={visibleInc}
+                  onCardClick={handleCardClick}
+                  onBroadcast={(cands) =>
+                    setBroadcast({ name: "In Progress", candidates: cands })
+                  }
+                />
+
                 <UnassignedColumn
                   candidates={uncolumned}
                   onCardClick={handleCardClick}
+                  onBroadcast={(cands) =>
+                    setBroadcast({ name: "Unassigned", candidates: cands })
+                  }
                 />
 
-                {/* Custom columns */}
                 {columns.map((col) => (
                   <KanbanColumn
                     key={col.id}
@@ -1578,10 +1282,12 @@ export const CandidatesPage: React.FC = () => {
                     onArchive={handleArchiveColumn}
                     onDelete={handleDeleteColumn}
                     onRename={handleRenameColumn}
+                    onBroadcast={(col, cands) =>
+                      setBroadcast({ name: col.name, candidates: cands })
+                    }
                   />
                 ))}
 
-                {/* Add column button/form — always to the right of existing columns */}
                 {addingColumn ? (
                   <AddColumnForm
                     onAdd={handleAddColumn}
@@ -1597,7 +1303,6 @@ export const CandidatesPage: React.FC = () => {
                   </button>
                 )}
 
-                {/* Hire / Archive drop zones */}
                 <div className="flex flex-col gap-3 flex-shrink-0 justify-start mt-10">
                   <DropZone
                     id="__hire__"
@@ -1626,13 +1331,11 @@ export const CandidatesPage: React.FC = () => {
                           "?")[0] || "?"
                       ).toUpperCase()}
                     </div>
-                    <div>
-                      <p className="font-semibold text-gray-800 text-sm">
-                        {activeCandidate.fullName ||
-                          activeCandidate.username ||
-                          "Unknown"}
-                      </p>
-                    </div>
+                    <p className="font-semibold text-gray-800 text-sm">
+                      {activeCandidate.fullName ||
+                        activeCandidate.username ||
+                        "Unknown"}
+                    </p>
                   </div>
                 </div>
               ) : null}
@@ -1640,7 +1343,7 @@ export const CandidatesPage: React.FC = () => {
           </DndContext>
         )}
 
-        <DetailPanel
+        <CandidateDetailPanel
           candidateId={selectedCandidateId}
           columns={columns}
           onClose={() => setSelectedCandidateId(null)}
