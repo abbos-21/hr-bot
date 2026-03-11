@@ -41,8 +41,9 @@ router.post("/", async (req: AuthRequest, res: Response) => {
         token,
         name: name || botInfo.first_name,
         username: botInfo.username,
+        defaultLang: "uz",
         languages: {
-          create: [{ code: "en", name: "English", isDefault: true }],
+          create: [{ code: "uz", name: "O'zbek", isDefault: true }],
         },
         // Seed the 4 required questions immediately
         questions: {
@@ -53,7 +54,9 @@ router.post("/", async (req: AuthRequest, res: Response) => {
               isRequired: true,
               fieldKey: "fullName",
               translations: {
-                create: [{ lang: "en", text: "What is your full name?" }],
+                create: [
+                  { lang: "uz", text: "Ismingiz va familiyangizni kiriting?" },
+                ],
               },
             },
             {
@@ -62,7 +65,7 @@ router.post("/", async (req: AuthRequest, res: Response) => {
               isRequired: true,
               fieldKey: "age",
               translations: {
-                create: [{ lang: "en", text: "How old are you?" }],
+                create: [{ lang: "uz", text: "Yoshingiz necchi?" }],
               },
             },
             {
@@ -71,7 +74,9 @@ router.post("/", async (req: AuthRequest, res: Response) => {
               isRequired: true,
               fieldKey: "phone",
               translations: {
-                create: [{ lang: "en", text: "What is your phone number?" }],
+                create: [
+                  { lang: "uz", text: "Telefon raqamingizni kiriting?" },
+                ],
               },
             },
             {
@@ -81,7 +86,7 @@ router.post("/", async (req: AuthRequest, res: Response) => {
               fieldKey: "profilePhoto",
               translations: {
                 create: [
-                  { lang: "en", text: "Please upload your profile photo." },
+                  { lang: "uz", text: "Iltimos, profil rasmingizni yuboring." },
                 ],
               },
             },
@@ -92,7 +97,10 @@ router.post("/", async (req: AuthRequest, res: Response) => {
               fieldKey: "position",
               translations: {
                 create: [
-                  { lang: "en", text: "Which position are you applying for?" },
+                  {
+                    lang: "uz",
+                    text: "Qaysi lavozimga ariza topshirmoqdasiz?",
+                  },
                 ],
               },
             },

@@ -5,12 +5,16 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
+    "build:frontend": "cd admin && npm install && npm run build",
+    "build:backend": "tsc",
+    "build:all": "npm run build:frontend && npm run build:backend",
     "start": "node dist/index.js",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "seed": "ts-node src/seed.ts"
+    "seed": "ts-node src/seed.ts",
+    "go": "npm run build:all && npm start"
   },
   "dependencies": {
     "@prisma/client": "^5.7.1",

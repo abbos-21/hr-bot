@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { botsApi } from "../api";
+import { useT } from "../i18n";
 import toast from "react-hot-toast";
 import { useConfirm } from "../components/ConfirmModal";
 
 export const BotsPage: React.FC = () => {
+  const { t } = useT();
   const [bots, setBots] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -27,9 +29,9 @@ export const BotsPage: React.FC = () => {
       setBots((prev) => [bot, ...prev]);
       setForm({ token: "", name: "" });
       setShowAdd(false);
-      toast.success("Bot added successfully!");
+      toast.success(t("bots.botAdded"));
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Failed to add bot");
+      toast.error(err.response?.data?.error || t("bots.botAdded"));
     } finally {
       setAdding(false);
     }
@@ -41,26 +43,28 @@ export const BotsPage: React.FC = () => {
       setBots((prev) =>
         prev.map((b) => (b.id === bot.id ? { ...b, ...updated } : b)),
       );
-      toast.success(updated.isActive ? "Bot activated" : "Bot deactivated");
+      toast.success(
+        updated.isActive ? t("bots.botActivated") : t("bots.botDeactivated"),
+      );
     } catch {
-      toast.error("Failed to update bot");
+      toast.error(t("common.update") + " failed");
     }
   };
 
   const handleDelete = async (id: string) => {
     const ok = await confirm({
-      title: "Delete this bot?",
-      message: "All candidates, questions and data will be permanently lost.",
+      title: t("bots.deleteBot"),
+      message: t("bots.deleteBotMsg"),
       danger: true,
-      confirmLabel: "Delete",
+      confirmLabel: t("common.delete"),
     });
     if (!ok) return;
     try {
       await botsApi.delete(id);
       setBots((prev) => prev.filter((b) => b.id !== id));
-      toast.success("Bot deleted");
+      toast.success(t("bots.botDeleted"));
     } catch {
-      toast.error("Failed to delete bot");
+      toast.error(t("common.delete") + " failed");
     }
   };
 
@@ -70,22 +74,24 @@ export const BotsPage: React.FC = () => {
       <div className="overflow-auto flex-1 p-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Bots</h1>
-            <p className="text-gray-500 mt-1">
-              Manage your Telegram recruitment bots
-            </p>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {t("bots.title")}
+            </h1>
+            <p className="text-gray-500 mt-1">{t("bots.subtitle")}</p>
           </div>
           <button className="btn-primary" onClick={() => setShowAdd(true)}>
-            + Add Bot
+            + {t("bots.addBot")}
           </button>
         </div>
 
         {showAdd && (
           <div className="card p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-4">Add New Bot</h2>
+            <h2 className="text-lg font-semibold mb-4">
+              {t("bots.addNewBot")}
+            </h2>
             <form onSubmit={handleAdd} className="space-y-4">
               <div>
-                <label className="label">Bot Token</label>
+                <label className="label">{t("bots.botToken")}</label>
                 <input
                   type="text"
                   value={form.token}
@@ -93,15 +99,15 @@ export const BotsPage: React.FC = () => {
                     setForm((f) => ({ ...f, token: e.target.value }))
                   }
                   className="input"
-                  placeholder="1234567890:ABCDEFabcdef..."
+                  placeholder={t("bots.botTokenPlaceholder")}
                   required
                 />
                 <p className="text-xs text-gray-400 mt-1">
-                  Get token from @BotFather on Telegram
+                  {t("bots.botTokenHint")}
                 </p>
               </div>
               <div>
-                <label className="label">Bot Name</label>
+                <label className="label">{t("bots.botName")}</label>
                 <input
                   type="text"
                   value={form.name}
@@ -109,20 +115,20 @@ export const BotsPage: React.FC = () => {
                     setForm((f) => ({ ...f, name: e.target.value }))
                   }
                   className="input"
-                  placeholder="My Recruitment Bot"
+                  placeholder={t("bots.botNamePlaceholder")}
                   required
                 />
               </div>
               <div className="flex gap-3">
                 <button type="submit" className="btn-primary" disabled={adding}>
-                  {adding ? "Adding..." : "Add Bot"}
+                  {adding ? t("bots.adding") : t("bots.addBot")}
                 </button>
                 <button
                   type="button"
                   className="btn-secondary"
                   onClick={() => setShowAdd(false)}
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </button>
               </div>
             </form>
@@ -130,18 +136,18 @@ export const BotsPage: React.FC = () => {
         )}
 
         {loading ? (
-          <div className="text-center text-gray-400 py-12">Loading...</div>
+          <div className="text-center text-gray-400 py-12">
+            {t("common.loading")}
+          </div>
         ) : bots.length === 0 ? (
           <div className="card p-12 text-center">
             <div className="text-4xl mb-4">🤖</div>
             <h3 className="text-lg font-medium text-gray-700 mb-2">
-              No bots yet
+              {t("bots.noBotsYet")}
             </h3>
-            <p className="text-gray-400 mb-4">
-              Add your first Telegram bot to get started
-            </p>
+            <p className="text-gray-400 mb-4">{t("bots.noBotsDesc")}</p>
             <button className="btn-primary" onClick={() => setShowAdd(true)}>
-              Add Bot
+              {t("bots.addBot")}
             </button>
           </div>
         ) : (
@@ -162,14 +168,24 @@ export const BotsPage: React.FC = () => {
                     <span
                       className={`badge ${bot.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}
                     >
-                      {bot.isActive ? "Active" : "Inactive"}
+                      {bot.isActive
+                        ? t("bots.status.active")
+                        : t("bots.status.inactive")}
                     </span>
                   </div>
                   <div className="flex gap-4 mt-1 text-sm text-gray-500">
-                    <span>{bot._count?.jobs || 0} jobs</span>
-                    <span>{bot._count?.candidates || 0} candidates</span>
-                    <span>{bot.languages?.length || 0} languages</span>
-                    <span>Default: {bot.defaultLang}</span>
+                    <span>
+                      {bot._count?.jobs || 0} {t("bots.jobs")}
+                    </span>
+                    <span>
+                      {bot._count?.candidates || 0} {t("bots.candidates")}
+                    </span>
+                    <span>
+                      {bot.languages?.length || 0} {t("bots.languages")}
+                    </span>
+                    <span>
+                      {t("bots.defaultLang")}: {bot.defaultLang}
+                    </span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -177,23 +193,19 @@ export const BotsPage: React.FC = () => {
                     to={`/bots/${bot.id}`}
                     className="btn-secondary text-sm py-1.5"
                   >
-                    Manage
+                    {t("common.manage")}
                   </Link>
                   <button
                     onClick={() => handleToggle(bot)}
-                    className={`text-sm py-1.5 px-3 rounded-lg font-medium transition-colors ${
-                      bot.isActive
-                        ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
-                        : "bg-green-100 text-green-700 hover:bg-green-200"
-                    }`}
+                    className={`text-sm py-1.5 px-3 rounded-lg font-medium transition-colors ${bot.isActive ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200" : "bg-green-100 text-green-700 hover:bg-green-200"}`}
                   >
-                    {bot.isActive ? "Pause" : "Activate"}
+                    {bot.isActive ? t("bots.pause") : t("common.activate")}
                   </button>
                   <button
                     onClick={() => handleDelete(bot.id)}
                     className="text-sm py-1.5 px-3 rounded-lg font-medium bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
                   >
-                    Delete
+                    {t("common.delete")}
                   </button>
                 </div>
               </div>

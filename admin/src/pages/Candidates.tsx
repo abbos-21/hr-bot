@@ -21,6 +21,8 @@ import { useWebSocket } from "../hooks/useWebSocket";
 import { format } from "date-fns";
 import toast from "react-hot-toast";
 import { CandidateDetailPanel } from "../components/Candidatedetailpanel";
+import { useConfirm } from "../components/ConfirmModal";
+import { useT } from "../i18n";
 
 // ─── Color presets ────────────────────────────────────────────────────────────
 
@@ -54,6 +56,7 @@ const BroadcastModal: React.FC<{
   onSend: (text: string) => Promise<void>;
   onClose: () => void;
 }> = ({ columnName, candidateCount, onSend, onClose }) => {
+  const { t } = useT();
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -89,11 +92,12 @@ const BroadcastModal: React.FC<{
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-6 pt-6 pb-4 border-b border-gray-100">
-          <h3 className="font-bold text-gray-900">📣 Notify column</h3>
+          <h3 className="font-bold text-gray-900">
+            {t("pipeline.notifyColumn")}
+          </h3>
           <p className="text-xs text-gray-400 mt-1">
             Sends the same message to <strong>{candidateCount}</strong>{" "}
-            candidate{candidateCount !== 1 ? "s" : ""} in{" "}
-            <strong>"{columnName}"</strong>.
+            candidates in <strong>"{columnName}"</strong>.
           </p>
         </div>
         <div className="p-6 space-y-4">
@@ -102,7 +106,7 @@ const BroadcastModal: React.FC<{
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={4}
-            placeholder="Type your message…"
+            placeholder={t("pipeline.notifyPlaceholder")}
             className="w-full text-sm border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
           />
           <div className="flex gap-3 justify-end">
@@ -110,14 +114,16 @@ const BroadcastModal: React.FC<{
               onClick={onClose}
               className="px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               onClick={handleSend}
               disabled={!text.trim() || sending || candidateCount === 0}
               className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 rounded-xl transition-colors"
             >
-              {sending ? "Sending…" : `Send to ${candidateCount}`}
+              {sending
+                ? t("common.sending")
+                : t("pipeline.sendTo", { count: candidateCount })}
             </button>
           </div>
         </div>
@@ -142,34 +148,37 @@ const ConfirmModal: React.FC<{
   danger = false,
   onConfirm,
   onCancel,
-}) => (
-  <div
-    className="fixed inset-0 z-[300] bg-black/40 flex items-center justify-center p-4"
-    onClick={onCancel}
-  >
+}) => {
+  const { t } = useT();
+  return (
     <div
-      className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
-      onClick={(e) => e.stopPropagation()}
+      className="fixed inset-0 z-[300] bg-black/40 flex items-center justify-center p-4"
+      onClick={onCancel}
     >
-      <h3 className="text-base font-bold text-gray-900 mb-2">{title}</h3>
-      <p className="text-sm text-gray-500 mb-6 leading-relaxed">{message}</p>
-      <div className="flex gap-3 justify-end">
-        <button
-          onClick={onCancel}
-          className="px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={onConfirm}
-          className={`px-4 py-2 text-sm font-semibold text-white rounded-xl transition-colors ${danger ? "bg-red-500 hover:bg-red-600" : "bg-amber-500 hover:bg-amber-600"}`}
-        >
-          {confirmLabel}
-        </button>
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-base font-bold text-gray-900 mb-2">{title}</h3>
+        <p className="text-sm text-gray-500 mb-6 leading-relaxed">{message}</p>
+        <div className="flex gap-3 justify-end">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+          >
+            {t("common.cancel")}
+          </button>
+          <button
+            onClick={onConfirm}
+            className={`px-4 py-2 text-sm font-semibold text-white rounded-xl transition-colors ${danger ? "bg-red-500 hover:bg-red-600" : "bg-amber-500 hover:bg-amber-600"}`}
+          >
+            {confirmLabel}
+          </button>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ─── Candidate card ───────────────────────────────────────────────────────────
 
@@ -266,6 +275,7 @@ const KanbanColumn: React.FC<{
   onRename,
   onBroadcast,
 }) => {
+  const { t } = useT();
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(column.name);
@@ -310,7 +320,7 @@ const KanbanColumn: React.FC<{
           <span
             className="flex-1 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700 truncate"
             onClick={() => setEditing(true)}
-            title="Click to rename"
+            title={t("pipeline.clickToRename")}
           >
             {column.name}
           </span>
@@ -334,7 +344,7 @@ const KanbanColumn: React.FC<{
                 }}
                 className="w-full text-left px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 font-medium border-b border-gray-100"
               >
-                📣 Notify all candidates
+                {t("pipeline.notifyAll")}
               </button>
               <button
                 onClick={() => {
@@ -343,7 +353,7 @@ const KanbanColumn: React.FC<{
                 }}
                 className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
               >
-                ✏️ Rename
+                {t("pipeline.rename")}
               </button>
               <button
                 onClick={() => {
@@ -352,7 +362,7 @@ const KanbanColumn: React.FC<{
                 }}
                 className="w-full text-left px-3 py-2 text-sm text-amber-600 hover:bg-amber-50 flex items-center gap-2"
               >
-                ⬇ Archive stage
+                {t("pipeline.archiveStage")}
               </button>
               <div className="border-t border-gray-100" />
               <button
@@ -362,7 +372,7 @@ const KanbanColumn: React.FC<{
                 }}
                 className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2"
               >
-                🗑 Delete stage
+                {t("pipeline.deleteStage")}
               </button>
             </div>
           )}
@@ -383,7 +393,7 @@ const KanbanColumn: React.FC<{
           <div
             className={`text-center text-xs py-8 pointer-events-none ${isOver ? "text-blue-400 font-medium" : "text-gray-300"}`}
           >
-            {isOver ? "✓ Drop here" : "Drop here"}
+            {isOver ? t("common.dropConfirm") : t("common.dropHere")}
           </div>
         )}
       </div>
@@ -398,6 +408,7 @@ const InProgressColumn: React.FC<{
   onCardClick: (id: string) => void;
   onBroadcast: (candidates: any[]) => void;
 }> = ({ candidates, onCardClick, onBroadcast }) => {
+  const { t } = useT();
   const { setNodeRef, isOver } = useDroppable({ id: "__inprogress__" });
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -438,7 +449,7 @@ const InProgressColumn: React.FC<{
                 }}
                 className="w-full text-left px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 font-medium"
               >
-                📣 Notify all candidates
+                {t("pipeline.notifyAll")}
               </button>
             </div>
           )}
@@ -497,6 +508,7 @@ const AddColumnForm: React.FC<{
   onAdd: (name: string, color: string, dot: string) => void;
   onCancel: () => void;
 }> = ({ onAdd, onCancel }) => {
+  const { t } = useT();
   const [name, setName] = useState("");
   const [preset, setPreset] = useState(0);
 
@@ -516,7 +528,7 @@ const AddColumnForm: React.FC<{
             );
           if (e.key === "Escape") onCancel();
         }}
-        placeholder="Stage name…"
+        placeholder={t("pipeline.stageName")}
         className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-blue-300"
       />
       <div className="flex gap-1.5 flex-wrap">
@@ -548,7 +560,7 @@ const AddColumnForm: React.FC<{
           onClick={onCancel}
           className="btn-secondary text-xs px-3 py-1.5"
         >
-          Cancel
+          {t("common.cancel")}
         </button>
       </div>
     </div>
@@ -562,6 +574,7 @@ const UnassignedColumn: React.FC<{
   onCardClick: (id: string) => void;
   onBroadcast: (candidates: any[]) => void;
 }> = ({ candidates, onCardClick, onBroadcast }) => {
+  const { t } = useT();
   const { setNodeRef, isOver } = useDroppable({ id: "__unassigned__" });
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -602,7 +615,7 @@ const UnassignedColumn: React.FC<{
                 }}
                 className="w-full text-left px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 font-medium"
               >
-                📣 Notify all candidates
+                {t("pipeline.notifyAll")}
               </button>
             </div>
           )}
@@ -619,6 +632,144 @@ const UnassignedColumn: React.FC<{
             onClick={() => onCardClick(c.id)}
           />
         ))}
+      </div>
+    </div>
+  );
+};
+
+// ─── Archived kanban column (read-only, no DnD) ───────────────────────────────
+
+const ArchivedCandidateCard: React.FC<{
+  candidate: any;
+  onClick: () => void;
+}> = ({ candidate, onClick }) => {
+  const initials = (
+    (candidate.fullName || candidate.username || "?")[0] || "?"
+  ).toUpperCase();
+  return (
+    <div
+      onClick={onClick}
+      className="bg-white rounded-xl border border-gray-200 p-3.5 cursor-pointer hover:shadow-md hover:border-gray-300 transition-all duration-150 opacity-70 select-none"
+    >
+      <div className="flex items-center gap-3">
+        {candidate.profilePhoto ? (
+          <img
+            src={`/uploads/${candidate.botId}/${candidate.profilePhoto.split(/[\/\\]/).pop()}`}
+            className="w-9 h-9 rounded-full object-cover flex-shrink-0 border border-gray-100"
+            alt=""
+          />
+        ) : (
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-300 to-gray-400 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+            {initials}
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-gray-600 text-sm truncate">
+            {candidate.fullName || candidate.username || "Unknown"}
+          </p>
+          {(candidate.age || candidate.position) && (
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+              {candidate.position && (
+                <span className="text-xs text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded-full truncate max-w-[120px]">
+                  💼 {candidate.position}
+                </span>
+              )}
+              {candidate.age && (
+                <span className="text-xs text-gray-400">
+                  {candidate.age.replace(/ \(.*\)/, "")}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+      {candidate.lastActivity && (
+        <p className="text-xs text-gray-300 mt-2 pl-12">
+          {format(new Date(candidate.lastActivity), "MMM d")}
+        </p>
+      )}
+    </div>
+  );
+};
+
+const ArchivedKanbanColumn: React.FC<{
+  column: any;
+  candidates: any[];
+  onCardClick: (id: string) => void;
+  onRestore: (col: any) => void;
+  onDelete: (col: any) => void;
+}> = ({ column, candidates, onCardClick, onRestore, onDelete }) => {
+  const { t } = useT();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node))
+        setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
+
+  return (
+    <div className="flex flex-col w-72 flex-shrink-0">
+      <div className="flex items-center gap-2 mb-3 px-1">
+        <span className={`w-2 h-2 rounded-full ${column.dot} opacity-50`} />
+        <span className="flex-1 text-xs font-semibold text-gray-400 uppercase tracking-wider truncate">
+          {column.name}
+        </span>
+        <span className="text-xs font-bold text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
+          {candidates.length}
+        </span>
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={() => setMenuOpen((o) => !o)}
+            className="w-6 h-6 flex items-center justify-center rounded-lg text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition-colors text-xs font-bold"
+          >
+            ···
+          </button>
+          {menuOpen && (
+            <div className="absolute right-0 top-7 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden w-44">
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  onRestore(column);
+                }}
+                className="w-full text-left px-3 py-2.5 text-sm text-blue-600 hover:bg-blue-50 flex items-center gap-2 font-medium"
+              >
+                {t("pipeline.restoreStage")}
+              </button>
+              <div className="border-t border-gray-100" />
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  onDelete(column);
+                }}
+                className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2"
+              >
+                {t("common.delete")}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+      <div
+        className={`flex-1 min-h-[120px] rounded-xl p-2 space-y-2 ${column.color} opacity-80`}
+      >
+        {candidates.map((c) => (
+          <ArchivedCandidateCard
+            key={c.id}
+            candidate={c}
+            onClick={() => onCardClick(c.id)}
+          />
+        ))}
+        {candidates.length === 0 && (
+          <div className="text-center text-xs py-8 text-gray-300 pointer-events-none">
+            No candidates
+          </div>
+        )}
       </div>
     </div>
   );
@@ -657,6 +808,12 @@ export const CandidatesPage: React.FC = () => {
     name: string;
     candidates: any[];
   } | null>(null);
+  const [viewMode, setViewMode] = useState<"active" | "archived">("active");
+  const [archivedColumns, setArchivedColumns] = useState<any[]>([]);
+  const [archivedCandidates, setArchivedCandidates] = useState<any[]>([]);
+  const [archivedLoading, setArchivedLoading] = useState(false);
+  const { t } = useT();
+  const { confirm, element: confirmElement } = useConfirm();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -788,7 +945,7 @@ export const CandidatesPage: React.FC = () => {
       setIncompletes((prev) => prev.filter((c) => c.id !== candidateId));
       try {
         await candidatesApi.update(candidateId, { status: "hired" });
-        toast.success("Candidate hired! 🎉");
+        toast.success(t("pipeline.candidateHired"));
       } catch {
         toast.error("Failed");
         fetchAll();
@@ -800,7 +957,7 @@ export const CandidatesPage: React.FC = () => {
       setIncompletes((prev) => prev.filter((c) => c.id !== candidateId));
       try {
         await candidatesApi.update(candidateId, { status: "archived" });
-        toast.success("Candidate archived");
+        toast.success(t("pipeline.candidateArchived"));
       } catch {
         toast.error("Failed");
         fetchAll();
@@ -859,25 +1016,25 @@ export const CandidatesPage: React.FC = () => {
       const col = await columnsApi.create({ name, color, dot });
       setColumns((prev) => [...prev, col]);
       setAddingColumn(false);
-      toast.success(`Stage "${name}" created`);
+      toast.success(t("pipeline.stageCreated", { name }));
     } catch {
-      toast.error("Failed to create stage");
+      toast.error(t("pipeline.stageFailed"));
     }
   };
 
   const handleArchiveColumn = (id: string) => {
     const col = columns.find((c) => c.id === id);
     setConfirmModal({
-      title: `Archive stage "${col?.name}"?`,
-      message: "All candidates inside this stage will be archived too.",
-      confirmLabel: "Archive",
+      title: t("pipeline.archiveStageTitle", { name: col?.name || "" }),
+      message: t("pipeline.archiveStageMsg"),
+      confirmLabel: t("common.archive"),
       danger: false,
       onConfirm: async () => {
         setConfirmModal(null);
         await columnsApi.archive(id);
         setColumns((prev) => prev.filter((c) => c.id !== id));
         setAllCandidates((prev) => prev.filter((c) => c.columnId !== id));
-        toast.success(`Stage "${col?.name}" archived`);
+        toast.success(t("pipeline.stageArchived", { name: col?.name || "" }));
       },
     });
   };
@@ -885,8 +1042,8 @@ export const CandidatesPage: React.FC = () => {
   const handleDeleteColumn = (id: string) => {
     const col = columns.find((c) => c.id === id);
     setConfirmModal({
-      title: `Delete stage "${col?.name}"?`,
-      message: "Candidates inside will move to Unassigned.",
+      title: t("pipeline.deleteStageTitle", { name: col?.name || "" }),
+      message: t("pipeline.deleteStageMsg"),
       confirmLabel: "Delete",
       danger: true,
       onConfirm: async () => {
@@ -896,7 +1053,7 @@ export const CandidatesPage: React.FC = () => {
         setAllCandidates((prev) =>
           prev.map((c) => (c.columnId === id ? { ...c, columnId: null } : c)),
         );
-        toast.success(`Stage "${col?.name}" deleted`);
+        toast.success(t("pipeline.stageDeleted", { name: col?.name || "" }));
       },
     });
   };
@@ -906,6 +1063,63 @@ export const CandidatesPage: React.FC = () => {
     setColumns((prev) => prev.map((c) => (c.id === id ? { ...c, name } : c)));
   };
 
+  const fetchArchived = async () => {
+    setArchivedLoading(true);
+    try {
+      const [cols, result] = await Promise.all([
+        columnsApi.archived(),
+        candidatesApi.list({ status: "archived", limit: 500, page: 1 }),
+      ]);
+      setArchivedColumns(cols);
+      setArchivedCandidates(result.candidates || []);
+    } catch {
+      toast.error(t("pipeline.loadingArchived"));
+    }
+    setArchivedLoading(false);
+  };
+
+  const handleSwitchView = (mode: "active" | "archived") => {
+    setViewMode(mode);
+    if (mode === "archived") fetchArchived();
+  };
+
+  const handleRestoreColumn = async (col: any) => {
+    try {
+      await columnsApi.restore(col.id);
+      setArchivedColumns((prev) => prev.filter((c) => c.id !== col.id));
+      setArchivedCandidates((prev) =>
+        prev.filter((c) => c.columnId !== col.id),
+      );
+      fetchAll();
+      toast.success(t("pipeline.stageRestored", { name: col.name }));
+    } catch {
+      toast.error(t("common.restore") + " failed");
+    }
+  };
+
+  const handleDeleteArchivedColumn = async (col: any) => {
+    const count = archivedCandidates.filter(
+      (c) => c.columnId === col.id,
+    ).length;
+    const ok = await confirm({
+      title: t("pipeline.deleteArchivedTitle", { name: col.name }),
+      message: t("pipeline.deleteArchivedMsg", { name: col.name, count }),
+      danger: true,
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
+    try {
+      await columnsApi.delete(col.id);
+      setArchivedColumns((prev) => prev.filter((c) => c.id !== col.id));
+      setArchivedCandidates((prev) =>
+        prev.filter((c) => c.columnId !== col.id),
+      );
+      toast.success(t("pipeline.stageDeleted", { name: col.name }));
+    } catch {
+      toast.error(t("common.delete") + " failed");
+    }
+  };
+
   const handleBroadcastSend = async (text: string) => {
     if (!broadcast) return;
     const result = await messagesApi.broadcast(
@@ -913,7 +1127,12 @@ export const CandidatesPage: React.FC = () => {
       text,
     );
     toast.success(
-      `Sent to ${result.sent}${result.failed > 0 ? `, ${result.failed} failed` : ""}`,
+      result.failed > 0
+        ? t("pipeline.broadcastSentFailed", {
+            sent: result.sent,
+            failed: result.failed,
+          })
+        : t("pipeline.broadcastSent", { sent: result.sent }),
     );
   };
 
@@ -1008,8 +1227,8 @@ export const CandidatesPage: React.FC = () => {
             <div>
               <h1 className="text-xl font-bold text-gray-900">Pipeline</h1>
               <p className="text-xs text-gray-400 mt-0.5">
-                {visibleCandidates.length} active · {visibleInc.length} in
-                progress
+                {visibleCandidates.length} {t("pipeline.active").toLowerCase()}{" "}
+                · {visibleInc.length} {t("pipeline.inProgress").toLowerCase()}
               </p>
             </div>
 
@@ -1062,6 +1281,27 @@ export const CandidatesPage: React.FC = () => {
                       </span>
                     );
                   })()}
+              </div>
+
+              {/* Active / Archived toggle pill */}
+              <div className="flex items-center bg-gray-100 rounded-xl p-1 flex-shrink-0">
+                <button
+                  onClick={() => handleSwitchView("active")}
+                  className={`px-3.5 py-1.5 text-sm font-semibold rounded-lg transition-all ${viewMode === "active" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                >
+                  Active
+                </button>
+                <button
+                  onClick={() => handleSwitchView("archived")}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-semibold rounded-lg transition-all ${viewMode === "archived" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                >
+                  Archived
+                  {archivedColumns.length > 0 && viewMode === "archived" && (
+                    <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-600 text-xs font-bold flex items-center justify-center">
+                      {archivedColumns.length}
+                    </span>
+                  )}
+                </button>
               </div>
 
               <div className="relative">
@@ -1138,37 +1378,38 @@ export const CandidatesPage: React.FC = () => {
                             Bot
                           </p>
                           <div className="space-y-1.5">
-                            {[{ id: "", name: "All bots" }, ...bots].map(
-                              (b) => {
-                                const selected = filters.botId === b.id;
-                                return (
-                                  <label
-                                    key={b.id}
-                                    className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors ${selected ? "bg-violet-50 border border-violet-200" : "hover:bg-gray-50 border border-transparent"}`}
-                                    onClick={() =>
-                                      setFilters((f) => ({
-                                        ...f,
-                                        botId: b.id,
-                                        questionId: "",
-                                        optionId: "",
-                                      }))
-                                    }
+                            {[
+                              { id: "", name: t("pipeline.filterAllBots") },
+                              ...bots,
+                            ].map((b) => {
+                              const selected = filters.botId === b.id;
+                              return (
+                                <label
+                                  key={b.id}
+                                  className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors ${selected ? "bg-violet-50 border border-violet-200" : "hover:bg-gray-50 border border-transparent"}`}
+                                  onClick={() =>
+                                    setFilters((f) => ({
+                                      ...f,
+                                      botId: b.id,
+                                      questionId: "",
+                                      optionId: "",
+                                    }))
+                                  }
+                                >
+                                  <div
+                                    className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${selected ? "border-violet-600" : "border-gray-300"}`}
                                   >
-                                    <div
-                                      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${selected ? "border-violet-600" : "border-gray-300"}`}
-                                    >
-                                      {selected && (
-                                        <div className="w-2 h-2 rounded-full bg-violet-600" />
-                                      )}
-                                    </div>
-                                    <span className="text-sm text-gray-700 font-medium">
-                                      {b.id ? "🤖 " : ""}
-                                      {b.name}
-                                    </span>
-                                  </label>
-                                );
-                              },
-                            )}
+                                    {selected && (
+                                      <div className="w-2 h-2 rounded-full bg-violet-600" />
+                                    )}
+                                  </div>
+                                  <span className="text-sm text-gray-700 font-medium">
+                                    {b.id ? "🤖 " : ""}
+                                    {b.name}
+                                  </span>
+                                </label>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
@@ -1244,6 +1485,43 @@ export const CandidatesPage: React.FC = () => {
           <div className="flex-1 flex items-center justify-center text-gray-400">
             Loading…
           </div>
+        ) : viewMode === "archived" ? (
+          /* ── Archived view ──────────────────────────────────────────────── */
+          archivedLoading ? (
+            <div className="flex-1 flex items-center justify-center text-gray-400">
+              {t("pipeline.loadingArchived")}
+            </div>
+          ) : archivedColumns.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-3">
+              <span className="text-5xl">📦</span>
+              <p className="text-sm font-medium">
+                {t("pipeline.noArchivedYet")}
+              </p>
+              <p className="text-xs text-gray-300">
+                {t("pipeline.noArchivedDesc")}
+              </p>
+            </div>
+          ) : (
+            <div className="flex-1 overflow-x-auto overflow-y-hidden">
+              <div
+                className="flex gap-5 p-6 h-full items-start"
+                style={{ minWidth: "max-content" }}
+              >
+                {archivedColumns.map((col) => (
+                  <ArchivedKanbanColumn
+                    key={col.id}
+                    column={col}
+                    candidates={archivedCandidates.filter(
+                      (c) => c.columnId === col.id,
+                    )}
+                    onCardClick={(id) => setSelectedCandidateId(id)}
+                    onRestore={handleRestoreColumn}
+                    onDelete={handleDeleteArchivedColumn}
+                  />
+                ))}
+              </div>
+            </div>
+          )
         ) : (
           <DndContext
             sensors={sensors}
@@ -1259,7 +1537,10 @@ export const CandidatesPage: React.FC = () => {
                   candidates={visibleInc}
                   onCardClick={handleCardClick}
                   onBroadcast={(cands) =>
-                    setBroadcast({ name: "In Progress", candidates: cands })
+                    setBroadcast({
+                      name: t("pipeline.inProgress"),
+                      candidates: cands,
+                    })
                   }
                 />
 
@@ -1267,7 +1548,10 @@ export const CandidatesPage: React.FC = () => {
                   candidates={uncolumned}
                   onCardClick={handleCardClick}
                   onBroadcast={(cands) =>
-                    setBroadcast({ name: "Unassigned", candidates: cands })
+                    setBroadcast({
+                      name: t("pipeline.unassigned"),
+                      candidates: cands,
+                    })
                   }
                 />
 
@@ -1306,13 +1590,13 @@ export const CandidatesPage: React.FC = () => {
                 <div className="flex flex-col gap-3 flex-shrink-0 justify-start mt-10">
                   <DropZone
                     id="__hire__"
-                    label="Hire"
+                    label={t("pipeline.hire")}
                     icon="✅"
                     activeColor="bg-emerald-100 text-emerald-700 border-emerald-400"
                   />
                   <DropZone
                     id="__archive__"
-                    label="Archive"
+                    label={t("common.archive")}
                     icon="🗃"
                     activeColor="bg-gray-200 text-gray-600 border-gray-400"
                   />
@@ -1350,6 +1634,7 @@ export const CandidatesPage: React.FC = () => {
           onStatusChange={handleStatusChangeFromPanel}
         />
       </div>
+      {confirmElement}
     </>
   );
 };

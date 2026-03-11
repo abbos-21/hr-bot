@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { authApi } from "../api";
 import { useAuthStore } from "../store/auth";
+import { useT } from "../i18n";
 import toast from "react-hot-toast";
 import { format } from "date-fns";
 
 export const AdminsPage: React.FC = () => {
   const { admin: currentAdmin } = useAuthStore();
+  const { t } = useT();
   const [admins, setAdmins] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -34,9 +36,9 @@ export const AdminsPage: React.FC = () => {
       setAdmins((prev) => [...prev, admin]);
       setForm({ email: "", password: "", name: "", role: "admin" });
       setShowAdd(false);
-      toast.success("Admin created");
+      toast.success(t("admins.created_success"));
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Failed to create admin");
+      toast.error(err.response?.data?.error || t("admins.updateFailed"));
     } finally {
       setAdding(false);
     }
@@ -52,7 +54,7 @@ export const AdminsPage: React.FC = () => {
         prev.map((a) => (a.id === admin.id ? { ...a, ...updated } : a)),
       );
     } catch {
-      toast.error("Failed to update");
+      toast.error(t("admins.updateFailed"));
     }
   };
 
@@ -60,24 +62,26 @@ export const AdminsPage: React.FC = () => {
     <div className="overflow-auto flex-1 p-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Admins</h1>
-          <p className="text-gray-500 mt-1">
-            Manage admin accounts and permissions
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {t("admins.title")}
+          </h1>
+          <p className="text-gray-500 mt-1">{t("admins.subtitle")}</p>
         </div>
         {isSuperAdmin && (
           <button className="btn-primary" onClick={() => setShowAdd(true)}>
-            + Add Admin
+            {t("admins.addAdmin")}
           </button>
         )}
       </div>
 
       {showAdd && isSuperAdmin && (
         <div className="card p-6 mb-6 max-w-lg">
-          <h2 className="text-lg font-semibold mb-4">Create Admin</h2>
+          <h2 className="text-lg font-semibold mb-4">
+            {t("admins.createAdminTitle")}
+          </h2>
           <form onSubmit={handleAdd} className="space-y-4">
             <div>
-              <label className="label">Name</label>
+              <label className="label">{t("admins.name")}</label>
               <input
                 type="text"
                 value={form.name}
@@ -89,7 +93,7 @@ export const AdminsPage: React.FC = () => {
               />
             </div>
             <div>
-              <label className="label">Email</label>
+              <label className="label">{t("admins.email")}</label>
               <input
                 type="email"
                 value={form.email}
@@ -101,7 +105,7 @@ export const AdminsPage: React.FC = () => {
               />
             </div>
             <div>
-              <label className="label">Password</label>
+              <label className="label">{t("admins.password")}</label>
               <input
                 type="password"
                 value={form.password}
@@ -114,7 +118,7 @@ export const AdminsPage: React.FC = () => {
               />
             </div>
             <div>
-              <label className="label">Role</label>
+              <label className="label">{t("admins.role")}</label>
               <select
                 value={form.role}
                 onChange={(e) =>
@@ -122,20 +126,22 @@ export const AdminsPage: React.FC = () => {
                 }
                 className="input"
               >
-                <option value="admin">Admin</option>
-                <option value="super_admin">Super Admin</option>
+                <option value="admin">{t("admins.roleAdmin")}</option>
+                <option value="super_admin">
+                  {t("admins.roleSuperAdmin")}
+                </option>
               </select>
             </div>
             <div className="flex gap-3">
               <button type="submit" className="btn-primary" disabled={adding}>
-                {adding ? "Creating..." : "Create Admin"}
+                {adding ? t("admins.creating") : t("admins.createAdmin")}
               </button>
               <button
                 type="button"
                 className="btn-secondary"
                 onClick={() => setShowAdd(false)}
               >
-                Cancel
+                {t("common.cancel")}
               </button>
             </div>
           </form>
@@ -147,16 +153,16 @@ export const AdminsPage: React.FC = () => {
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
               <th className="text-left px-4 py-3 text-gray-500 font-medium">
-                Admin
+                {t("admins.name")}
               </th>
               <th className="text-left px-4 py-3 text-gray-500 font-medium">
-                Role
+                {t("admins.role")}
               </th>
               <th className="text-left px-4 py-3 text-gray-500 font-medium">
-                Status
+                {t("common.status")}
               </th>
               <th className="text-left px-4 py-3 text-gray-500 font-medium">
-                Created
+                {t("admins.created")}
               </th>
               {isSuperAdmin && <th className="px-4 py-3"></th>}
             </tr>
@@ -165,7 +171,7 @@ export const AdminsPage: React.FC = () => {
             {loading ? (
               <tr>
                 <td colSpan={5} className="text-center py-8 text-gray-400">
-                  Loading...
+                  {t("admins.loading")}
                 </td>
               </tr>
             ) : (
@@ -181,7 +187,7 @@ export const AdminsPage: React.FC = () => {
                           {a.name}
                           {a.id === currentAdmin?.id && (
                             <span className="ml-2 text-xs text-blue-500">
-                              (you)
+                              {t("admins.you")}
                             </span>
                           )}
                         </p>
@@ -193,14 +199,18 @@ export const AdminsPage: React.FC = () => {
                     <span
                       className={`badge ${a.role === "super_admin" ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-600"}`}
                     >
-                      {a.role === "super_admin" ? "Super Admin" : "Admin"}
+                      {a.role === "super_admin"
+                        ? t("admins.roleSuperAdmin")
+                        : t("admins.roleAdmin")}
                     </span>
                   </td>
                   <td className="px-4 py-3">
                     <span
                       className={`badge ${a.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}
                     >
-                      {a.isActive ? "Active" : "Inactive"}
+                      {a.isActive
+                        ? t("admins.statusActive")
+                        : t("admins.statusInactive")}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-400 text-xs">
@@ -211,13 +221,11 @@ export const AdminsPage: React.FC = () => {
                       {a.id !== currentAdmin?.id && (
                         <button
                           onClick={() => handleToggle(a)}
-                          className={`text-xs px-2 py-1 rounded font-medium ${
-                            a.isActive
-                              ? "text-red-600 hover:bg-red-50"
-                              : "text-green-600 hover:bg-green-50"
-                          }`}
+                          className={`text-xs px-2 py-1 rounded font-medium ${a.isActive ? "text-red-600 hover:bg-red-50" : "text-green-600 hover:bg-green-50"}`}
                         >
-                          {a.isActive ? "Deactivate" : "Activate"}
+                          {a.isActive
+                            ? t("common.deactivate")
+                            : t("common.activate")}
                         </button>
                       )}
                     </td>

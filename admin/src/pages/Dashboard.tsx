@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { analyticsApi } from "../api";
+import { useT } from "../i18n";
 import { useWebSocket } from "../hooks/useWebSocket";
 
 interface Overview {
@@ -31,6 +32,7 @@ const StatCard: React.FC<{
 );
 
 export const DashboardPage: React.FC = () => {
+  const { t } = useT();
   const [overview, setOverview] = useState<Overview | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -54,7 +56,7 @@ export const DashboardPage: React.FC = () => {
   if (loading) {
     return (
       <div className="overflow-auto flex-1 p-8 flex items-center justify-center">
-        <div className="text-gray-400">Loading...</div>
+        <div className="text-gray-400">{t("common.loading")}</div>
       </div>
     );
   }
@@ -62,33 +64,33 @@ export const DashboardPage: React.FC = () => {
   return (
     <div className="p-8">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-500 mt-1">
-          Overview of your recruitment pipeline
-        </p>
+        <h1 className="text-2xl font-bold text-gray-900">
+          {t("dashboard.title")}
+        </h1>
+        <p className="text-gray-500 mt-1">{t("dashboard.subtitle")}</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <StatCard
-          label="Total Candidates"
+          label={t("dashboard.totalCandidates")}
           value={overview?.totalCandidates || 0}
           icon="👥"
           color="bg-blue-50"
         />
         <StatCard
-          label="Active Bots"
+          label={t("dashboard.totalBots")}
           value={overview?.totalBots || 0}
           icon="🤖"
           color="bg-purple-50"
         />
         <StatCard
-          label="Open Jobs"
+          label={t("dashboard.activeJobs")}
           value={overview?.totalJobs || 0}
           icon="💼"
           color="bg-green-50"
         />
         <StatCard
-          label="Hire Rate"
+          label={t("dashboard.hireRate")}
           value={`${overview?.conversionRate || 0}%`}
           icon="🎯"
           color="bg-orange-50"

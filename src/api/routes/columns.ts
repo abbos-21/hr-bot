@@ -1,5 +1,4 @@
 import { Router, Response } from "express";
-import { cuid } from "@paralleldrive/cuid2";
 import prisma from "../../db";
 import { authMiddleware, AuthRequest } from "../middleware/auth";
 

@@ -135,7 +135,8 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
     }
     updateData.status = status;
     if (status === "hired") updateData.columnId = null;
-    else if (status === "active") updateData.columnId = null; // restore → Unassigned
+    // Only reset columnId on restore when the caller did NOT supply a columnId
+    else if (status === "active" && columnId === undefined) updateData.columnId = null;
 
     wsManager.broadcast({
       type: "STATUS_CHANGE",

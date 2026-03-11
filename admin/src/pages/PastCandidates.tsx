@@ -3,8 +3,10 @@ import { useConfirm } from "../components/ConfirmModal";
 import { candidatesApi } from "../api";
 import { format } from "date-fns";
 import toast from "react-hot-toast";
+import { useT } from "../i18n";
 
 export const PastCandidatesPage: React.FC = () => {
+  const { t } = useT();
   const [candidates, setCandidates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -29,32 +31,30 @@ export const PastCandidatesPage: React.FC = () => {
     try {
       await candidatesApi.update(candidate.id, { status: "active" });
       setCandidates((prev) => prev.filter((c) => c.id !== candidate.id));
-      toast.success(
-        `${candidate.fullName || candidate.username || "Candidate"} restored to pipeline`,
-      );
+      toast.success(t("pastCandidates.restored"));
     } catch {
-      toast.error("Failed to restore");
+      toast.error(t("pastCandidates.restoreFailed"));
     }
     setRestoring(null);
   };
 
   const handleDelete = async (candidate: any) => {
-    const name = candidate.fullName || candidate.username || "This candidate";
+    const name =
+      candidate.fullName || candidate.username || t("common.unknown");
     const ok = await confirm({
-      title: `Delete ${name}?`,
-      message:
-        "This will permanently delete the candidate and all their data. This cannot be undone.",
+      title: t("pastCandidates.deleteTitle"),
+      message: t("pastCandidates.deleteMsg"),
       danger: true,
-      confirmLabel: "Delete",
+      confirmLabel: t("common.delete"),
     });
     if (!ok) return;
     setDeleting(candidate.id);
     try {
       await candidatesApi.delete(candidate.id);
       setCandidates((prev) => prev.filter((c) => c.id !== candidate.id));
-      toast.success(`${name} permanently deleted`);
+      toast.success(t("pastCandidates.deleted"));
     } catch {
-      toast.error("Failed to delete");
+      toast.error(t("pastCandidates.deleteFailed"));
     }
     setDeleting(null);
   };
@@ -75,16 +75,15 @@ export const PastCandidatesPage: React.FC = () => {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900">
-            🗃 Past Candidates
+            {t("pastCandidates.title")}
           </h1>
           <p className="text-xs text-gray-400 mt-0.5">
-            {candidates.length} archived · restore them to the active pipeline
-            anytime
+            {t("pastCandidates.count", { count: candidates.length })}
           </p>
         </div>
         <input
           type="text"
-          placeholder="Search…"
+          placeholder={t("pastCandidates.searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-52 text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
@@ -92,12 +91,12 @@ export const PastCandidatesPage: React.FC = () => {
       </div>
 
       {loading ? (
-        <p className="text-gray-400 text-center py-12">Loading…</p>
+        <p className="text-gray-400 text-center py-12">{t("common.loading")}</p>
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 text-gray-400">
           <p className="text-4xl mb-3">🗃</p>
           <p className="text-sm font-medium">
-            {search ? "No matches" : "No archived candidates"}
+            {search ? t("common.noData") : t("pastCandidates.noArchivedYet")}
           </p>
         </div>
       ) : (
@@ -106,13 +105,13 @@ export const PastCandidatesPage: React.FC = () => {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left px-4 py-3 text-gray-500 font-medium">
-                  Candidate
+                  {t("pastCandidates.columns.candidate")}
                 </th>
                 <th className="text-left px-4 py-3 text-gray-500 font-medium">
-                  Contact
+                  {t("pastCandidates.columns.phone")}
                 </th>
                 <th className="text-left px-4 py-3 text-gray-500 font-medium">
-                  Archived
+                  {t("pastCandidates.columns.archivedDate")}
                 </th>
                 <th className="text-left px-4 py-3 text-gray-500 font-medium" />
               </tr>
@@ -137,7 +136,7 @@ export const PastCandidatesPage: React.FC = () => {
                       </div>
                       <div>
                         <p className="font-medium text-gray-700">
-                          {c.fullName || c.username || "Unknown"}
+                          {c.fullName || c.username || t("common.unknown")}
                         </p>
                         {c.username && (
                           <p className="text-xs text-gray-400">@{c.username}</p>
@@ -158,14 +157,18 @@ export const PastCandidatesPage: React.FC = () => {
                         disabled={restoring === c.id || deleting === c.id}
                         className="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40"
                       >
-                        {restoring === c.id ? "Restoring…" : "↩ Restore"}
+                        {restoring === c.id
+                          ? t("common.loading")
+                          : `↩ ${t("common.restore")}`}
                       </button>
                       <button
                         onClick={() => handleDelete(c)}
                         disabled={deleting === c.id || restoring === c.id}
                         className="text-xs font-semibold text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40"
                       >
-                        {deleting === c.id ? "Deleting…" : "🗑 Delete"}
+                        {deleting === c.id
+                          ? t("common.loading")
+                          : `🗑 ${t("common.delete")}`}
                       </button>
                     </div>
                   </td>

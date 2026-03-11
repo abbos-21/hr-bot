@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import { useT } from "../i18n";
 import { candidatesApi, messagesApi, filesApi } from "../api";
 import { format } from "date-fns";
 import { useAuthStore } from "../store/auth";
@@ -6,6 +7,7 @@ import { useWebSocket } from "../hooks/useWebSocket";
 import toast from "react-hot-toast";
 
 export const HiredCandidatesPage: React.FC = () => {
+  const { t } = useT();
   const [candidates, setCandidates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -33,14 +35,16 @@ export const HiredCandidatesPage: React.FC = () => {
     <div className="overflow-auto flex-1 p-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">✅ Hired</h1>
+          <h1 className="text-xl font-bold text-gray-900">
+            {t("hired.title")}
+          </h1>
           <p className="text-xs text-gray-400 mt-0.5">
-            {candidates.length} hired candidates
+            {t("hired.count", { count: candidates.length })}
           </p>
         </div>
         <input
           type="text"
-          placeholder="Search…"
+          placeholder={t("hired.searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-52 text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
@@ -48,11 +52,11 @@ export const HiredCandidatesPage: React.FC = () => {
       </div>
 
       {loading ? (
-        <p className="text-gray-400 text-center py-12">Loading…</p>
+        <p className="text-gray-400 text-center py-12">{t("common.loading")}</p>
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 text-gray-400">
           <p className="text-4xl mb-3">✅</p>
-          <p className="text-sm font-medium">No hired candidates yet</p>
+          <p className="text-sm font-medium">{t("hired.noHiredYet")}</p>
         </div>
       ) : (
         <div className="card overflow-hidden">

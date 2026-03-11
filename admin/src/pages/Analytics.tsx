@@ -15,6 +15,7 @@ import {
   Legend,
 } from "recharts";
 import { analyticsApi, botsApi } from "../api";
+import { useT } from "../i18n";
 
 const FUNNEL_COLORS = [
   "#94a3b8",
@@ -28,6 +29,7 @@ const FUNNEL_COLORS = [
 ];
 
 export const AnalyticsPage: React.FC = () => {
+  const { t } = useT();
   const [bots, setBots] = useState<any[]>([]);
   const [selectedBot, setSelectedBot] = useState("");
   const [overview, setOverview] = useState<any>(null);
@@ -63,8 +65,10 @@ export const AnalyticsPage: React.FC = () => {
     <div className="overflow-auto flex-1 p-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
-          <p className="text-gray-500 mt-1">Recruitment metrics and insights</p>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {t("analytics.title")}
+          </h1>
+          <p className="text-gray-500 mt-1">{t("analytics.subtitle")}</p>
         </div>
         <div className="flex gap-3">
           <select
@@ -72,7 +76,7 @@ export const AnalyticsPage: React.FC = () => {
             onChange={(e) => setSelectedBot(e.target.value)}
             className="input w-44"
           >
-            <option value="">All bots</option>
+            <option value="">{t("analytics.allBots")}</option>
             {bots.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
@@ -84,29 +88,32 @@ export const AnalyticsPage: React.FC = () => {
             onChange={(e) => setDays(parseInt(e.target.value))}
             className="input w-36"
           >
-            <option value={7}>Last 7 days</option>
-            <option value={30}>Last 30 days</option>
-            <option value={90}>Last 90 days</option>
+            <option value={7}>{t("analytics.last7days")}</option>
+            <option value={30}>{t("analytics.last30days")}</option>
+            <option value={90}>{t("analytics.last90days")}</option>
           </select>
         </div>
       </div>
 
       {loading ? (
         <div className="text-center text-gray-400 py-12">
-          Loading analytics...
+          {t("analytics.loading")}
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Summary cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="card p-5">
-              <p className="text-sm text-gray-500">Total Applicants</p>
+              <p className="text-sm text-gray-500">
+                {t("analytics.totalApplicants")}
+              </p>
               <p className="text-3xl font-bold text-gray-900 mt-1">
                 {overview?.totalCandidates || 0}
               </p>
             </div>
             <div className="card p-5">
-              <p className="text-sm text-gray-500">Completion Rate</p>
+              <p className="text-sm text-gray-500">
+                {t("analytics.completionRate")}
+              </p>
               <p className="text-3xl font-bold text-green-600 mt-1">
                 {overview?.totalCandidates > 0
                   ? Math.round(
@@ -120,22 +127,23 @@ export const AnalyticsPage: React.FC = () => {
               </p>
             </div>
             <div className="card p-5">
-              <p className="text-sm text-gray-500">Hired</p>
+              <p className="text-sm text-gray-500">{t("analytics.hired")}</p>
               <p className="text-3xl font-bold text-blue-600 mt-1">
                 {overview?.byStatus?.hired || 0}
               </p>
             </div>
             <div className="card p-5">
-              <p className="text-sm text-gray-500">Hire Rate</p>
+              <p className="text-sm text-gray-500">{t("analytics.hireRate")}</p>
               <p className="text-3xl font-bold text-purple-600 mt-1">
                 {overview?.conversionRate || 0}%
               </p>
             </div>
           </div>
 
-          {/* Activity chart */}
           <div className="card p-6">
-            <h2 className="text-lg font-semibold mb-4">Application Activity</h2>
+            <h2 className="text-lg font-semibold mb-4">
+              {t("analytics.applicationActivity")}
+            </h2>
             <ResponsiveContainer width="100%" height={250}>
               <LineChart data={activity}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -153,7 +161,7 @@ export const AnalyticsPage: React.FC = () => {
                   stroke="#3b82f6"
                   strokeWidth={2}
                   dot={false}
-                  name="Applications"
+                  name={t("analytics.applications")}
                 />
                 <Line
                   type="monotone"
@@ -161,16 +169,17 @@ export const AnalyticsPage: React.FC = () => {
                   stroke="#10b981"
                   strokeWidth={2}
                   dot={false}
-                  name="Completed"
+                  name={t("analytics.completed")}
                 />
               </LineChart>
             </ResponsiveContainer>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Funnel */}
             <div className="card p-6">
-              <h2 className="text-lg font-semibold mb-4">Recruitment Funnel</h2>
+              <h2 className="text-lg font-semibold mb-4">
+                {t("analytics.recruitmentFunnel")}
+              </h2>
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={funnel} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -193,13 +202,13 @@ export const AnalyticsPage: React.FC = () => {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-
-            {/* Per job */}
             <div className="card p-6">
-              <h2 className="text-lg font-semibold mb-4">Candidates per Bot</h2>
+              <h2 className="text-lg font-semibold mb-4">
+                {t("analytics.candidatesPerBot")}
+              </h2>
               {perJob.length === 0 ? (
                 <div className="text-gray-400 text-sm text-center py-8">
-                  No data
+                  {t("analytics.noData")}
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height={250}>
@@ -218,7 +227,7 @@ export const AnalyticsPage: React.FC = () => {
                       dataKey="total"
                       fill="#3b82f6"
                       radius={[4, 4, 0, 0]}
-                      name="Total candidates"
+                      name={t("analytics.totalApplicants")}
                     />
                   </BarChart>
                 </ResponsiveContainer>
@@ -226,21 +235,22 @@ export const AnalyticsPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Status breakdown table */}
           <div className="card p-6">
-            <h2 className="text-lg font-semibold mb-4">Status Breakdown</h2>
+            <h2 className="text-lg font-semibold mb-4">
+              {t("analytics.statusBreakdown")}
+            </h2>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-200">
                     <th className="text-left py-2 font-medium text-gray-500">
-                      Status
+                      {t("common.status")}
                     </th>
                     <th className="text-right py-2 font-medium text-gray-500">
-                      Count
+                      {t("analytics.count")}
                     </th>
                     <th className="text-right py-2 font-medium text-gray-500">
-                      % of Total
+                      {t("analytics.percentOfTotal")}
                     </th>
                     <th className="py-2"></th>
                   </tr>

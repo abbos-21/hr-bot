@@ -4,13 +4,14 @@ import { messagesApi, filesApi } from "../api";
 import { useWebSocket } from "../hooks/useWebSocket";
 import { CandidateDetailPanel } from "../components/Candidatedetailpanel";
 import toast from "react-hot-toast";
+import { useT } from "../i18n";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatConvTime(dateStr: string) {
+function formatConvTime(dateStr: string, t: (key: string) => string) {
   const d = new Date(dateStr);
   if (isToday(d)) return format(d, "HH:mm");
-  if (isYesterday(d)) return "Yesterday";
+  if (isYesterday(d)) return t("common.yesterday");
   return format(d, "MMM d");
 }
 
@@ -51,15 +52,15 @@ function avatarGradient(id: string) {
   return gradients[id.charCodeAt(0) % gradients.length];
 }
 
-function lastMsgPreview(msg: any) {
-  if (!msg) return "No messages yet";
+function lastMsgPreview(msg: any, t: (key: string) => string) {
+  if (!msg) return t("chats.noMessages");
   if (msg.type === "text") return msg.text || "…";
-  if (msg.type === "photo") return "📷 Photo";
+  if (msg.type === "photo") return t("chats.photo");
   if (msg.type === "document") return `📎 ${msg.fileName || "File"}`;
-  if (msg.type === "voice") return "🎤 Voice message";
-  if (msg.type === "video") return "🎥 Video";
-  if (msg.type === "audio") return "🎵 Audio";
-  return "📎 Attachment";
+  if (msg.type === "voice") return t("chats.voice");
+  if (msg.type === "video") return t("chats.video");
+  if (msg.type === "audio") return t("chats.audio");
+  return t("chats.attachment");
 }
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
@@ -187,11 +188,12 @@ const MessageBubble: React.FC<{
 // ─── Day separator ────────────────────────────────────────────────────────────
 
 const DaySeparator: React.FC<{ date: string }> = ({ date }) => {
+  const { t } = useT();
   const d = new Date(date);
   const label = isToday(d)
-    ? "Today"
+    ? t("common.today")
     : isYesterday(d)
-      ? "Yesterday"
+      ? t("common.yesterday")
       : format(d, "MMMM d, yyyy");
   return (
     <div className="flex items-center gap-3 my-4">
@@ -207,6 +209,7 @@ const DaySeparator: React.FC<{ date: string }> = ({ date }) => {
 // ─── Main Chats Page ──────────────────────────────────────────────────────────
 
 export const ChatsPage: React.FC = () => {
+  const { t } = useT();
   const [conversations, setConversations] = useState<any[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showInfo, setShowInfo] = useState(false);
@@ -422,7 +425,9 @@ export const ChatsPage: React.FC = () => {
                           <span
                             className={`text-[11px] flex-shrink-0 ${hasUnread ? "text-blue-500 font-semibold" : "text-gray-400"}`}
                           >
-                            {formatConvTime(conv.lastActivity)}
+                            {(() => {
+                              return formatConvTime(conv.lastActivity, t);
+                            })()}
                           </span>
                         )}
                       </div>
@@ -433,7 +438,7 @@ export const ChatsPage: React.FC = () => {
                           {conv.lastMessage?.direction === "outbound" && (
                             <span className="text-gray-400">You: </span>
                           )}
-                          {lastMsgPreview(conv.lastMessage)}
+                          {lastMsgPreview(conv.lastMessage, t)}
                         </p>
                         {conv.botName && (
                           <span className="text-[10px] text-gray-300 flex-shrink-0 bg-gray-100 px-1.5 py-0.5 rounded-full truncate max-w-[60px]">

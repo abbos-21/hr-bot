@@ -413,7 +413,7 @@ export class BotInstance {
       candidate = { ...candidate, ...updateData };
     }
 
-    await this.sendNextQuestion(ctx, candidate.id, lang, botId);
+    await this.sendNextQuestion(ctx, candidate!.id, lang, botId);
   }
 
   // Escape all MarkdownV2 reserved characters
@@ -470,7 +470,7 @@ export class BotInstance {
     }
 
     const botData = await prisma.bot.findUnique({ where: { id: botId } });
-    const defaultLang = botData?.defaultLang || "en";
+    const defaultLang = botData?.defaultLang || "uz";
 
     const translation =
       question.translations.find((t) => t.lang === lang) ||
@@ -780,13 +780,17 @@ export class BotInstance {
       fileId = photo.file_id;
       fileName = "photo.jpg";
       mimeType = "image/jpeg";
-      localPath = await this.downloadFile(fileId, candidate.botId, "photo.jpg");
+      localPath = await this.downloadFile(
+        fileId!,
+        candidate.botId,
+        "photo.jpg",
+      );
     } else if (msg.document) {
       fileId = msg.document.file_id;
       fileName = msg.document.file_name || "document";
       mimeType = msg.document.mime_type;
       localPath = await this.downloadFile(
-        fileId,
+        fileId!,
         candidate.botId,
         fileName || "document",
       );
@@ -794,12 +798,20 @@ export class BotInstance {
       fileId = msg.voice.file_id;
       fileName = "voice.ogg";
       mimeType = "audio/ogg";
-      localPath = await this.downloadFile(fileId, candidate.botId, "voice.ogg");
+      localPath = await this.downloadFile(
+        fileId!,
+        candidate.botId,
+        "voice.ogg",
+      );
     } else if (msg.video) {
       fileId = msg.video.file_id;
       fileName = "video.mp4";
       mimeType = "video/mp4";
-      localPath = await this.downloadFile(fileId, candidate.botId, "video.mp4");
+      localPath = await this.downloadFile(
+        fileId!,
+        candidate.botId,
+        "video.mp4",
+      );
     }
 
     if (!fileId) {
@@ -902,26 +914,30 @@ export class BotInstance {
       type = "photo";
       const photo = msg.photo[msg.photo.length - 1];
       fileId = photo.file_id;
-      localPath = await this.downloadFile(fileId, botId, "photo.jpg");
+      localPath = await this.downloadFile(fileId!, botId, "photo.jpg");
     } else if (msg.document) {
       type = "document";
       fileId = msg.document.file_id;
       fileName = msg.document.file_name || "document";
       mimeType = msg.document.mime_type;
-      localPath = await this.downloadFile(fileId, botId, fileName);
+      localPath = await this.downloadFile(
+        fileId!,
+        botId,
+        fileName || "document",
+      );
     } else if (msg.voice) {
       type = "voice";
       fileId = msg.voice.file_id;
-      localPath = await this.downloadFile(fileId, botId, "voice.ogg");
+      localPath = await this.downloadFile(fileId!, botId, "voice.ogg");
     } else if (msg.video) {
       type = "video";
       fileId = msg.video.file_id;
-      localPath = await this.downloadFile(fileId, botId, "video.mp4");
+      localPath = await this.downloadFile(fileId!, botId, "video.mp4");
     } else if (msg.audio) {
       type = "audio";
       fileId = msg.audio.file_id;
       localPath = await this.downloadFile(
-        fileId,
+        fileId!,
         botId,
         msg.audio.file_name || "audio.mp3",
       );

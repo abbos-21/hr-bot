@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { botsApi } from "../api";
 import { useConfirm } from "../components/ConfirmModal";
 import toast from "react-hot-toast";
+import { useT } from "../i18n";
 
 // ── Canonical message keys (must match botMessages.ts backend) ────────────────
 
@@ -88,6 +89,7 @@ const MessagesTab: React.FC<{
   langs: { code: string; name: string }[];
 }> = ({ botId, langs }) => {
   // state: { [lang]: { [key]: value } }
+  const { t } = useT();
   const [values, setValues] = useState<Record<string, Record<string, string>>>(
     {},
   );
@@ -133,7 +135,7 @@ const MessagesTab: React.FC<{
         botId,
         items.filter((i) => i.value),
       );
-      toast.success("Messages saved");
+      toast.success(t("botDetail.messages.saved"));
     } catch {
       toast.error("Failed to save");
     }
@@ -235,7 +237,7 @@ const MessagesTab: React.FC<{
         disabled={saving}
         className="btn-primary w-full py-2.5"
       >
-        {saving ? "Saving…" : "Save All Messages"}
+        {saving ? t("common.saving") : t("botDetail.messages.saveAll")}
       </button>
     </div>
   );
@@ -245,6 +247,7 @@ const MessagesTab: React.FC<{
 
 export const BotDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const { t } = useT();
   const [bot, setBot] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"languages" | "messages" | "settings">(
@@ -276,7 +279,7 @@ export const BotDetailPage: React.FC = () => {
       const lang = await botsApi.addLanguage(id, langForm);
       setBot((b: any) => ({ ...b, languages: [...(b.languages || []), lang] }));
       setLangForm({ code: "", name: "" });
-      toast.success("Language added");
+      toast.success(t("botDetail.languages.added"));
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Failed to add language");
     } finally {
@@ -286,8 +289,8 @@ export const BotDetailPage: React.FC = () => {
 
   const handleDeleteLanguage = async (langId: string) => {
     const ok = await confirm({
-      title: "Delete this language?",
-      message: "This will remove the language and all its translations.",
+      title: t("botDetail.languages.deleteTitle"),
+      message: t("botDetail.languages.deleteMsg"),
       danger: true,
       confirmLabel: "Delete",
     });
@@ -298,7 +301,7 @@ export const BotDetailPage: React.FC = () => {
         ...b,
         languages: b.languages.filter((l: any) => l.id !== langId),
       }));
-      toast.success("Language deleted");
+      toast.success(t("botDetail.languages.deleted"));
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Cannot delete");
     }
@@ -310,7 +313,7 @@ export const BotDetailPage: React.FC = () => {
     try {
       await botsApi.update(id, settings);
       setBot((b: any) => ({ ...b, ...settings }));
-      toast.success("Settings saved");
+      toast.success(t("botDetail.settings.saved"));
     } catch {
       toast.error("Failed to save");
     }
@@ -328,7 +331,7 @@ export const BotDetailPage: React.FC = () => {
         username: updated.username,
       }));
       setNewToken("");
-      toast.success("Token updated — bot restarted");
+      toast.success(t("botDetail.settings.tokenUpdated"));
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Failed to update token");
     } finally {
@@ -392,17 +395,17 @@ export const BotDetailPage: React.FC = () => {
 
         {/* Tabs */}
         <div className="flex gap-1 mb-6 border-b border-gray-200">
-          {(["languages", "messages", "settings"] as const).map((t) => (
+          {(["languages", "messages", "settings"] as const).map((tabKey) => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${tab === t ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+              key={tabKey}
+              onClick={() => setTab(tabKey)}
+              className={`px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${tab === tabKey ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}
             >
-              {t === "messages"
-                ? "💬 Messages"
-                : t === "languages"
-                  ? "🌐 Languages"
-                  : "⚙️ Settings"}
+              {tabKey === "messages"
+                ? t("botDetail.tabs.messages")
+                : tabKey === "languages"
+                  ? t("botDetail.tabs.languages")
+                  : t("botDetail.tabs.settings")}
             </button>
           ))}
         </div>
@@ -573,7 +576,9 @@ export const BotDetailPage: React.FC = () => {
                   disabled={savingToken || !newToken.trim()}
                   className="bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl px-4 py-2 text-sm transition-colors disabled:opacity-40"
                 >
-                  {savingToken ? "Updating…" : "Update Token"}
+                  {savingToken
+                    ? t("botDetail.settings.updating")
+                    : t("botDetail.settings.updateToken")}
                 </button>
               </form>
             </div>

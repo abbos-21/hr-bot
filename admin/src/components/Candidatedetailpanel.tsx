@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import { candidatesApi, messagesApi, filesApi, columnsApi } from "../api";
 import { useWebSocket } from "../hooks/useWebSocket";
 import toast from "react-hot-toast";
+import { useT } from "../i18n";
 
 function isViewableInBrowser(mimeType?: string | null): boolean {
   if (!mimeType) return false;
@@ -42,6 +43,7 @@ export const CandidateDetailPanel: React.FC<Props> = ({
   onStatusChange,
   inline = false,
 }) => {
+  const { t } = useT();
   const [candidate, setCandidate] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [columns, setColumns] = useState<any[]>(columnsProp ?? []);
@@ -109,7 +111,7 @@ export const CandidateDetailPanel: React.FC<Props> = ({
     };
     setCandidate(updated);
     onStatusChange?.(candidate.id, newStatus);
-    toast.success("Status updated");
+    toast.success(t("candidates.panel.statusUpdated"));
   };
 
   const handleColumnChange = async (columnId: string) => {
@@ -117,7 +119,7 @@ export const CandidateDetailPanel: React.FC<Props> = ({
     await candidatesApi.update(candidate.id, { columnId, status: "active" });
     setCandidate((c: any) => ({ ...c, columnId, status: "active" }));
     onStatusChange?.(candidate.id, "active", columnId);
-    toast.success("Stage updated");
+    toast.success(t("candidates.panel.stageUpdated"));
   };
 
   const handleSendMessage = async () => {
