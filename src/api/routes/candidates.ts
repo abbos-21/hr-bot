@@ -107,7 +107,7 @@ router.get("/:id", async (req: AuthRequest, res: Response) => {
         },
       },
       comments: {
-        include: { admin: { select: { id: true, name: true, email: true } } },
+        include: { admin: { select: { id: true, name: true, login: true } } },
         orderBy: { createdAt: "asc" },
       },
       messages: {
@@ -184,7 +184,7 @@ router.post("/:id/comments", async (req: AuthRequest, res: Response) => {
   if (!text) return res.status(400).json({ error: "text required" });
   const comment = await prisma.candidateComment.create({
     data: { candidateId: req.params.id, adminId: getAdminId(req), text },
-    include: { admin: { select: { id: true, name: true, email: true } } },
+    include: { admin: { select: { id: true, name: true, login: true } } },
   });
   return res.status(201).json(comment);
 });
