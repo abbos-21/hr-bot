@@ -9,7 +9,7 @@ export const config = {
   uploadDir: path.resolve(process.env.UPLOAD_DIR || "./uploads"),
   nodeEnv: process.env.NODE_ENV || "development",
   webhookBaseUrl: process.env.WEBHOOK_BASE_URL || "",
-  adminEmail: process.env.ADMIN_EMAIL || "admin@example.com",
+  adminLogin: process.env.ADMIN_LOGIN || "admin",
   adminPassword: process.env.ADMIN_PASSWORD || "admin123",
 };
 

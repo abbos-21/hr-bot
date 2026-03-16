@@ -6,22 +6,22 @@ async function seed() {
   console.log('Seeding database...');
 
   const existingAdmin = await prisma.admin.findUnique({
-    where: { email: config.adminEmail },
+    where: { login: config.adminLogin },
   });
 
   if (!existingAdmin) {
     const hashed = await bcrypt.hash(config.adminPassword, 10);
     const admin = await prisma.admin.create({
       data: {
-        email: config.adminEmail,
+        login: config.adminLogin,
         password: hashed,
         name: 'Super Admin',
         role: 'super_admin',
       },
     });
-    console.log(`Created admin: ${admin.email}`);
+    console.log(`Created admin: ${admin.login}`);
   } else {
-    console.log(`Admin already exists: ${existingAdmin.email}`);
+    console.log(`Admin already exists: ${existingAdmin.login}`);
   }
 
   await prisma.$disconnect();

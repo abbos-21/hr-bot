@@ -12,7 +12,7 @@ export const OrganizationsPage: React.FC = () => {
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({
     name: "",
-    email: "",
+    login: "",
     password: "",
     botId: "",
     branchesText: "",
@@ -50,13 +50,13 @@ export const OrganizationsPage: React.FC = () => {
         .filter(Boolean);
       const org = await organizationsApi.create({
         name: form.name,
-        email: form.email,
+        login: form.login,
         password: form.password,
         botId: form.botId || undefined,
         branches: branches.length ? branches : undefined,
       });
       setOrgs((prev) => [org, ...prev]);
-      setForm({ name: "", email: "", password: "", botId: "", branchesText: "" });
+      setForm({ name: "", login: "", password: "", botId: "", branchesText: "" });
       setShowAdd(false);
       toast.success(t("organizations.created"));
     } catch (err: any) {
@@ -92,7 +92,7 @@ export const OrganizationsPage: React.FC = () => {
     setEditingOrg(org.id);
     setEditForm({
       name: org.name,
-      email: org.email,
+      login: org.login,
       botId: org.bot?.id || "",
     });
   };
@@ -101,7 +101,7 @@ export const OrganizationsPage: React.FC = () => {
     try {
       let updated = await organizationsApi.update(editingOrg!, {
         name: editForm.name,
-        email: editForm.email,
+        login: editForm.login,
       });
       // Handle bot assignment
       const currentBotId = orgs.find((o) => o.id === editingOrg)?.bot?.id;
@@ -194,12 +194,12 @@ export const OrganizationsPage: React.FC = () => {
               />
             </div>
             <div>
-              <label className="label">{t("common.email")}</label>
+              <label className="label">{t("common.login")}</label>
               <input
-                type="email"
-                value={form.email}
+                type="text"
+                value={form.login}
                 onChange={(e) =>
-                  setForm((f) => ({ ...f, email: e.target.value }))
+                  setForm((f) => ({ ...f, login: e.target.value }))
                 }
                 className="input"
                 required
@@ -298,14 +298,14 @@ export const OrganizationsPage: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="label">{t("common.email")}</label>
+                      <label className="label">{t("common.login")}</label>
                       <input
-                        type="email"
-                        value={editForm.email}
+                        type="text"
+                        value={editForm.login}
                         onChange={(e) =>
                           setEditForm((f: any) => ({
                             ...f,
-                            email: e.target.value,
+                            login: e.target.value,
                           }))
                         }
                         className="input"
@@ -363,7 +363,7 @@ export const OrganizationsPage: React.FC = () => {
                             : t("common.inactive")}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-500">{org.email}</p>
+                      <p className="text-sm text-gray-500">{org.login}</p>
                       <p className="text-xs text-gray-400 mt-1">
                         {t("common.createdAt")}:{" "}
                         {format(new Date(org.createdAt), "MMM d, yyyy")}

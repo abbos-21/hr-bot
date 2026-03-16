@@ -25,29 +25,29 @@ router.get("/", async (req: AuthRequest, res: Response) => {
 
 // POST /api/organizations
 router.post("/", async (req: AuthRequest, res: Response) => {
-  const { name, email, password, branches, botId } = req.body;
-  if (!name || !email || !password) {
+  const { name, login, password, branches, botId } = req.body;
+  if (!name || !login || !password) {
     return res
       .status(400)
-      .json({ error: "Name, email, and password are required" });
+      .json({ error: "Name, login, and password are required" });
   }
 
-  // Check email uniqueness across Admin + Organization
-  const existingAdmin = await prisma.admin.findUnique({ where: { email } });
+  // Check login uniqueness across Admin + Organization
+  const existingAdmin = await prisma.admin.findUnique({ where: { login } });
   if (existingAdmin)
-    return res.status(400).json({ error: "Email already exists" });
+    return res.status(400).json({ error: "Login already exists" });
   const existingOrg = await prisma.organization.findUnique({
-    where: { email },
+    where: { login },
   });
   if (existingOrg)
-    return res.status(400).json({ error: "Email already exists" });
+    return res.status(400).json({ error: "Login already exists" });
 
   const hashed = await bcrypt.hash(password, 10);
 
   const org = await prisma.organization.create({
     data: {
       name,
-      email,
+      login,
       password: hashed,
       branches: branches?.length
         ? {
@@ -96,10 +96,10 @@ router.get("/:id", async (req: AuthRequest, res: Response) => {
 
 // PUT /api/organizations/:id
 router.put("/:id", async (req: AuthRequest, res: Response) => {
-  const { name, email, isActive, password } = req.body;
+  const { name, login, isActive, password } = req.body;
   const updateData: any = {};
   if (name !== undefined) updateData.name = name;
-  if (email !== undefined) updateData.email = email;
+  if (login !== undefined) updateData.login = login;
   if (isActive !== undefined) updateData.isActive = isActive;
   if (password) updateData.password = await bcrypt.hash(password, 10);
 

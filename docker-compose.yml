@@ -11,7 +11,7 @@ services:
       DATABASE_URL: file:/app/data/prod.db
       JWT_SECRET: ${JWT_SECRET}
       UPLOAD_DIR: /app/uploads
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_LOGIN: ${ADMIN_LOGIN:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme}
     volumes:
       - ./data:/app/data

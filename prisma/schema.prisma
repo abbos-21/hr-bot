@@ -9,7 +9,7 @@ datasource db {
 
 model Admin {
   id        String   @id @default(cuid())
-  email     String   @unique
+  login     String   @unique
   password  String
   name      String
   role      String   @default("admin")
@@ -24,7 +24,7 @@ model Admin {
 model Organization {
   id                    String   @id @default(cuid())
   name                  String
-  email                 String   @unique
+  login                 String   @unique
   password              String
   isActive              Boolean  @default(true)
   createdAt             DateTime @default(now())

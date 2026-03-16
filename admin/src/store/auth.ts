@@ -3,7 +3,7 @@ import { authApi } from "../api";
 
 interface Admin {
   id: string;
-  email: string;
+  login: string;
   name: string;
   role: string;
   type?: "admin" | "organization";
@@ -19,7 +19,7 @@ interface AuthStore {
    *  for this to become false before deciding whether to redirect to /login.
    *  This prevents the race where admin is momentarily null on page refresh. */
   initializing: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (login: string, password: string) => Promise<void>;
   logout: () => void;
   fetchMe: () => Promise<void>;
   isOrg: () => boolean;
@@ -39,9 +39,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   // stored token the user is definitely logged-out — no spinner needed.
   initializing: !!localStorage.getItem("token"),
 
-  login: async (email, password) => {
+  login: async (login, password) => {
     set({ loading: true });
-    const data = await authApi.login(email, password);
+    const data = await authApi.login(login, password);
     localStorage.setItem("token", data.token);
     set({ token: data.token, admin: data.admin, loading: false });
   },

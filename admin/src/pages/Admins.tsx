@@ -12,7 +12,7 @@ export const AdminsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({
-    email: "",
+    login: "",
     password: "",
     name: "",
     role: "admin",
@@ -34,7 +34,7 @@ export const AdminsPage: React.FC = () => {
     try {
       const admin = await authApi.createAdmin(form);
       setAdmins((prev) => [...prev, admin]);
-      setForm({ email: "", password: "", name: "", role: "admin" });
+      setForm({ login: "", password: "", name: "", role: "admin" });
       setShowAdd(false);
       toast.success(t("admins.created_success"));
     } catch (err: any) {
@@ -93,12 +93,12 @@ export const AdminsPage: React.FC = () => {
               />
             </div>
             <div>
-              <label className="label">{t("admins.email")}</label>
+              <label className="label">{t("admins.login")}</label>
               <input
-                type="email"
-                value={form.email}
+                type="text"
+                value={form.login}
                 onChange={(e) =>
-                  setForm((f) => ({ ...f, email: e.target.value }))
+                  setForm((f) => ({ ...f, login: e.target.value }))
                 }
                 className="input"
                 required
@@ -191,7 +191,7 @@ export const AdminsPage: React.FC = () => {
                             </span>
                           )}
                         </p>
-                        <p className="text-xs text-gray-400">{a.email}</p>
+                        <p className="text-xs text-gray-400">{a.login}</p>
                       </div>
                     </div>
                   </td>

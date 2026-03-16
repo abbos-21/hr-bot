@@ -5,7 +5,7 @@ import { useT } from "../i18n";
 import toast from "react-hot-toast";
 
 export const LoginPage: React.FC = () => {
-  const [email, setEmail] = useState("");
+  const [loginValue, setLoginValue] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const { login } = useAuthStore();
@@ -16,7 +16,7 @@ export const LoginPage: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      await login(email, password);
+      await login(loginValue, password);
       navigate("/");
     } catch (err: any) {
       toast.error(err.response?.data?.error || t("login.failed"));
@@ -39,13 +39,13 @@ export const LoginPage: React.FC = () => {
           </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="label">{t("login.email")}</label>
+              <label className="label">{t("login.login")}</label>
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="text"
+                value={loginValue}
+                onChange={(e) => setLoginValue(e.target.value)}
                 className="input"
-                placeholder={t("login.emailPlaceholder")}
+                placeholder={t("login.loginPlaceholder")}
                 required
               />
             </div>

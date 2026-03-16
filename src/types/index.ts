@@ -1,6 +1,6 @@
 export interface JwtPayload {
   adminId: string;
-  email: string;
+  login: string;
   role: string;
   type: "admin" | "organization";
   organizationId?: string;
