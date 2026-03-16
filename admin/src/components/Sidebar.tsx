@@ -13,7 +13,10 @@ export const Sidebar: React.FC = () => {
   const [langOpen, setLangOpen] = useState(false);
   const langRef = useRef<HTMLDivElement>(null);
 
-  const navItems = [
+  const isOrg = admin?.type === "organization";
+  const isSuperAdmin = admin?.role === "super_admin";
+
+  const allNavItems = [
     { label: t("nav.dashboard"), path: "/", icon: "📊" },
     { label: t("nav.bots"), path: "/bots", icon: "🤖" },
     { label: t("nav.playground"), path: "/playground", icon: "🧩" },
@@ -22,8 +25,23 @@ export const Sidebar: React.FC = () => {
     { label: t("nav.hired"), path: "/hired", icon: "✅" },
     { label: t("nav.archived"), path: "/past-candidates", icon: "🗃" },
     { label: t("nav.analytics"), path: "/analytics", icon: "📈" },
-    { label: t("nav.admins"), path: "/admins", icon: "⚙️" },
+    ...(!isOrg
+      ? [{ label: t("nav.admins"), path: "/admins", icon: "⚙️" }]
+      : []),
+    ...(isSuperAdmin
+      ? [
+          {
+            label: t("nav.organizations"),
+            path: "/organizations",
+            icon: "🏢",
+          },
+        ]
+      : []),
+    ...(isOrg
+      ? [{ label: t("nav.branches"), path: "/branches", icon: "🏢" }]
+      : []),
   ];
+  const navItems = allNavItems;
 
   const DIVIDER_BEFORE = "/analytics";
 

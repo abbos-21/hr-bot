@@ -2,11 +2,13 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { botsApi } from "../api";
 import { useT } from "../i18n";
+import { useAuthStore } from "../store/auth";
 import toast from "react-hot-toast";
 import { useConfirm } from "../components/ConfirmModal";
 
 export const BotsPage: React.FC = () => {
   const { t } = useT();
+  const { isOrg, admin } = useAuthStore();
   const [bots, setBots] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -26,6 +28,13 @@ export const BotsPage: React.FC = () => {
     setAdding(true);
     try {
       const bot = await botsApi.create(form);
+      // If org user created a bot, update the stored JWT
+      if (bot.newToken) {
+        localStorage.setItem("token", bot.newToken);
+        // Refresh user session to pick up the new botId
+        window.location.reload();
+        return;
+      }
       setBots((prev) => [bot, ...prev]);
       setForm({ token: "", name: "" });
       setShowAdd(false);
@@ -79,9 +88,12 @@ export const BotsPage: React.FC = () => {
             </h1>
             <p className="text-gray-500 mt-1">{t("bots.subtitle")}</p>
           </div>
-          <button className="btn-primary" onClick={() => setShowAdd(true)}>
-            + {t("bots.addBot")}
-          </button>
+          {/* Org users can only add a bot if they don't have one yet */}
+          {!(isOrg() && bots.length > 0) && (
+            <button className="btn-primary" onClick={() => setShowAdd(true)}>
+              + {t("bots.addBot")}
+            </button>
+          )}
         </div>
 
         {showAdd && (
@@ -175,7 +187,7 @@ export const BotsPage: React.FC = () => {
                   </div>
                   <div className="flex gap-4 mt-1 text-sm text-gray-500">
                     <span>
-                      {bot._count?.jobs || 0} {t("bots.jobs")}
+                      {bot._count?.questions || 0} {t("bots.questions")}
                     </span>
                     <span>
                       {bot._count?.candidates || 0} {t("bots.candidates")}

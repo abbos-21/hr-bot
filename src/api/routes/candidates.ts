@@ -1,6 +1,12 @@
 import { Router, Response } from "express";
 import prisma from "../../db";
-import { authMiddleware, AuthRequest } from "../middleware/auth";
+import {
+  authMiddleware,
+  AuthRequest,
+  getBotFilter,
+  requireBotAccess,
+  getAdminId,
+} from "../middleware/auth";
 import { wsManager } from "../../websocket";
 import { CANDIDATE_STATUSES } from "../../config";
 
@@ -11,7 +17,7 @@ router.use(authMiddleware);
 router.get("/", async (req: AuthRequest, res: Response) => {
   const { botId, status, search, page, limit, questionId, optionId } =
     req.query;
-  const where: any = {};
+  const where: any = { ...(await getBotFilter(req)) };
   if (botId) where.botId = botId as string;
 
   // status can be a comma-separated list: "active,hired,archived"
@@ -109,9 +115,11 @@ router.get("/:id", async (req: AuthRequest, res: Response) => {
         orderBy: { createdAt: "asc" },
       },
       files: { orderBy: { createdAt: "desc" } },
+      branch: { select: { id: true, name: true } },
     },
   });
   if (!candidate) return res.status(404).json({ error: "Not found" });
+  if (!(await requireBotAccess(req, res, candidate.botId))) return;
   return res.json(candidate);
 });
 
@@ -175,7 +183,7 @@ router.post("/:id/comments", async (req: AuthRequest, res: Response) => {
   const { text } = req.body;
   if (!text) return res.status(400).json({ error: "text required" });
   const comment = await prisma.candidateComment.create({
-    data: { candidateId: req.params.id, adminId: req.admin!.adminId, text },
+    data: { candidateId: req.params.id, adminId: getAdminId(req), text },
     include: { admin: { select: { id: true, name: true, email: true } } },
   });
   return res.status(201).json(comment);

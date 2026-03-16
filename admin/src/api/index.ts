@@ -64,7 +64,6 @@ export const botsApi = {
   ) => api.put(`/bots/${id}/bot-messages`, items).then((r) => r.data),
 };
 
-// Jobs
 // Questions
 export const questionsApi = {
   list: (params?: { botId?: string }) =>
@@ -174,6 +173,48 @@ export const filesApi = {
     return `${API_BASE}/files/message/${messageId}?token=${token}`;
   },
 };
+// Meetings
+export const meetingsApi = {
+  list: (candidateId: string) =>
+    api.get("/meetings", { params: { candidateId } }).then((r) => r.data),
+  create: (data: {
+    candidateId: string;
+    scheduledAt: string;
+    note?: string;
+    reminderMinutes?: number;
+  }) => api.post("/meetings", data).then((r) => r.data),
+  update: (id: string, data: any) =>
+    api.put(`/meetings/${id}`, data).then((r) => r.data),
+  delete: (id: string) => api.delete(`/meetings/${id}`).then((r) => r.data),
+};
+
+// Organizations
+export const organizationsApi = {
+  list: () => api.get("/organizations").then((r) => r.data),
+  get: (id: string) => api.get(`/organizations/${id}`).then((r) => r.data),
+  create: (data: any) => api.post("/organizations", data).then((r) => r.data),
+  update: (id: string, data: any) =>
+    api.put(`/organizations/${id}`, data).then((r) => r.data),
+  delete: (id: string) =>
+    api.delete(`/organizations/${id}`).then((r) => r.data),
+  assignBot: (id: string, botId: string) =>
+    api.put(`/organizations/${id}/bot`, { botId }).then((r) => r.data),
+  unlinkBot: (id: string) =>
+    api.delete(`/organizations/${id}/bot`).then((r) => r.data),
+};
+
+// Branches
+export const branchesApi = {
+  list: (organizationId?: string) =>
+    api
+      .get("/branches", { params: organizationId ? { organizationId } : {} })
+      .then((r) => r.data),
+  create: (data: any) => api.post("/branches", data).then((r) => r.data),
+  update: (id: string, data: any) =>
+    api.put(`/branches/${id}`, data).then((r) => r.data),
+  delete: (id: string) => api.delete(`/branches/${id}`).then((r) => r.data),
+};
+
 export const columnsApi = {
   list: () => api.get("/columns").then((r) => r.data),
   archived: () => api.get("/columns/archived").then((r) => r.data),

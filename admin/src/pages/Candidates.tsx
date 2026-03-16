@@ -23,6 +23,7 @@ import toast from "react-hot-toast";
 import { CandidateDetailPanel } from "../components/Candidatedetailpanel";
 import { useConfirm } from "../components/ConfirmModal";
 import { useT } from "../i18n";
+import { isViewableInBrowser } from "../utils/media";
 
 // ─── Color presets ────────────────────────────────────────────────────────────
 
@@ -36,17 +37,6 @@ const COLOR_PRESETS = [
   { color: "bg-cyan-50", dot: "bg-cyan-500", label: "Cyan" },
   { color: "bg-orange-50", dot: "bg-orange-500", label: "Orange" },
 ];
-
-function isViewableInBrowser(mimeType?: string | null): boolean {
-  if (!mimeType) return false;
-  return (
-    mimeType.startsWith("image/") ||
-    mimeType.startsWith("video/") ||
-    mimeType.startsWith("audio/") ||
-    mimeType.startsWith("text/") ||
-    mimeType === "application/pdf"
-  );
-}
 
 // ─── Broadcast modal ──────────────────────────────────────────────────────────
 

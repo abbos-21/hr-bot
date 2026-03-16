@@ -1,5 +1,4 @@
-import { Router, Request, Response, NextFunction } from "express";
-import multer from "multer";
+import { Router, Response, NextFunction } from "express";
 import path from "path";
 import fs from "fs";
 import jwt from "jsonwebtoken";
@@ -40,20 +39,6 @@ const tokenQueryAuth = (
     res.status(401).json({ error: "Invalid token" });
   }
 };
-
-// Multer storage (kept for future admin-upload endpoints)
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = path.join(config.uploadDir, "admin-uploads");
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    const unique = `${Date.now()}_${Math.random().toString(36).substring(7)}`;
-    cb(null, `${unique}${path.extname(file.originalname)}`);
-  },
-});
-const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } });
 
 // ─── Routes that need normal auth only ───────────────────────────────────────
 
@@ -126,7 +111,7 @@ router.get(
         "Content-Disposition",
         `inline; filename="${file.fileName}"`,
       );
-      return res.sendFile(require("path").resolve(file.localPath));
+      return res.sendFile(path.resolve(file.localPath));
     }
     return res.status(404).json({ error: "File not found on disk" });
   },

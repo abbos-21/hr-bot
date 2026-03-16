@@ -14,6 +14,9 @@ import messagesRoutes from "./routes/messages";
 import analyticsRoutes from "./routes/analytics";
 import filesRoutes from "./routes/files";
 import columnsRoutes from "./routes/columns";
+import organizationsRoutes from "./routes/organizations";
+import branchesRoutes from "./routes/branches";
+import meetingsRoutes from "./routes/meetings";
 
 export function createApp(): express.Application {
   const app = express();
@@ -38,6 +41,9 @@ export function createApp(): express.Application {
   app.use("/api/analytics", analyticsRoutes);
   app.use("/api/files", filesRoutes);
   app.use("/api/columns", columnsRoutes);
+  app.use("/api/organizations", organizationsRoutes);
+  app.use("/api/branches", branchesRoutes);
+  app.use("/api/meetings", meetingsRoutes);
 
   // Health check
   app.get("/health", (req, res) => {

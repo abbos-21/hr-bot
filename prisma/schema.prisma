@@ -21,21 +21,51 @@ model Admin {
   messages Message[]
 }
 
-model Bot {
-  id          String   @id @default(cuid())
-  token       String   @unique
-  name        String
-  username    String?
-  defaultLang String   @default("en")
-  isActive    Boolean  @default(true)
-  webhookSet  Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model Organization {
+  id                    String   @id @default(cuid())
+  name                  String
+  email                 String   @unique
+  password              String
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
-  questions  Question[]
-  languages  BotLanguage[]
-  candidates Candidate[]
-  messages2  BotMessage[]
+  branches Branch[]
+  bot      Bot?
+}
+
+model Branch {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  candidates   Candidate[]
+  options      QuestionOption[]
+
+  @@unique([organizationId, name])
+}
+
+model Bot {
+  id             String   @id @default(cuid())
+  token          String   @unique
+  name           String
+  username       String?
+  defaultLang    String   @default("en")
+  isActive       Boolean  @default(true)
+  webhookSet     Boolean  @default(false)
+  organizationId String?  @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  questions    Question[]
+  languages    BotLanguage[]
+  candidates   Candidate[]
+  messages2    BotMessage[]
 }
 
 model BotMessage {
@@ -99,11 +129,13 @@ model QuestionTranslation {
 }
 
 model QuestionOption {
-  id         String @id @default(cuid())
+  id         String  @id @default(cuid())
   questionId String
-  order      Int    @default(0)
+  order      Int     @default(0)
+  branchId   String?
 
   question        Question                    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  branch          Branch?                     @relation(fields: [branchId], references: [id], onDelete: SetNull)
   translations    QuestionOptionTranslation[]
   answers         Answer[]
   branchQuestions Question[]                  @relation("BranchQuestions")
@@ -133,6 +165,7 @@ model Candidate {
   profilePhoto String?
   lang         String   @default("en")
   status       String   @default("incomplete")
+  branchId     String?
   columnId     String?
   currentStep  Int      @default(0)
   questionQueue String?
@@ -141,11 +174,13 @@ model Candidate {
   lastActivity DateTime @default(now())
 
   bot      Bot            @relation(fields: [botId], references: [id], onDelete: Cascade)
+  branch   Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
   column   KanbanColumn?  @relation(fields: [columnId], references: [id], onDelete: SetNull)
   answers  Answer[]
   comments CandidateComment[]
   messages Message[]
   files    CandidateFile[]
+  meetings Meeting[]
 
   @@unique([botId, telegramId])
 }
@@ -169,12 +204,12 @@ model Answer {
 model CandidateComment {
   id          String   @id @default(cuid())
   candidateId String
-  adminId     String
+  adminId     String?
   text        String
   createdAt   DateTime @default(now())
 
   candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  admin     Admin     @relation(fields: [adminId], references: [id])
+  admin     Admin?    @relation(fields: [adminId], references: [id])
 }
 
 model Message {
@@ -205,6 +240,20 @@ model CandidateFile {
   localPath      String?
   size           Int?
   createdAt      DateTime @default(now())
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+}
+
+model Meeting {
+  id              String   @id @default(cuid())
+  candidateId     String
+  scheduledAt     DateTime
+  note            String?
+  reminderMinutes Int      @default(30)
+  reminderSent    Boolean  @default(false)
+  status          String   @default("scheduled")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
 }

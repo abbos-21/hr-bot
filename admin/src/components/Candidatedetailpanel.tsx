@@ -7,21 +7,11 @@
  */
 import React, { useEffect, useState, useRef } from "react";
 import { format } from "date-fns";
-import { candidatesApi, messagesApi, filesApi, columnsApi } from "../api";
+import { candidatesApi, messagesApi, filesApi, columnsApi, meetingsApi } from "../api";
 import { useWebSocket } from "../hooks/useWebSocket";
 import toast from "react-hot-toast";
 import { useT } from "../i18n";
-
-function isViewableInBrowser(mimeType?: string | null): boolean {
-  if (!mimeType) return false;
-  return (
-    mimeType.startsWith("image/") ||
-    mimeType.startsWith("video/") ||
-    mimeType.startsWith("audio/") ||
-    mimeType.startsWith("text/") ||
-    mimeType === "application/pdf"
-  );
-}
+import { isViewableInBrowser } from "../utils/media";
 
 interface Props {
   candidateId: string | null;
@@ -47,7 +37,7 @@ export const CandidateDetailPanel: React.FC<Props> = ({
   const [candidate, setCandidate] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [columns, setColumns] = useState<any[]>(columnsProp ?? []);
-  const [tab, setTab] = useState<"answers" | "chat" | "files">("answers");
+  const [tab, setTab] = useState<"answers" | "chat" | "files" | "meetings">("answers");
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [comment, setComment] = useState("");
   const [msgText, setMsgText] = useState("");
@@ -55,6 +45,14 @@ export const CandidateDetailPanel: React.FC<Props> = ({
   const [loading, setLoading] = useState(false);
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [meetings, setMeetings] = useState<any[]>([]);
+  const [showMeetingForm, setShowMeetingForm] = useState(false);
+  const [meetingForm, setMeetingForm] = useState({
+    scheduledAt: "",
+    note: "",
+    reminderMinutes: 30,
+  });
+  const [schedulingMeeting, setSchedulingMeeting] = useState(false);
 
   useEffect(() => {
     if (columnsProp !== undefined) {
@@ -74,10 +72,15 @@ export const CandidateDetailPanel: React.FC<Props> = ({
     }
     setLoading(true);
     setTab("answers");
-    Promise.all([candidatesApi.get(candidateId), messagesApi.list(candidateId)])
-      .then(([c, m]) => {
+    Promise.all([
+      candidatesApi.get(candidateId),
+      messagesApi.list(candidateId),
+      meetingsApi.list(candidateId),
+    ])
+      .then(([c, m, mt]) => {
         setCandidate(c);
         setMessages(m);
+        setMeetings(mt);
       })
       .finally(() => setLoading(false));
   }, [candidateId]);
@@ -265,7 +268,7 @@ export const CandidateDetailPanel: React.FC<Props> = ({
 
           {/* Tabs */}
           <div className="flex mx-5 mt-4 border-b border-gray-100">
-            {(["answers", "chat", "files"] as const).map((t) => (
+            {(["answers", "chat", "files", "meetings"] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -546,6 +549,185 @@ export const CandidateDetailPanel: React.FC<Props> = ({
                   );
                 })
               )}
+            </div>
+          )}
+
+          {/* Meetings tab */}
+          {tab === "meetings" && (
+            <div className="p-5 space-y-3">
+              <button
+                onClick={() => {
+                  setShowMeetingForm(!showMeetingForm);
+                  setMeetingForm({ scheduledAt: "", note: "", reminderMinutes: 30 });
+                }}
+                className="w-full py-2 text-sm font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors"
+              >
+                {showMeetingForm ? t("common.cancel") : t("meetings.schedule")}
+              </button>
+
+              {showMeetingForm && (
+                <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                  <div>
+                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      {t("meetings.dateTime")}
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={meetingForm.scheduledAt}
+                      onChange={(e) =>
+                        setMeetingForm((f) => ({ ...f, scheduledAt: e.target.value }))
+                      }
+                      className="w-full mt-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-300"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      {t("meetings.note")}
+                    </label>
+                    <textarea
+                      value={meetingForm.note}
+                      onChange={(e) =>
+                        setMeetingForm((f) => ({ ...f, note: e.target.value }))
+                      }
+                      placeholder={t("meetings.notePlaceholder")}
+                      rows={2}
+                      className="w-full mt-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-300 resize-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      {t("meetings.reminderBefore")}
+                    </label>
+                    <select
+                      value={meetingForm.reminderMinutes}
+                      onChange={(e) =>
+                        setMeetingForm((f) => ({
+                          ...f,
+                          reminderMinutes: Number(e.target.value),
+                        }))
+                      }
+                      className="w-full mt-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-300"
+                    >
+                      <option value={10}>10 {t("meetings.minutes")}</option>
+                      <option value={15}>15 {t("meetings.minutes")}</option>
+                      <option value={30}>30 {t("meetings.minutes")}</option>
+                      <option value={60}>1 {t("meetings.hour")}</option>
+                      <option value={120}>2 {t("meetings.hours")}</option>
+                      <option value={1440}>1 {t("meetings.day")}</option>
+                    </select>
+                  </div>
+                  <button
+                    disabled={schedulingMeeting || !meetingForm.scheduledAt}
+                    onClick={async () => {
+                      setSchedulingMeeting(true);
+                      try {
+                        const m = await meetingsApi.create({
+                          candidateId: candidate.id,
+                          scheduledAt: new Date(meetingForm.scheduledAt).toISOString(),
+                          note: meetingForm.note || undefined,
+                          reminderMinutes: meetingForm.reminderMinutes,
+                        });
+                        setMeetings((prev) => [m, ...prev]);
+                        setShowMeetingForm(false);
+                        setMeetingForm({ scheduledAt: "", note: "", reminderMinutes: 30 });
+                        toast.success(t("meetings.scheduled"));
+                      } catch {
+                        toast.error(t("meetings.scheduleFailed"));
+                      }
+                      setSchedulingMeeting(false);
+                    }}
+                    className="w-full py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white font-semibold rounded-xl transition-colors text-sm"
+                  >
+                    {schedulingMeeting
+                      ? t("common.saving")
+                      : t("meetings.schedule")}
+                  </button>
+                </div>
+              )}
+
+              {meetings.length === 0 && !showMeetingForm && (
+                <p className="text-sm text-gray-400 text-center py-4">
+                  {t("meetings.noMeetings")}
+                </p>
+              )}
+
+              {meetings.map((m) => {
+                const dt = new Date(m.scheduledAt);
+                const isPast = dt < new Date();
+                return (
+                  <div
+                    key={m.id}
+                    className={`rounded-xl border p-3 ${
+                      m.status === "cancelled"
+                        ? "border-gray-200 bg-gray-50 opacity-60"
+                        : isPast
+                          ? "border-amber-200 bg-amber-50"
+                          : "border-blue-200 bg-blue-50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-800">
+                          {format(dt, "MMM d, yyyy")} {t("meetings.at")}{" "}
+                          {format(dt, "HH:mm")}
+                        </p>
+                        {m.note && (
+                          <p className="text-xs text-gray-500 mt-1">{m.note}</p>
+                        )}
+                        <p className="text-xs text-gray-400 mt-1">
+                          {t("meetings.reminder")}: {m.reminderMinutes}{" "}
+                          {t("meetings.minBefore")}
+                          {m.reminderSent && (
+                            <span className="ml-1 text-green-500">
+                              ({t("meetings.sent")})
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {m.status === "scheduled" && (
+                          <button
+                            onClick={async () => {
+                              try {
+                                await meetingsApi.update(m.id, {
+                                  status: "cancelled",
+                                });
+                                setMeetings((prev) =>
+                                  prev.map((mt) =>
+                                    mt.id === m.id
+                                      ? { ...mt, status: "cancelled" }
+                                      : mt,
+                                  ),
+                                );
+                              } catch {
+                                toast.error(t("common.update") + " failed");
+                              }
+                            }}
+                            className="text-xs px-2 py-1 rounded-lg text-red-600 hover:bg-red-100 transition-colors"
+                          >
+                            {t("common.cancel")}
+                          </button>
+                        )}
+                        <button
+                          onClick={async () => {
+                            try {
+                              await meetingsApi.delete(m.id);
+                              setMeetings((prev) =>
+                                prev.filter((mt) => mt.id !== m.id),
+                              );
+                            } catch {
+                              toast.error(t("common.delete") + " failed");
+                            }
+                          }}
+                          className="text-xs px-2 py-1 rounded-lg text-gray-400 hover:bg-gray-200 transition-colors"
+                        >
+                          {t("common.delete")}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

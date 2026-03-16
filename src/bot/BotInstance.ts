@@ -11,12 +11,11 @@ import { wsManager } from "../websocket";
 import path from "path";
 import fs from "fs";
 import { config } from "../config";
+import { DEFAULT_TRANSLATIONS } from "../constants/botDefaults";
 import axios from "axios";
 
-type MyBot = Bot;
-
 export class BotInstance {
-  public bot: MyBot;
+  public bot: Bot;
   public botId: string;
   private running = false;
 
@@ -48,58 +47,8 @@ export class BotInstance {
       if (dbEn) return dbEn.value;
     }
 
-    // 3. Hardcoded defaults
-    const translations: Record<string, Record<string, string>> = {
-      en: {
-        welcome: "👋 Welcome! Please choose a language:",
-        survey_complete:
-          "✅ Thank you! Your application has been submitted successfully.",
-        answer_saved: "✅ Answer saved.",
-        invalid_option: "⚠️ Please select one of the provided options.",
-        upload_file: "📎 Please send a photo or file as your answer.",
-        please_send_file: "📎 Please send a photo or file, not text.",
-        please_send_photo: "📸 Please send a photo for your profile picture.",
-        message_received: "✉️ New message from HR:",
-        invalid_date_format:
-          "⚠️ Please enter your birth date in the format DD.MM.YYYY (e.g. 15.03.1998)",
-        invalid_date_value: "⚠️ Please enter a valid birth date.",
-        phone_use_button:
-          "📱 Please use the button below to share your phone number.",
-      },
-      ru: {
-        welcome: "👋 Добро пожаловать! Выберите язык:",
-        survey_complete: "✅ Спасибо! Ваша заявка успешно отправлена.",
-        answer_saved: "✅ Ответ сохранён.",
-        invalid_option:
-          "⚠️ Пожалуйста, выберите один из предложенных вариантов.",
-        upload_file: "📎 Пожалуйста, отправьте фото или файл.",
-        please_send_file: "📎 Пожалуйста, отправьте файл, а не текст.",
-        please_send_photo: "📸 Пожалуйста, отправьте фото для профиля.",
-        message_received: "✉️ Новое сообщение от HR:",
-        invalid_date_format:
-          "⚠️ Введите дату рождения в формате ДД.ММ.ГГГГ (например 15.03.1998)",
-        invalid_date_value: "⚠️ Введите корректную дату рождения.",
-        phone_use_button:
-          "📱 Пожалуйста, используйте кнопку ниже, чтобы поделиться номером.",
-      },
-      uz: {
-        welcome: "👋 Xush kelibsiz! Tilni tanlang:",
-        survey_complete: "✅ Rahmat! Arizangiz muvaffaqiyatli yuborildi.",
-        answer_saved: "✅ Javob saqlandi.",
-        invalid_option:
-          "⚠️ Iltimos, taklif etilgan variantlardan birini tanlang.",
-        upload_file: "📎 Iltimos, rasm yoki fayl yuboring.",
-        please_send_file: "📎 Iltimos, matn emas, fayl yuboring.",
-        please_send_photo: "📸 Iltimos, profil uchun rasm yuboring.",
-        message_received: "✉️ HR dan yangi xabar:",
-        invalid_date_format:
-          "⚠️ Tug'ilgan sanangizni KK.OO.YYYY formatida kiriting (masalan 15.03.1998)",
-        invalid_date_value: "⚠️ Iltimos, to'g'ri tug'ilgan sanani kiriting.",
-        phone_use_button:
-          "📱 Raqamingizni ulashish uchun quyidagi tugmani bosing.",
-      },
-    };
-    return translations[lang]?.[key] || translations["en"]?.[key] || fallback;
+    // 3. Hardcoded defaults (shared via constants/botDefaults.ts)
+    return DEFAULT_TRANSLATIONS[lang]?.[key] || DEFAULT_TRANSLATIONS["en"]?.[key] || fallback;
   }
 
   // Get per-lang success/error message from question translation
@@ -708,6 +657,7 @@ export class BotInstance {
         question.fieldKey,
         optTr?.text || "",
       );
+
     }
 
     // Advance queue, injecting branch questions for the chosen option
@@ -770,51 +720,9 @@ export class BotInstance {
     }
 
     const msg = ctx.message;
-    let fileId: string | undefined;
-    let fileName: string | undefined;
-    let mimeType: string | undefined;
-    let localPath: string | undefined;
+    const media = await this.extractMediaInfo(msg, candidate.botId);
 
-    if (msg.photo) {
-      const photo = msg.photo[msg.photo.length - 1];
-      fileId = photo.file_id;
-      fileName = "photo.jpg";
-      mimeType = "image/jpeg";
-      localPath = await this.downloadFile(
-        fileId!,
-        candidate.botId,
-        "photo.jpg",
-      );
-    } else if (msg.document) {
-      fileId = msg.document.file_id;
-      fileName = msg.document.file_name || "document";
-      mimeType = msg.document.mime_type;
-      localPath = await this.downloadFile(
-        fileId!,
-        candidate.botId,
-        fileName || "document",
-      );
-    } else if (msg.voice) {
-      fileId = msg.voice.file_id;
-      fileName = "voice.ogg";
-      mimeType = "audio/ogg";
-      localPath = await this.downloadFile(
-        fileId!,
-        candidate.botId,
-        "voice.ogg",
-      );
-    } else if (msg.video) {
-      fileId = msg.video.file_id;
-      fileName = "video.mp4";
-      mimeType = "video/mp4";
-      localPath = await this.downloadFile(
-        fileId!,
-        candidate.botId,
-        "video.mp4",
-      );
-    }
-
-    if (!fileId) {
+    if (!media.fileId) {
       const errMsg =
         this.getQuestionMessage(question, candidate.lang, "error") ||
         (await this.getTranslation(
@@ -827,7 +735,7 @@ export class BotInstance {
       return;
     }
 
-    const displayValue = fileName || "attachment";
+    const displayValue = media.fileName || "attachment";
     await prisma.answer.upsert({
       where: {
         candidateId_questionId: {
@@ -850,17 +758,17 @@ export class BotInstance {
     await prisma.candidateFile.create({
       data: {
         candidateId: candidate.id,
-        telegramFileId: fileId,
-        fileName: fileName || "attachment",
-        mimeType,
-        localPath,
+        telegramFileId: media.fileId!,
+        fileName: media.fileName || "attachment",
+        mimeType: media.mimeType,
+        localPath: media.localPath,
       },
     });
 
-    if (question.fieldKey === "profilePhoto" && localPath) {
+    if (question.fieldKey === "profilePhoto" && media.localPath) {
       await prisma.candidate.update({
         where: { id: candidate.id },
-        data: { profilePhoto: localPath },
+        data: { profilePhoto: media.localPath },
       });
     }
 
@@ -893,6 +801,62 @@ export class BotInstance {
     }
   }
 
+  // ─── Extract media info from a Telegram message ─────────────────────────────
+
+  private async extractMediaInfo(
+    msg: any,
+    botId: string,
+  ): Promise<{
+    type: string;
+    text?: string;
+    fileId?: string;
+    fileName?: string;
+    mimeType?: string;
+    localPath?: string;
+  }> {
+    if (msg.photo) {
+      const photo = msg.photo[msg.photo.length - 1];
+      return {
+        type: "photo",
+        fileId: photo.file_id,
+        localPath: await this.downloadFile(photo.file_id, botId, "photo.jpg"),
+      };
+    }
+    if (msg.document) {
+      const fileName = msg.document.file_name || "document";
+      return {
+        type: "document",
+        fileId: msg.document.file_id,
+        fileName,
+        mimeType: msg.document.mime_type,
+        localPath: await this.downloadFile(msg.document.file_id, botId, fileName),
+      };
+    }
+    if (msg.voice) {
+      return {
+        type: "voice",
+        fileId: msg.voice.file_id,
+        localPath: await this.downloadFile(msg.voice.file_id, botId, "voice.ogg"),
+      };
+    }
+    if (msg.video) {
+      return {
+        type: "video",
+        fileId: msg.video.file_id,
+        localPath: await this.downloadFile(msg.video.file_id, botId, "video.mp4"),
+      };
+    }
+    if (msg.audio) {
+      const fileName = msg.audio.file_name || "audio.mp3";
+      return {
+        type: "audio",
+        fileId: msg.audio.file_id,
+        localPath: await this.downloadFile(msg.audio.file_id, botId, fileName),
+      };
+    }
+    return { type: "text", text: msg.text };
+  }
+
   // ─── Inbound message from active candidate ────────────────────────────────
 
   private async handleInboundMessage(
@@ -903,45 +867,8 @@ export class BotInstance {
     const msg = ctx.message;
     if (!msg) return;
 
-    let type = "text";
-    let text: string | undefined = msg.text;
-    let fileId: string | undefined;
-    let fileName: string | undefined;
-    let mimeType: string | undefined;
-    let localPath: string | undefined;
-
-    if (msg.photo) {
-      type = "photo";
-      const photo = msg.photo[msg.photo.length - 1];
-      fileId = photo.file_id;
-      localPath = await this.downloadFile(fileId!, botId, "photo.jpg");
-    } else if (msg.document) {
-      type = "document";
-      fileId = msg.document.file_id;
-      fileName = msg.document.file_name || "document";
-      mimeType = msg.document.mime_type;
-      localPath = await this.downloadFile(
-        fileId!,
-        botId,
-        fileName || "document",
-      );
-    } else if (msg.voice) {
-      type = "voice";
-      fileId = msg.voice.file_id;
-      localPath = await this.downloadFile(fileId!, botId, "voice.ogg");
-    } else if (msg.video) {
-      type = "video";
-      fileId = msg.video.file_id;
-      localPath = await this.downloadFile(fileId!, botId, "video.mp4");
-    } else if (msg.audio) {
-      type = "audio";
-      fileId = msg.audio.file_id;
-      localPath = await this.downloadFile(
-        fileId!,
-        botId,
-        msg.audio.file_name || "audio.mp3",
-      );
-    }
+    const { type, text, fileId, fileName, mimeType, localPath } =
+      await this.extractMediaInfo(msg, botId);
 
     const message = await prisma.message.create({
       data: {
@@ -1091,6 +1018,26 @@ export class BotInstance {
     } catch (error) {
       console.error("Error sending message to candidate:", error);
       return undefined;
+    }
+  }
+
+  async sendMeetingNotification(
+    telegramId: string,
+    lang: string,
+    key: "meeting_scheduled" | "meeting_reminder",
+    vars: { date: string; time: string; minutes?: number; note?: string },
+  ): Promise<void> {
+    try {
+      let text = await this.getTranslation(this.botId, lang, key, "");
+      text = text
+        .replace("{date}", vars.date)
+        .replace("{time}", vars.time)
+        .replace("{minutes}", String(vars.minutes || ""))
+        .replace("{note}", vars.note || "");
+      const chatId = parseInt(telegramId);
+      await this.bot.api.sendMessage(chatId, text.trim());
+    } catch (error) {
+      console.error(`Error sending ${key} to ${telegramId}:`, error);
     }
   }
 

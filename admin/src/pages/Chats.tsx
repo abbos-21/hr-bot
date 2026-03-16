@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { format, isToday, isYesterday } from "date-fns";
-import { messagesApi, filesApi } from "../api";
+import { messagesApi, filesApi, botsApi } from "../api";
 import { useWebSocket } from "../hooks/useWebSocket";
 import { CandidateDetailPanel } from "../components/Candidatedetailpanel";
+import { useAuthStore } from "../store/auth";
 import toast from "react-hot-toast";
 import { useT } from "../i18n";
+import { isViewableInBrowser } from "../utils/media";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -27,17 +29,6 @@ function candidateInitials(c: any) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
-}
-
-function isViewableInBrowser(mimeType?: string | null): boolean {
-  if (!mimeType) return false;
-  return (
-    mimeType.startsWith("image/") ||
-    mimeType.startsWith("video/") ||
-    mimeType.startsWith("audio/") ||
-    mimeType.startsWith("text/") ||
-    mimeType === "application/pdf"
-  );
 }
 
 function avatarGradient(id: string) {
@@ -210,6 +201,7 @@ const DaySeparator: React.FC<{ date: string }> = ({ date }) => {
 
 export const ChatsPage: React.FC = () => {
   const { t } = useT();
+  const { isOrg } = useAuthStore();
   const [conversations, setConversations] = useState<any[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showInfo, setShowInfo] = useState(false);
@@ -220,6 +212,8 @@ export const ChatsPage: React.FC = () => {
   const [msgText, setMsgText] = useState("");
   const [sending, setSending] = useState(false);
   const [search, setSearch] = useState("");
+  const [bots, setBots] = useState<any[]>([]);
+  const [selectedBotId, setSelectedBotId] = useState<string>("");
 
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -234,6 +228,10 @@ export const ChatsPage: React.FC = () => {
 
   useEffect(() => {
     loadConversations();
+    // Admins: load bot list for filtering
+    if (!isOrg()) {
+      botsApi.list().then(setBots).catch(() => {});
+    }
   }, [loadConversations]);
 
   useEffect(() => {
@@ -350,9 +348,10 @@ export const ChatsPage: React.FC = () => {
 
   const filteredConvs = conversations.filter(
     (c) =>
-      !search ||
-      candidateName(c).toLowerCase().includes(search.toLowerCase()) ||
-      (c.username && c.username.toLowerCase().includes(search.toLowerCase())),
+      (!search ||
+        candidateName(c).toLowerCase().includes(search.toLowerCase()) ||
+        (c.username && c.username.toLowerCase().includes(search.toLowerCase()))) &&
+      (!selectedBotId || c.botId === selectedBotId),
   );
 
   return (
@@ -373,6 +372,21 @@ export const ChatsPage: React.FC = () => {
                 className="w-full pl-8 pr-3 py-2 text-sm bg-gray-100 rounded-xl border-0 focus:outline-none focus:ring-2 focus:ring-blue-300 placeholder-gray-400"
               />
             </div>
+            {/* Bot filter for admins */}
+            {!isOrg() && bots.length > 1 && (
+              <select
+                value={selectedBotId}
+                onChange={(e) => setSelectedBotId(e.target.value)}
+                className="mt-2 w-full text-xs bg-gray-100 rounded-xl px-3 py-2 border-0 focus:outline-none focus:ring-2 focus:ring-blue-300 text-gray-600"
+              >
+                <option value="">{t("pipeline.filterAllBots")}</option>
+                {bots.map((b: any) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} {b.username ? `(@${b.username})` : ""}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto">

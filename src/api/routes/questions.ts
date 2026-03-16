@@ -1,6 +1,11 @@
 import { Router, Response } from "express";
 import prisma from "../../db";
-import { authMiddleware, AuthRequest } from "../middleware/auth";
+import {
+  authMiddleware,
+  AuthRequest,
+  getBotFilter,
+  requireBotAccess,
+} from "../middleware/auth";
 
 const router = Router();
 router.use(authMiddleware);
@@ -8,7 +13,7 @@ router.use(authMiddleware);
 // GET /api/questions?botId=
 router.get("/", async (req: AuthRequest, res: Response) => {
   const { botId } = req.query;
-  const where: any = {};
+  const where: any = { ...(await getBotFilter(req)) };
   if (botId) where.botId = botId as string;
 
   const questions = await prisma.question.findMany({
@@ -37,6 +42,7 @@ router.post("/", async (req: AuthRequest, res: Response) => {
     branchOrder,
   } = req.body;
   if (!botId) return res.status(400).json({ error: "botId required" });
+  if (!(await requireBotAccess(req, res, botId))) return;
 
   // Validate circular reference: parentOptionId's question must not be a descendant of any of our options
   // (basic protection — deep cycles are rare but we guard against direct self-reference)
@@ -119,6 +125,7 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
     where: { id: req.params.id },
   });
   if (!existing) return res.status(404).json({ error: "Not found" });
+  if (!(await requireBotAccess(req, res, existing.botId))) return;
 
   await prisma.$transaction(async (tx) => {
     await tx.question.update({
@@ -177,7 +184,7 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
           data: {
             questionId: req.params.id,
             order: opt.order || 0,
-            translations: {
+              translations: {
               create: (opt.translations || []).map((t: any) => ({
                 lang: t.lang,
                 text: t.text,
@@ -206,6 +213,7 @@ router.delete("/:id", async (req: AuthRequest, res: Response) => {
     where: { id: req.params.id },
   });
   if (!question) return res.status(404).json({ error: "Not found" });
+  if (!(await requireBotAccess(req, res, question.botId))) return;
   if (question.isRequired)
     return res
       .status(400)

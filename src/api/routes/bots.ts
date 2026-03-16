@@ -1,6 +1,15 @@
 import { Router, Response } from "express";
+import jwt from "jsonwebtoken";
 import prisma from "../../db";
-import { authMiddleware, AuthRequest } from "../middleware/auth";
+import { config } from "../../config";
+import { JwtPayload } from "../../types";
+import {
+  authMiddleware,
+  AuthRequest,
+  getBotFilter,
+  requireBotAccess,
+  adminOnlyMiddleware,
+} from "../middleware/auth";
 import { botManager } from "../../bot/BotManager";
 import axios from "axios";
 
@@ -9,7 +18,11 @@ router.use(authMiddleware);
 
 // GET /api/bots
 router.get("/", async (req: AuthRequest, res: Response) => {
+  const filter = await getBotFilter(req);
+  const where: any = filter.botId ? { id: filter.botId } : {};
+
   const bots = await prisma.bot.findMany({
+    where,
     include: {
       languages: true,
       _count: { select: { candidates: true, questions: true } },
@@ -19,8 +32,15 @@ router.get("/", async (req: AuthRequest, res: Response) => {
   return res.json(bots);
 });
 
-// POST /api/bots
+// POST /api/bots (admins can always create; org users only if they have no bot yet)
 router.post("/", async (req: AuthRequest, res: Response) => {
+  // Org users: check they don't already have a bot
+  if (req.admin?.type === "organization") {
+    if (req.admin.botId) {
+      return res.status(400).json({ error: "Organization already has a bot assigned" });
+    }
+  }
+
   const { token, name } = req.body;
   if (!token || !name)
     return res.status(400).json({ error: "token and name required" });
@@ -42,10 +62,14 @@ router.post("/", async (req: AuthRequest, res: Response) => {
         name: name || botInfo.first_name,
         username: botInfo.username,
         defaultLang: "uz",
+        // If org user, assign bot to their organization
+        ...(req.admin?.type === "organization" && req.admin.organizationId
+          ? { organizationId: req.admin.organizationId }
+          : {}),
         languages: {
           create: [{ code: "uz", name: "O'zbek", isDefault: true }],
         },
-        // Seed the 4 required questions immediately
+        // Seed the 5 required questions immediately
         questions: {
           create: [
             {
@@ -113,6 +137,16 @@ router.post("/", async (req: AuthRequest, res: Response) => {
     // Start the bot
     await botManager.startBot(bot.id, token);
 
+    // For org users: return a refreshed JWT with the new botId
+    if (req.admin?.type === "organization") {
+      const newPayload: JwtPayload = {
+        ...req.admin,
+        botId: bot.id,
+      };
+      const newToken = jwt.sign(newPayload, config.jwtSecret, { expiresIn: "7d" });
+      return res.status(201).json({ ...bot, newToken });
+    }
+
     return res.status(201).json(bot);
   } catch (error: any) {
     if (error.response?.status === 401) {
@@ -124,6 +158,7 @@ router.post("/", async (req: AuthRequest, res: Response) => {
 
 // GET /api/bots/:id
 router.get("/:id", async (req: AuthRequest, res: Response) => {
+  if (!(await requireBotAccess(req, res, req.params.id))) return;
   const bot = await prisma.bot.findUnique({
     where: { id: req.params.id },
     include: {
@@ -137,6 +172,7 @@ router.get("/:id", async (req: AuthRequest, res: Response) => {
 
 // PUT /api/bots/:id
 router.put("/:id", async (req: AuthRequest, res: Response) => {
+  if (!(await requireBotAccess(req, res, req.params.id))) return;
   const { name, defaultLang, isActive } = req.body;
   const updateData: any = {};
   if (name !== undefined) updateData.name = name;
@@ -160,6 +196,7 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
 
 // PUT /api/bots/:id/token  — update bot token (restarts the bot)
 router.put("/:id/token", async (req: AuthRequest, res: Response) => {
+  if (!(await requireBotAccess(req, res, req.params.id))) return;
   const { token } = req.body;
   if (!token?.trim()) return res.status(400).json({ error: "token required" });
 
@@ -198,8 +235,8 @@ router.put("/:id/token", async (req: AuthRequest, res: Response) => {
   }
 });
 
-// DELETE /api/bots/:id
-router.delete("/:id", async (req: AuthRequest, res: Response) => {
+// DELETE /api/bots/:id (admin only)
+router.delete("/:id", adminOnlyMiddleware, async (req: AuthRequest, res: Response) => {
   await botManager.stopBot(req.params.id);
   await prisma.bot.delete({ where: { id: req.params.id } });
   return res.json({ success: true });
@@ -208,6 +245,7 @@ router.delete("/:id", async (req: AuthRequest, res: Response) => {
 // --- Languages ---
 // GET /api/bots/:id/languages
 router.get("/:id/languages", async (req: AuthRequest, res: Response) => {
+  if (!(await requireBotAccess(req, res, req.params.id))) return;
   const languages = await prisma.botLanguage.findMany({
     where: { botId: req.params.id },
   });
@@ -216,6 +254,7 @@ router.get("/:id/languages", async (req: AuthRequest, res: Response) => {
 
 // POST /api/bots/:id/languages
 router.post("/:id/languages", async (req: AuthRequest, res: Response) => {
+  if (!(await requireBotAccess(req, res, req.params.id))) return;
   const { code, name, isDefault } = req.body;
   if (!code || !name)
     return res.status(400).json({ error: "code and name required" });
@@ -248,6 +287,7 @@ router.post("/:id/languages", async (req: AuthRequest, res: Response) => {
 router.delete(
   "/:id/languages/:langId",
   async (req: AuthRequest, res: Response) => {
+    if (!(await requireBotAccess(req, res, req.params.id))) return;
     const lang = await prisma.botLanguage.findUnique({
       where: { id: req.params.langId },
     });

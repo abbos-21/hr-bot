@@ -4,6 +4,7 @@ import { createApp } from './api/server';
 import { wsManager } from './websocket';
 import { botManager } from './bot/BotManager';
 import prisma from './db';
+import { startMeetingReminderScheduler } from './scheduler/meetingReminder';
 
 async function main() {
   console.log('Starting HR Recruitment Bot System...');
@@ -23,6 +24,9 @@ async function main() {
   // Initialize bot manager
   await botManager.initialize();
   console.log('Bot manager initialized');
+
+  // Start meeting reminder scheduler
+  startMeetingReminderScheduler();
 
   // Start server
   server.listen(config.port, () => {

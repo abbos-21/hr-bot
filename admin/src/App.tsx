@@ -16,6 +16,8 @@ import { HiredCandidatesPage } from "./pages/HiredCandidates";
 import { PastCandidatesPage } from "./pages/PastCandidates";
 import { RetiredStagesPage } from "./pages/RetiredStages";
 import { ChatsPage } from "./pages/Chats";
+import { OrganizationsPage } from "./pages/Organizations";
+import { BranchesPage } from "./pages/Branches";
 import { useWebSocket } from "./hooks/useWebSocket";
 
 // Shown while the startup /me check is in flight so we never flash the
@@ -166,6 +168,22 @@ function App() {
           element={
             <ProtectedLayout>
               <ChatsPage />
+            </ProtectedLayout>
+          }
+        />
+        <Route
+          path="/organizations"
+          element={
+            <ProtectedLayout>
+              <OrganizationsPage />
+            </ProtectedLayout>
+          }
+        />
+        <Route
+          path="/branches"
+          element={
+            <ProtectedLayout>
+              <BranchesPage />
             </ProtectedLayout>
           }
         />

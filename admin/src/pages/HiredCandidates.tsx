@@ -1,9 +1,7 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { useT } from "../i18n";
-import { candidatesApi, messagesApi, filesApi } from "../api";
+import { candidatesApi } from "../api";
 import { format } from "date-fns";
-import { useAuthStore } from "../store/auth";
-import { useWebSocket } from "../hooks/useWebSocket";
 import toast from "react-hot-toast";
 
 export const HiredCandidatesPage: React.FC = () => {

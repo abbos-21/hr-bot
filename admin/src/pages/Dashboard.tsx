@@ -7,7 +7,7 @@ import { useWebSocket } from "../hooks/useWebSocket";
 interface Overview {
   totalCandidates: number;
   totalBots: number;
-  totalJobs: number;
+  totalQuestions: number;
   byStatus: Record<string, number>;
   conversionRate: number;
 }
@@ -84,9 +84,9 @@ export const DashboardPage: React.FC = () => {
           color="bg-purple-50"
         />
         <StatCard
-          label={t("dashboard.activeJobs")}
-          value={overview?.totalJobs || 0}
-          icon="💼"
+          label={t("dashboard.totalQuestions")}
+          value={overview?.totalQuestions || 0}
+          icon="❓"
           color="bg-green-50"
         />
         <StatCard
@@ -110,12 +110,8 @@ export const DashboardPage: React.FC = () => {
                 const pct = Math.round((count / total) * 100);
                 const colors: Record<string, string> = {
                   incomplete: "bg-gray-300",
-                  applied: "bg-blue-400",
-                  screening: "bg-yellow-400",
-                  interviewing: "bg-purple-400",
-                  offered: "bg-orange-400",
+                  active: "bg-blue-400",
                   hired: "bg-green-400",
-                  rejected: "bg-red-400",
                   archived: "bg-gray-200",
                 };
                 return (
@@ -146,7 +142,7 @@ export const DashboardPage: React.FC = () => {
             {[
               { label: "View all candidates", path: "/candidates", icon: "👥" },
               { label: "Manage bots", path: "/bots", icon: "🤖" },
-              { label: "Post a job", path: "/jobs", icon: "💼" },
+              { label: "Chats", path: "/chats", icon: "💬" },
               { label: "Analytics", path: "/analytics", icon: "📈" },
             ].map((link) => (
               <Link

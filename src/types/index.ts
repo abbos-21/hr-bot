@@ -2,6 +2,9 @@ export interface JwtPayload {
   adminId: string;
   email: string;
   role: string;
+  type: "admin" | "organization";
+  organizationId?: string;
+  botId?: string;
 }
 
 export interface WsMessage {
@@ -11,6 +14,9 @@ export interface WsMessage {
     | "STATUS_CHANGE"
     | "CANDIDATE_UPDATE"
     | "MESSAGES_READ"
+    | "MEETING_CREATED"
+    | "MEETING_UPDATED"
+    | "MEETING_DELETED"
     | "PING";
   payload?: unknown;
 }

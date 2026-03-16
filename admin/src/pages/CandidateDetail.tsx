@@ -7,16 +7,7 @@ import { format } from "date-fns";
 import toast from "react-hot-toast";
 import { useAuthStore } from "../store/auth";
 
-const STATUSES = [
-  "incomplete",
-  "applied",
-  "screening",
-  "interviewing",
-  "offered",
-  "hired",
-  "rejected",
-  "archived",
-];
+const STATUSES = ["incomplete", "active", "hired", "archived"];
 
 export const CandidateDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();

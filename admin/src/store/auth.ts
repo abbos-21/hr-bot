@@ -6,6 +6,9 @@ interface Admin {
   email: string;
   name: string;
   role: string;
+  type?: "admin" | "organization";
+  organizationId?: string;
+  botId?: string;
 }
 
 interface AuthStore {
@@ -19,6 +22,9 @@ interface AuthStore {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   fetchMe: () => Promise<void>;
+  isOrg: () => boolean;
+  isAdmin: () => boolean;
+  isSuperAdmin: () => boolean;
 }
 
 // Module-level flag so concurrent calls (e.g. from StrictMode double-invoke
@@ -64,4 +70,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
     return fetchMePromise;
   },
+
+  isOrg: () => get().admin?.type === "organization",
+  isAdmin: () => get().admin?.type !== "organization",
+  isSuperAdmin: () => get().admin?.role === "super_admin",
 }));

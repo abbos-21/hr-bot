@@ -3,7 +3,13 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import prisma from "../../db";
-import { authMiddleware, AuthRequest } from "../middleware/auth";
+import {
+  authMiddleware,
+  AuthRequest,
+  getBotFilter,
+  requireBotAccess,
+  getAdminId,
+} from "../middleware/auth";
 import { botManager } from "../../bot/BotManager";
 import { wsManager } from "../../websocket";
 import { config } from "../../config";
@@ -30,7 +36,7 @@ const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } });
 router.get("/conversations", async (req: AuthRequest, res: Response) => {
   // Get all candidates that have at least one message
   const candidates = await prisma.candidate.findMany({
-    where: { messages: { some: {} } },
+    where: { messages: { some: {} }, ...(await getBotFilter(req)) },
     include: {
       messages: {
         orderBy: { createdAt: "desc" },
@@ -73,6 +79,11 @@ router.get("/conversations", async (req: AuthRequest, res: Response) => {
 
 // GET /api/messages/:candidateId
 router.get("/:candidateId", async (req: AuthRequest, res: Response) => {
+  const candidate = await prisma.candidate.findUnique({
+    where: { id: req.params.candidateId },
+    select: { botId: true },
+  });
+  if (candidate && !(await requireBotAccess(req, res, candidate.botId))) return;
   const messages = await prisma.message.findMany({
     where: { candidateId: req.params.candidateId },
     include: { admin: { select: { id: true, name: true } } },
@@ -107,7 +118,7 @@ router.post("/broadcast", async (req: AuthRequest, res: Response) => {
       const message = await prisma.message.create({
         data: {
           candidateId: candidate.id,
-          adminId: req.admin!.adminId,
+          adminId: getAdminId(req),
           direction: "outbound",
           type: "text",
           text: text.trim(),
@@ -168,7 +179,7 @@ router.post("/:candidateId", async (req: AuthRequest, res: Response) => {
   const message = await prisma.message.create({
     data: {
       candidateId,
-      adminId: req.admin!.adminId,
+      adminId: getAdminId(req),
       direction: "outbound",
       type: msgType,
       text,
@@ -243,7 +254,7 @@ router.post(
     const message = await prisma.message.create({
       data: {
         candidateId,
-        adminId: req.admin!.adminId,
+        adminId: getAdminId(req),
         direction: "outbound",
         type,
         text: caption,

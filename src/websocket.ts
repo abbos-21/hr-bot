@@ -6,6 +6,8 @@ import { JwtPayload, WsMessage } from "./types";
 
 interface AuthenticatedSocket extends WebSocket {
   adminId?: string;
+  userType?: "admin" | "organization";
+  botId?: string;
   isAlive: boolean;
 }
 
@@ -33,6 +35,8 @@ class WebSocketManager {
         try {
           const payload = jwt.verify(token, config.jwtSecret) as JwtPayload;
           ws.adminId = payload.adminId;
+          ws.userType = payload.type;
+          ws.botId = payload.botId;
         } catch {
           ws.close(1008, "Invalid token");
           return;
@@ -83,12 +87,17 @@ class WebSocketManager {
     this.wss.on("close", () => clearInterval(interval));
   }
 
-  broadcast(message: WsMessage): void {
+  /**
+   * Broadcast to all clients. If botId is provided, org users only receive
+   * messages for their own bot; admins always receive everything.
+   */
+  broadcast(message: WsMessage, botId?: string): void {
     const data = JSON.stringify(message);
     this.clients.forEach((ws) => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(data);
-      }
+      if (ws.readyState !== WebSocket.OPEN) return;
+      // Admins get everything; org users only get their bot's events
+      if (botId && ws.userType === "organization" && ws.botId !== botId) return;
+      ws.send(data);
     });
   }
 

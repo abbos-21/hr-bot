@@ -1,6 +1,6 @@
 import { Router, Response } from "express";
 import prisma from "../../db";
-import { authMiddleware, AuthRequest } from "../middleware/auth";
+import { authMiddleware, AuthRequest, getBotFilter } from "../middleware/auth";
 import { CANDIDATE_STATUSES } from "../../config";
 
 const router = Router();
@@ -8,8 +8,13 @@ router.use(authMiddleware);
 
 // GET /api/analytics/overview?botId=
 router.get("/overview", async (req: AuthRequest, res: Response) => {
+  const filter = await getBotFilter(req);
   const { botId } = req.query;
-  const where: any = botId ? { botId: botId as string } : {};
+  const where: any = filter.botId
+    ? { botId: filter.botId }
+    : botId
+      ? { botId: botId as string }
+      : {};
 
   const [totalCandidates, byStatus, totalBots, totalQuestions] =
     await Promise.all([
@@ -23,7 +28,7 @@ router.get("/overview", async (req: AuthRequest, res: Response) => {
       prisma.question.count({
         where: {
           isRequired: false,
-          ...(botId ? { botId: botId as string } : {}),
+          ...(filter.botId ? { botId: filter.botId } : botId ? { botId: botId as string } : {}),
         },
       }),
     ]);
@@ -48,10 +53,15 @@ router.get("/overview", async (req: AuthRequest, res: Response) => {
 
 // GET /api/analytics/per-job?botId=  (now returns per-bot stats)
 router.get("/per-job", async (req: AuthRequest, res: Response) => {
+  const filter = await getBotFilter(req);
   const { botId } = req.query;
 
   const bots = await prisma.bot.findMany({
-    where: botId ? { id: botId as string } : {},
+    where: filter.botId
+      ? { id: filter.botId }
+      : botId
+        ? { id: botId as string }
+        : {},
     include: {
       _count: { select: { candidates: true } },
       candidates: { select: { status: true } },
@@ -77,15 +87,17 @@ router.get("/per-job", async (req: AuthRequest, res: Response) => {
 
 // GET /api/analytics/activity?botId=&days=
 router.get("/activity", async (req: AuthRequest, res: Response) => {
+  const filter = await getBotFilter(req);
   const { botId, days = "30" } = req.query;
   const daysNum = parseInt(days as string, 10) || 30;
 
   const since = new Date();
   since.setDate(since.getDate() - daysNum);
 
+  const effectiveBotId = filter.botId || (botId as string) || undefined;
   const where: any = {
     createdAt: { gte: since },
-    ...(botId ? { botId: botId as string } : {}),
+    ...(effectiveBotId ? { botId: effectiveBotId } : {}),
   };
 
   const candidates = await prisma.candidate.findMany({
@@ -120,8 +132,13 @@ router.get("/activity", async (req: AuthRequest, res: Response) => {
 
 // GET /api/analytics/funnel?botId=
 router.get("/funnel", async (req: AuthRequest, res: Response) => {
+  const filter = await getBotFilter(req);
   const { botId } = req.query;
-  const where: any = botId ? { botId: botId as string } : {};
+  const where: any = filter.botId
+    ? { botId: filter.botId }
+    : botId
+      ? { botId: botId as string }
+      : {};
 
   const byStatus = await prisma.candidate.groupBy({
     by: ["status"],
@@ -146,8 +163,13 @@ router.get("/funnel", async (req: AuthRequest, res: Response) => {
 
 // GET /api/analytics/completion-rate?botId=
 router.get("/completion-rate", async (req: AuthRequest, res: Response) => {
+  const filter = await getBotFilter(req);
   const { botId } = req.query;
-  const where: any = botId ? { botId: botId as string } : {};
+  const where: any = filter.botId
+    ? { botId: filter.botId }
+    : botId
+      ? { botId: botId as string }
+      : {};
 
   const [total, completed] = await Promise.all([
     prisma.candidate.count({ where }),

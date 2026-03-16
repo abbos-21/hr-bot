@@ -68,13 +68,15 @@
   "nav": {
     "dashboard": "Boshqaruv paneli",
     "bots": "Botlar",
-    "playground": "Sahnoma",
+    "playground": "Savollar",
     "chats": "Chatlar",
-    "pipeline": "Payplayn",
+    "pipeline": "Kandidatlar",
     "hired": "Ishga qabul",
     "archived": "Arxiv",
     "analytics": "Tahlil",
     "admins": "Adminlar",
+    "organizations": "Tashkilotlar",
+    "branches": "Filiallar",
     "adminPanel": "Admin Panel"
   },
   "login": {
@@ -95,6 +97,7 @@
     "totalBots": "Jami botlar",
     "activeJobs": "Faol ish o'rinlari",
     "hireRate": "Ishga qabul foizi",
+    "totalQuestions": "Jami savollar",
     "recentActivity": "So'nggi faoliyat",
     "candidatesByStatus": "Holat bo'yicha nomzodlar",
     "newApplicationsToday": "Bugun yangi arizalar",
@@ -124,6 +127,7 @@
     "candidates": "nomzodlar",
     "languages": "tillar",
     "defaultLang": "Standart til",
+    "questions": "savollar",
     "pause": "To'xtatish",
     "status": {
       "active": "Faol",
@@ -141,7 +145,7 @@
       "candidates": "Nomzodlar",
       "questions": "Savollar",
       "viewCandidates": "Ko'rish →",
-      "managePlayground": "Sahnomada boshqarish →"
+      "managePlayground": "Savollar bo'limida boshqarish →"
     },
     "languages": {
       "title": "Qo'llab-quvvatlanadigan tillar",
@@ -187,7 +191,11 @@
         "invalid_date_value": "Tug'ilgan sana noto'g'ri",
         "invalid_date_value_hint": "Kiritilgan sana noreal bo'lganda ko'rsatiladi",
         "phone_use_button": "Telefon tugmasidan foydalanish so'rovi",
-        "phone_use_button_hint": "Foydalanuvchi telefon ulashish tugmasi o'rniga matn yuborganda ko'rsatiladi"
+        "phone_use_button_hint": "Foydalanuvchi telefon ulashish tugmasi o'rniga matn yuborganda ko'rsatiladi",
+        "meeting_scheduled": "Uchrashuv belgilangani haqida xabar",
+        "meeting_scheduled_hint": "Uchrashuv belgilanganda nomzodga yuboriladi. {date}, {time}, {note} ishlatiladi",
+        "meeting_reminder": "Uchrashuv eslatmasi",
+        "meeting_reminder_hint": "Uchrashuvdan oldin yuboriladi. {date}, {time}, {minutes}, {note} ishlatiladi"
       }
     },
     "settings": {
@@ -203,11 +211,11 @@
     }
   },
   "playground": {
-    "title": "Sahnoma",
+    "title": "Savollar",
     "subtitle": "Savollar va oqimni boshqaring"
   },
   "pipeline": {
-    "title": "Quvur",
+    "title": "Kandidatlar",
     "activeCount": "{{count}} faol · {{inProgress}} jarayonda",
     "active": "Faol",
     "archived": "Arxivlangan",
@@ -400,6 +408,56 @@
     "updateFailed": "Yangilashda xato",
     "deactivate": "Faolsizlantirish",
     "you": "(siz)"
+  },
+  "organizations": {
+    "title": "Tashkilotlar",
+    "subtitle": "Tashkilotlar, botlar va filiallarni boshqaring",
+    "addOrg": "Tashkilot qo'shish",
+    "createTitle": "Tashkilot yaratish",
+    "createOrg": "Yaratish",
+    "created": "Tashkilot yaratildi",
+    "createFailed": "Tashkilot yaratishda xato",
+    "updated": "Tashkilot yangilandi",
+    "updateFailed": "Yangilashda xato",
+    "deleted": "Tashkilot o'chirildi",
+    "deleteConfirm": "Bu tashkilotni o'chirish? Barcha filiallar ham o'chiriladi.",
+    "deleteFailed": "O'chirishda xato",
+    "noOrgs": "Hali tashkilotlar yo'q",
+    "assignBot": "Bot tayinlash",
+    "noBot": "Bot tayinlanmagan",
+    "bot": "Bot",
+    "branches": "Filiallar",
+    "branchesPlaceholder": "Filial 1, Filial 2, Filial 3",
+    "branchesHint": "Vergul bilan ajratilgan filial nomlari (ixtiyoriy)",
+    "branchesTitle": "Filiallar",
+    "branchesSubtitle": "Tashkilotingiz filiallarini boshqaring",
+    "branchQuestion": "Filial tanlash savoli",
+    "branchQuestionHint": "Yoqilgan va 2+ filial bo'lsa, nomzodlardan filial tanlash so'raladi",
+    "branchNamePlaceholder": "Filial nomi…",
+    "branchAdded": "Filial qo'shildi",
+    "branchAddFailed": "Filial qo'shishda xato",
+    "branchDeleted": "Filial o'chirildi",
+    "branchDeleteFailed": "Filial o'chirishda xato",
+    "noBranches": "Hali filiallar yo'q",
+    "candidateCount": "Nomzodlar"
+  },
+  "meetings": {
+    "schedule": "Uchrashuv belgilash",
+    "scheduled": "Uchrashuv belgilandi",
+    "scheduleFailed": "Uchrashuv belgilashda xato",
+    "dateTime": "Sana va vaqt",
+    "note": "Eslatma",
+    "notePlaceholder": "Uchrashuv tafsilotlari, joylashuv va h.k.",
+    "reminderBefore": "Oldin eslatish",
+    "minutes": "daq",
+    "hour": "soat",
+    "hours": "soat",
+    "day": "kun",
+    "at": "da",
+    "reminder": "Eslatma",
+    "minBefore": "daq oldin",
+    "sent": "yuborildi",
+    "noMeetings": "Uchrashuvlar belgilanmagan"
   },
   "confirm": {
     "cancel": "Bekor qilish",

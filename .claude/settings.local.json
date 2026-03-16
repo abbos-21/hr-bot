@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(./node_modules/.bin/tsc --noEmit 2>&1 | head -40)",
+      "Bash(ls:*)",
+      "Bash(npm install:*)",
+      "Bash(cd:*)",
+      "Bash(npx prisma:*)",
+      "Bash(tasklist:*)"
+    ]
+  }
+}
