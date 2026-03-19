@@ -34,6 +34,8 @@ interface Translation {
 interface QOption {
   id?: string;
   order: number;
+  isActive?: boolean;
+  branchId?: string | null;
   translations: { lang: string; text: string }[];
 }
 interface Question {
@@ -98,6 +100,7 @@ const REQUIRED_META: Record<string, { label: string; hint?: string }> = {
   phone: { label: "📱 Phone", hint: "Uses Telegram contact button" },
   profilePhoto: { label: "📸 Profile photo" },
   position: { label: "💼 Position" },
+  branch: { label: "🏢 Branch", hint: "Options managed via Branches page · toggle on/off here" },
 };
 
 function qText(q: Question): string {
@@ -214,6 +217,7 @@ function QuestionModal({
   const isEdit = mode === "edit";
   const isRequired = !!question?.isRequired;
   const isPhone = question?.fieldKey === "phone";
+  const isBranch = question?.fieldKey === "branch";
   const isBranchCreate = !!parentOptionId;
 
   // ── form state ──
@@ -268,6 +272,17 @@ function QuestionModal({
   const [filterLabel, setFilterLabel] = useState(question?.filterLabel || "");
   const [showMessages, setShowMessages] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Branch option active states (keyed by option id)
+  const [branchOptionStates, setBranchOptionStates] = useState<
+    Record<string, boolean>
+  >(
+    Object.fromEntries(
+      (question?.options || [])
+        .filter((o) => o.id)
+        .map((o) => [o.id!, o.isActive !== false]),
+    ),
+  );
+  const [togglingOption, setTogglingOption] = useState<string | null>(null);
 
   const firstRef = useRef<HTMLTextAreaElement | HTMLInputElement>(null);
 
@@ -292,6 +307,7 @@ function QuestionModal({
   const hasNoText = langs.every((l) => !texts[l.code]?.trim());
   const hasEnoughOpts =
     type !== "choice" ||
+    isBranch ||
     options.filter((o) => langs.some((l) => o.translations[l.code]?.trim()))
       .length >= 1;
 
@@ -333,18 +349,20 @@ function QuestionModal({
               ? phoneLabels[l.code]?.trim() || null
               : null,
           })),
-        options:
-          type === "choice"
-            ? options.map((o, i) => ({
-                order: i,
-                translations: langs
-                  .filter((l) => o.translations[l.code]?.trim())
-                  .map((l) => ({
-                    lang: l.code,
-                    text: o.translations[l.code].trim(),
-                  })),
-              }))
-            : [],
+        ...(!isBranch && {
+          options:
+            type === "choice"
+              ? options.map((o, i) => ({
+                  order: i,
+                  translations: langs
+                    .filter((l) => o.translations[l.code]?.trim())
+                    .map((l) => ({
+                      lang: l.code,
+                      text: o.translations[l.code].trim(),
+                    })),
+                }))
+              : [],
+        }),
       };
       const saved = isEdit
         ? await questionsApi.update(question!.id, payload)
@@ -367,6 +385,26 @@ function QuestionModal({
   function removeOption(i: number) {
     setOptions((o) => o.filter((_, j) => j !== i));
   }
+  async function toggleBranchOption(optionId: string, newActive: boolean) {
+    if (!question?.id) return;
+    setTogglingOption(optionId);
+    try {
+      await questionsApi.toggleOption(question.id, optionId, newActive);
+      setBranchOptionStates((prev) => ({ ...prev, [optionId]: newActive }));
+      // Update the parent's question data so the card reflects the change
+      const updatedQ = {
+        ...question,
+        options: question.options.map((o) =>
+          o.id === optionId ? { ...o, isActive: newActive } : o,
+        ),
+      };
+      onSave(updatedQ);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || "Failed to toggle option");
+    }
+    setTogglingOption(null);
+  }
+
   function setOptLang(i: number, lang: string, val: string) {
     setOptions((o) =>
       o.map((x, j) =>
@@ -537,8 +575,82 @@ function QuestionModal({
             </div>
           )}
 
-          {/* Options — choice only */}
-          {type === "choice" && (
+          {/* Branch options — toggle only, no editing */}
+          {type === "choice" && isBranch && isEdit && (
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 block">
+                Filial variantlari
+                <span className="ml-1 font-normal text-gray-400 normal-case tracking-normal">
+                  — yoqish/o'chirish
+                </span>
+              </label>
+              {question!.options.length === 0 ? (
+                <p className="text-xs text-gray-400 italic py-3">
+                  Filiallar topilmadi. Filiallar sahifasidan yangi filial qo'shing.
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  {question!.options.map((opt) => {
+                    const label =
+                      opt.translations.find((t) => t.lang === langs[0]?.code)
+                        ?.text ||
+                      opt.translations[0]?.text ||
+                      "—";
+                    const active = branchOptionStates[opt.id!] ?? true;
+                    const toggling = togglingOption === opt.id;
+                    return (
+                      <div
+                        key={opt.id}
+                        className={`flex items-center justify-between px-3 py-2.5 rounded-xl border transition-colors ${
+                          active
+                            ? "bg-white border-gray-200"
+                            : "bg-gray-50 border-gray-100"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span
+                            className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                              active ? "bg-green-400" : "bg-gray-300"
+                            }`}
+                          />
+                          <span
+                            className={`text-sm font-medium truncate ${
+                              active ? "text-gray-800" : "text-gray-400 line-through"
+                            }`}
+                          >
+                            {label}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={toggling}
+                          onClick={() =>
+                            opt.id && toggleBranchOption(opt.id, !active)
+                          }
+                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 ${
+                            active ? "bg-green-500" : "bg-gray-300"
+                          } ${toggling ? "opacity-50" : ""}`}
+                          aria-label={`${active ? "O'chirish" : "Yoqish"}: ${label}`}
+                        >
+                          <span
+                            className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                              active ? "translate-x-4" : "translate-x-0.5"
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <p className="text-xs text-gray-400 mt-2">
+                O'chirilgan filiallar botda ko'rsatilmaydi. Yangi filial qo'shish uchun Filiallar sahifasiga o'ting.
+              </p>
+            </div>
+          )}
+
+          {/* Options — choice only (not for branch questions) */}
+          {type === "choice" && !isBranch && (
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -906,9 +1018,12 @@ function OptionsView({
         return (
           <div key={id}>
             <div className="flex items-center gap-2 group/opt py-0.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-gray-200 flex-shrink-0" />
-              <span className="text-sm text-gray-600 flex-1 min-w-0 truncate">
+              <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${opt.isActive === false ? "bg-gray-100" : "bg-gray-200"}`} />
+              <span className={`text-sm flex-1 min-w-0 truncate ${opt.isActive === false ? "text-gray-300 line-through" : "text-gray-600"}`}>
                 {label}
+                {opt.isActive === false && (
+                  <span className="ml-1.5 text-[10px] text-gray-300 no-underline font-medium">o'chirilgan</span>
+                )}
               </span>
               {opt.id && (
                 <button

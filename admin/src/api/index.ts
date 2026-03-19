@@ -83,6 +83,10 @@ export const questionsApi = {
           .then((r: any) => r.data),
       ),
     ),
+  toggleOption: (questionId: string, optionId: string, isActive: boolean) =>
+    api
+      .put(`/questions/${questionId}/options/${optionId}`, { isActive })
+      .then((r) => r.data),
 };
 
 // Candidates

@@ -105,6 +105,29 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
     data,
   });
 
+  // Notify candidate if meeting was cancelled
+  if (status === "cancelled" && existing.status !== "cancelled") {
+    const candidate = await prisma.candidate.findUnique({
+      where: { id: existing.candidateId },
+    });
+    const botInstance = botManager.getInstance(existing.candidate.botId);
+    if (botInstance && candidate?.telegramId) {
+      const dt = existing.scheduledAt;
+      await botInstance.sendMeetingNotification(
+        candidate.telegramId,
+        candidate.lang,
+        "meeting_cancelled",
+        {
+          date: dt.toLocaleDateString("en-GB"),
+          time: dt.toLocaleTimeString("en-GB", {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        },
+      );
+    }
+  }
+
   wsManager.broadcast(
     {
       type: "MEETING_UPDATED",
@@ -124,6 +147,27 @@ router.delete("/:id", async (req: AuthRequest, res: Response) => {
   });
   if (!existing) return res.status(404).json({ error: "Not found" });
   if (!(await requireBotAccess(req, res, existing.candidate.botId))) return;
+
+  // Notify candidate before deleting
+  const candidate = await prisma.candidate.findUnique({
+    where: { id: existing.candidateId },
+  });
+  const botInstance = botManager.getInstance(existing.candidate.botId);
+  if (botInstance && candidate?.telegramId && existing.status !== "cancelled") {
+    const dt = existing.scheduledAt;
+    await botInstance.sendMeetingNotification(
+      candidate.telegramId,
+      candidate.lang,
+      "meeting_cancelled",
+      {
+        date: dt.toLocaleDateString("en-GB"),
+        time: dt.toLocaleTimeString("en-GB", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      },
+    );
+  }
 
   await prisma.meeting.delete({ where: { id: req.params.id } });
 

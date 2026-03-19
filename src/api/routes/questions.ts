@@ -20,7 +20,7 @@ router.get("/", async (req: AuthRequest, res: Response) => {
     where,
     include: {
       translations: true,
-      options: { include: { translations: true }, orderBy: { order: "asc" } },
+      options: { include: { translations: true, branch: { select: { id: true, name: true, isActive: true } } }, orderBy: { order: "asc" } },
     },
     orderBy: [{ isRequired: "desc" }, { order: "asc" }],
   });
@@ -175,7 +175,8 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
       }
     }
 
-    if (options) {
+    // For branch questions, options are managed via branches — don't overwrite
+    if (options && existing.fieldKey !== "branch") {
       await tx.questionOption.deleteMany({
         where: { questionId: req.params.id },
       });
@@ -205,6 +206,34 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
   });
 
   return res.json(question);
+});
+
+// PUT /api/questions/:id/options/:optionId — toggle option isActive (for branch questions)
+router.put("/:id/options/:optionId", async (req: AuthRequest, res: Response) => {
+  const { isActive } = req.body;
+  if (typeof isActive !== "boolean") {
+    return res.status(400).json({ error: "isActive (boolean) required" });
+  }
+
+  const question = await prisma.question.findUnique({
+    where: { id: req.params.id },
+  });
+  if (!question) return res.status(404).json({ error: "Question not found" });
+  if (!(await requireBotAccess(req, res, question.botId))) return;
+
+  const option = await prisma.questionOption.findUnique({
+    where: { id: req.params.optionId },
+  });
+  if (!option || option.questionId !== req.params.id) {
+    return res.status(404).json({ error: "Option not found" });
+  }
+
+  const updated = await prisma.questionOption.update({
+    where: { id: req.params.optionId },
+    data: { isActive },
+    include: { translations: true },
+  });
+  return res.json(updated);
 });
 
 // DELETE /api/questions/:id

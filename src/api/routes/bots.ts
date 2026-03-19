@@ -56,6 +56,110 @@ router.post("/", async (req: AuthRequest, res: Response) => {
         .status(400)
         .json({ error: "Bot with this token already exists" });
 
+    // Check if org has branches (for seeding the branch question)
+    const orgId =
+      req.admin?.type === "organization" ? req.admin.organizationId : undefined;
+    let orgBranches: { id: string; name: string }[] = [];
+    if (orgId) {
+      orgBranches = await prisma.branch.findMany({
+        where: { organizationId: orgId, isActive: true },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      });
+    }
+
+    // Branch question comes first (order 0) if org has branches;
+    // other required questions shift accordingly.
+    const branchOffset = orgBranches.length > 0 ? 1 : 0;
+
+    const requiredQuestions: any[] = [];
+
+    // Seed branch question first if org has branches
+    if (orgBranches.length > 0) {
+      requiredQuestions.push({
+        type: "choice",
+        order: 0,
+        isRequired: true,
+        fieldKey: "branch",
+        translations: {
+          create: [
+            {
+              lang: "uz",
+              text: "Qaysi filialda ishlashni xohlaysiz?",
+            },
+          ],
+        },
+        options: {
+          create: orgBranches.map((b, idx) => ({
+            order: idx,
+            branchId: b.id,
+            translations: {
+              create: [{ lang: "uz", text: b.name }],
+            },
+          })),
+        },
+      });
+    }
+
+    requiredQuestions.push(
+      {
+        type: "text",
+        order: branchOffset + 0,
+        isRequired: true,
+        fieldKey: "fullName",
+        translations: {
+          create: [
+            { lang: "uz", text: "Ismingiz va familiyangizni kiriting?" },
+          ],
+        },
+      },
+      {
+        type: "text",
+        order: branchOffset + 1,
+        isRequired: true,
+        fieldKey: "age",
+        translations: {
+          create: [{ lang: "uz", text: "Yoshingiz necchi?" }],
+        },
+      },
+      {
+        type: "text",
+        order: branchOffset + 2,
+        isRequired: true,
+        fieldKey: "phone",
+        translations: {
+          create: [
+            { lang: "uz", text: "Telefon raqamingizni kiriting?" },
+          ],
+        },
+      },
+      {
+        type: "attachment",
+        order: branchOffset + 3,
+        isRequired: true,
+        fieldKey: "profilePhoto",
+        translations: {
+          create: [
+            { lang: "uz", text: "Iltimos, profil rasmingizni yuboring." },
+          ],
+        },
+      },
+      {
+        type: "choice",
+        order: branchOffset + 4,
+        isRequired: true,
+        fieldKey: "position",
+        translations: {
+          create: [
+            {
+              lang: "uz",
+              text: "Qaysi lavozimga ariza topshirmoqdasiz?",
+            },
+          ],
+        },
+      },
+    );
+
     const bot = await prisma.bot.create({
       data: {
         token,
@@ -69,66 +173,8 @@ router.post("/", async (req: AuthRequest, res: Response) => {
         languages: {
           create: [{ code: "uz", name: "O'zbek", isDefault: true }],
         },
-        // Seed the 5 required questions immediately
         questions: {
-          create: [
-            {
-              type: "text",
-              order: 0,
-              isRequired: true,
-              fieldKey: "fullName",
-              translations: {
-                create: [
-                  { lang: "uz", text: "Ismingiz va familiyangizni kiriting?" },
-                ],
-              },
-            },
-            {
-              type: "text",
-              order: 1,
-              isRequired: true,
-              fieldKey: "age",
-              translations: {
-                create: [{ lang: "uz", text: "Yoshingiz necchi?" }],
-              },
-            },
-            {
-              type: "text",
-              order: 2,
-              isRequired: true,
-              fieldKey: "phone",
-              translations: {
-                create: [
-                  { lang: "uz", text: "Telefon raqamingizni kiriting?" },
-                ],
-              },
-            },
-            {
-              type: "attachment",
-              order: 3,
-              isRequired: true,
-              fieldKey: "profilePhoto",
-              translations: {
-                create: [
-                  { lang: "uz", text: "Iltimos, profil rasmingizni yuboring." },
-                ],
-              },
-            },
-            {
-              type: "choice",
-              order: 4,
-              isRequired: true,
-              fieldKey: "position",
-              translations: {
-                create: [
-                  {
-                    lang: "uz",
-                    text: "Qaysi lavozimga ariza topshirmoqdasiz?",
-                  },
-                ],
-              },
-            },
-          ],
+          create: requiredQuestions,
         },
       },
       include: { languages: true },

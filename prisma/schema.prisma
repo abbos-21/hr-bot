@@ -132,6 +132,7 @@ model QuestionOption {
   id         String  @id @default(cuid())
   questionId String
   order      Int     @default(0)
+  isActive   Boolean @default(true)
   branchId   String?
 
   question        Question                    @relation(fields: [questionId], references: [id], onDelete: Cascade)

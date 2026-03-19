@@ -60,6 +60,10 @@ export const MESSAGE_KEYS: Record<string, { label: string; default: string }> =
       label: "Meeting reminder notification",
       default: "⏰ Reminder: You have a meeting in {minutes} minutes ({date} at {time}).\n\n{note}",
     },
+    meeting_cancelled: {
+      label: "Meeting cancelled notification",
+      default: "❌ Your meeting on {date} at {time} has been cancelled.",
+    },
   };
 
 export const DEFAULT_TRANSLATIONS: Record<string, Record<string, string>> = {
@@ -82,6 +86,8 @@ export const DEFAULT_TRANSLATIONS: Record<string, Record<string, string>> = {
       "📅 You have a meeting scheduled on {date} at {time}.\n\n{note}",
     meeting_reminder:
       "⏰ Reminder: You have a meeting in {minutes} minutes ({date} at {time}).\n\n{note}",
+    meeting_cancelled:
+      "❌ Your meeting on {date} at {time} has been cancelled.",
   },
   ru: {
     welcome: "👋 Добро пожаловать! Выберите язык:",
@@ -102,6 +108,8 @@ export const DEFAULT_TRANSLATIONS: Record<string, Record<string, string>> = {
       "📅 У вас назначена встреча {date} в {time}.\n\n{note}",
     meeting_reminder:
       "⏰ Напоминание: через {minutes} минут у вас встреча ({date} в {time}).\n\n{note}",
+    meeting_cancelled:
+      "❌ Ваша встреча {date} в {time} была отменена.",
   },
   uz: {
     welcome: "👋 Xush kelibsiz! Tilni tanlang:",
@@ -122,5 +130,7 @@ export const DEFAULT_TRANSLATIONS: Record<string, Record<string, string>> = {
       "📅 Sizga {date} kuni soat {time} da uchrashuv belgilandi.\n\n{note}",
     meeting_reminder:
       "⏰ Eslatma: {minutes} daqiqadan so'ng uchrashuvingiz bor ({date} kuni soat {time}).\n\n{note}",
+    meeting_cancelled:
+      "❌ Sizning {date} kuni soat {time} dagi uchrashuvingiz bekor qilindi.",
   },
 };

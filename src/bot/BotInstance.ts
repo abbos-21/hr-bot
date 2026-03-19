@@ -435,11 +435,41 @@ export class BotInstance {
     const questionText = `*${this.escapeMd(translation.text)}*`;
 
     if (question.type === "choice" && question.options.length > 0) {
+      // Filter out inactive options
+      const activeOptions = question.options.filter((o: any) => o.isActive !== false);
+
+      // For branch question: skip if <2 active options, auto-assign if exactly 1
+      if (question.fieldKey === "branch") {
+        if (activeOptions.length === 0) {
+          await this.advanceQueue(candidateId, queue, null);
+          await this.sendNextQuestion(ctx, candidateId, lang, botId);
+          return;
+        }
+        if (activeOptions.length === 1) {
+          // Auto-assign the single branch
+          const singleOpt = activeOptions[0];
+          await prisma.answer.upsert({
+            where: { candidateId_questionId: { candidateId, questionId: question.id } },
+            update: { optionId: singleOpt.id, textValue: null, updatedAt: new Date() },
+            create: { candidateId, questionId: question.id, optionId: singleOpt.id },
+          });
+          if (singleOpt.branchId) {
+            await prisma.candidate.update({
+              where: { id: candidateId },
+              data: { branchId: singleOpt.branchId },
+            });
+          }
+          await this.advanceQueue(candidateId, queue, singleOpt.id);
+          await this.sendNextQuestion(ctx, candidateId, lang, botId);
+          return;
+        }
+      }
+
       const keyboard = new InlineKeyboard();
-      for (const option of question.options) {
+      for (const option of activeOptions) {
         const optTr =
-          option.translations.find((t) => t.lang === lang) ||
-          option.translations.find((t) => t.lang === defaultLang) ||
+          option.translations.find((t: any) => t.lang === lang) ||
+          option.translations.find((t: any) => t.lang === defaultLang) ||
           option.translations[0];
         if (optTr) keyboard.text(optTr.text, `ans:${option.id}`).row();
       }
@@ -657,7 +687,14 @@ export class BotInstance {
         question.fieldKey,
         optTr?.text || "",
       );
+    }
 
+    // Auto-assign branch when branch question is answered
+    if (question.fieldKey === "branch" && option.branchId) {
+      await prisma.candidate.update({
+        where: { id: candidateId },
+        data: { branchId: option.branchId },
+      });
     }
 
     // Advance queue, injecting branch questions for the chosen option
@@ -1024,7 +1061,7 @@ export class BotInstance {
   async sendMeetingNotification(
     telegramId: string,
     lang: string,
-    key: "meeting_scheduled" | "meeting_reminder",
+    key: "meeting_scheduled" | "meeting_reminder" | "meeting_cancelled",
     vars: { date: string; time: string; minutes?: number; note?: string },
   ): Promise<void> {
     try {
