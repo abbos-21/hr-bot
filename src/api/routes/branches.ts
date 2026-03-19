@@ -184,6 +184,26 @@ router.delete("/:id", async (req: AuthRequest, res: Response) => {
   await prisma.questionOption.deleteMany({ where: { branchId: req.params.id } });
 
   await prisma.branch.delete({ where: { id: req.params.id } });
+
+  // If no branches left, remove the branch question entirely
+  const remainingBranches = await prisma.branch.count({
+    where: { organizationId: branch.organizationId },
+  });
+  if (remainingBranches === 0) {
+    const org = await prisma.organization.findUnique({
+      where: { id: branch.organizationId },
+      include: { bot: { select: { id: true } } },
+    });
+    if (org?.bot) {
+      const branchQ = await prisma.question.findFirst({
+        where: { botId: org.bot.id, fieldKey: "branch", isRequired: true },
+      });
+      if (branchQ) {
+        await prisma.question.delete({ where: { id: branchQ.id } });
+      }
+    }
+  }
+
   return res.json({ ok: true });
 });
 
