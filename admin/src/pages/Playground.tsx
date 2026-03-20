@@ -1391,6 +1391,23 @@ export const PlaygroundPage: React.FC = () => {
     [],
   );
 
+  async function moveRequired(q: Question, dir: "up" | "down") {
+    const idx = requiredQuestions.findIndex((x) => x.id === q.id);
+    const swapIdx = dir === "up" ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= requiredQuestions.length) return;
+    const sibling = requiredQuestions[swapIdx];
+    try {
+      await Promise.all([
+        questionsApi.update(q.id, { order: swapIdx }),
+        questionsApi.update(sibling.id, { order: idx }),
+      ]);
+      updateQuestion({ ...q, order: swapIdx });
+      updateQuestion({ ...sibling, order: idx });
+    } catch {
+      toast.error("Failed to reorder");
+    }
+  }
+
   async function moveCustom(q: Question, dir: "up" | "down") {
     const idx = customQuestions.findIndex((x) => x.id === q.id);
     const swapIdx = dir === "up" ? idx - 1 : idx + 1;
@@ -1494,11 +1511,16 @@ export const PlaygroundPage: React.FC = () => {
                 note="Always asked first · cannot be removed"
               />
               <div className="space-y-2">
-                {requiredQuestions.map((q) => (
+                {requiredQuestions.map((q, idx) => (
                   <QuestionCard
                     key={q.id}
                     question={q}
                     depth={0}
+                    canReorder={requiredQuestions.length > 1}
+                    onMoveUp={() => moveRequired(q, "up")}
+                    onMoveDown={() => moveRequired(q, "down")}
+                    isFirst={idx === 0}
+                    isLast={idx === requiredQuestions.length - 1}
                     langs={langs}
                     allQuestions={allQuestions}
                     botId={selectedBotId}

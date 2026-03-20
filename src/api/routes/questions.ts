@@ -131,9 +131,11 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
     await tx.question.update({
       where: { id: req.params.id },
       data: {
-        // Required questions: type, order, fieldKey, isActive are locked; translations, options, filterLabel are editable
+        // Required questions: type, fieldKey, isActive are locked; order, translations, options, filterLabel are editable
         ...(existing.isRequired
-          ? {}
+          ? {
+              ...(order !== undefined && { order }),
+            }
           : {
               ...(type !== undefined && { type }),
               ...(order !== undefined && { order }),
