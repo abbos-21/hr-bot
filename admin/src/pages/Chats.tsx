@@ -309,7 +309,7 @@ export const ChatsPage: React.FC = () => {
         ];
       });
     } catch {
-      toast.error("Failed to send");
+      toast.error(t("chats.failedToSend"));
       setMsgText(text);
     }
     setSending(false);
@@ -329,7 +329,7 @@ export const ChatsPage: React.FC = () => {
         ];
       });
     } catch {
-      toast.error("Failed to send file");
+      toast.error(t("chats.failedToSendFile"));
     }
   };
 
@@ -392,18 +392,18 @@ export const ChatsPage: React.FC = () => {
           <div className="flex-1 overflow-y-auto">
             {loadingConvs ? (
               <div className="flex items-center justify-center py-12 text-gray-400 text-sm">
-                Loading…
+                {t("common.loading")}
               </div>
             ) : filteredConvs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-gray-400">
                 <p className="text-3xl mb-2">💬</p>
                 <p className="text-sm font-medium">
-                  {search ? "No results" : "No conversations yet"}
+                  {search ? t("chats.noResults") : t("chats.noConversations")}
                 </p>
                 <p className="text-xs mt-1 text-gray-300">
                   {search
-                    ? "Try a different name"
-                    : "Messages from bot users appear here"}
+                    ? t("chats.tryDifferentName")
+                    : t("chats.messagesFromBot")}
                 </p>
               </div>
             ) : (
@@ -476,10 +476,10 @@ export const ChatsPage: React.FC = () => {
                 💬
               </div>
               <p className="text-xl font-semibold text-gray-600">
-                Select a conversation
+                {t("chats.selectConversation")}
               </p>
               <p className="text-sm mt-2 text-gray-400">
-                Choose from the list on the left
+                {t("chats.chooseFromList")}
               </p>
             </div>
           ) : (
@@ -505,7 +505,7 @@ export const ChatsPage: React.FC = () => {
                 {/* Info toggle button */}
                 <button
                   onClick={() => setShowInfo((v) => !v)}
-                  title="Candidate info"
+                  title={t("chats.candidateInfo")}
                   className={`w-9 h-9 flex items-center justify-center rounded-xl transition-colors flex-shrink-0 ${
                     showInfo
                       ? "bg-blue-100 text-blue-600"
@@ -532,13 +532,13 @@ export const ChatsPage: React.FC = () => {
               <div className="flex-1 overflow-y-auto px-6 py-4">
                 {loadingMsgs ? (
                   <div className="flex items-center justify-center h-full text-gray-400 text-sm">
-                    Loading…
+                    {t("common.loading")}
                   </div>
                 ) : messages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-gray-400">
                     <p className="text-3xl mb-2">👋</p>
-                    <p className="text-sm font-medium">No messages yet</p>
-                    <p className="text-xs mt-1">Start the conversation below</p>
+                    <p className="text-sm font-medium">{t("chats.noMessages")}</p>
+                    <p className="text-xs mt-1">{t("chats.startConversation")}</p>
                   </div>
                 ) : (
                   <div className="space-y-0.5 max-w-3xl mx-auto">
@@ -575,7 +575,7 @@ export const ChatsPage: React.FC = () => {
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     className="w-10 h-10 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors flex-shrink-0 mb-0.5"
-                    title="Attach file"
+                    title={t("candidates.panel.attachFile")}
                   >
                     📎
                   </button>
@@ -590,7 +590,7 @@ export const ChatsPage: React.FC = () => {
                           handleSendMessage();
                         }
                       }}
-                      placeholder="Write a message…"
+                      placeholder={t("chats.writeMessage")}
                       className="w-full text-sm bg-gray-100 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:bg-white transition-colors placeholder-gray-400"
                     />
                   </div>
@@ -598,7 +598,7 @@ export const ChatsPage: React.FC = () => {
                     onClick={handleSendMessage}
                     disabled={sending || !msgText.trim()}
                     className="w-10 h-10 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-white transition-colors flex-shrink-0 mb-0.5"
-                    title="Send"
+                    title={t("common.send")}
                   >
                     <svg
                       viewBox="0 0 24 24"

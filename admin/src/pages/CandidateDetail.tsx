@@ -6,12 +6,16 @@ import { useWebSocket } from "../hooks/useWebSocket";
 import { format } from "date-fns";
 import toast from "react-hot-toast";
 import { useAuthStore } from "../store/auth";
+import { useConfirm } from "../components/ConfirmModal";
+import { useT } from "../i18n";
 
 const STATUSES = ["incomplete", "active", "hired", "archived"];
 
 export const CandidateDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { admin } = useAuthStore();
+  const { confirm, element: confirmElement } = useConfirm();
+  const { t } = useT();
   const [candidate, setCandidate] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,7 +78,7 @@ export const CandidateDetailPage: React.FC = () => {
       setMessages((prev) => [...prev, msg]);
       setMsgText("");
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Failed to send");
+      toast.error(err.response?.data?.error || t("candidates.panel.failedToSend"));
     } finally {
       setSending(false);
     }
@@ -87,7 +91,7 @@ export const CandidateDetailPage: React.FC = () => {
       const msg = await messagesApi.sendMedia(id, file, "document");
       setMessages((prev) => [...prev, msg]);
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Failed to send file");
+      toast.error(err.response?.data?.error || t("candidates.panel.failedToSendFile"));
     } finally {
       setSending(false);
       setUploadFile(null);
@@ -99,9 +103,9 @@ export const CandidateDetailPage: React.FC = () => {
     try {
       const updated = await candidatesApi.update(id, { status });
       setCandidate((c: any) => ({ ...c, status: updated.status }));
-      toast.success(`Status updated to ${status}`);
+      toast.success(t("candidates.panel.statusUpdatedTo", { status }));
     } catch {
-      toast.error("Failed to update status");
+      toast.error(t("candidates.panel.failedToUpdateStatus"));
     }
   };
 
@@ -111,9 +115,9 @@ export const CandidateDetailPage: React.FC = () => {
       const updated = await candidatesApi.update(id, profileForm);
       setCandidate((c: any) => ({ ...c, ...updated }));
       setEditProfile(false);
-      toast.success("Profile saved");
+      toast.success(t("candidates.panel.profileSaved"));
     } catch {
-      toast.error("Failed to save");
+      toast.error(t("candidates.panel.failedToSave"));
     }
   };
 
@@ -126,14 +130,16 @@ export const CandidateDetailPage: React.FC = () => {
         comments: [...(prev.comments || []), c],
       }));
       setComment("");
-      toast.success("Comment added");
+      toast.success(t("candidates.panel.commentAdded"));
     } catch {
-      toast.error("Failed to add comment");
+      toast.error(t("candidates.panel.failedToAddComment"));
     }
   };
 
   const handleDeleteComment = async (commentId: string) => {
-    if (!id || !confirm("Delete comment?")) return;
+    if (!id) return;
+    const ok = await confirm({ title: t("candidates.panel.deleteCommentTitle"), message: t("candidates.panel.deleteCommentMsg"), danger: true });
+    if (!ok) return;
     try {
       await candidatesApi.deleteComment(id, commentId);
       setCandidate((prev: any) => ({
@@ -141,16 +147,32 @@ export const CandidateDetailPage: React.FC = () => {
         comments: prev.comments.filter((c: any) => c.id !== commentId),
       }));
     } catch {
-      toast.error("Failed to delete");
+      toast.error(t("candidates.panel.failedToDelete"));
     }
   };
 
-  if (loading) return <div className="p-8 text-gray-400">Loading...</div>;
+  if (loading) return <div className="p-8 text-gray-400">{t("common.loading")}</div>;
   if (!candidate)
-    return <div className="p-8 text-gray-400">Candidate not found</div>;
+    return <div className="p-8 text-gray-400">{t("candidates.notFound")}</div>;
+
+  const TAB_LABELS: Record<string, string> = {
+    chat: t("candidates.panel.tabs.chat"),
+    profile: t("candidates.panel.personalInfo"),
+    answers: t("candidates.panel.tabs.answers"),
+    files: t("candidates.panel.tabs.files"),
+    comments: t("candidates.panel.tabs.comments"),
+  };
+
+  const PROFILE_FIELDS = [
+    { label: t("candidates.panel.fullName"), key: "fullName" },
+    { label: t("candidates.panel.age"), key: "age" },
+    { label: t("candidates.panel.phone"), key: "phone" },
+    { label: t("candidates.panel.emailLabel"), key: "email" },
+  ];
 
   return (
     <div className="p-8 max-w-7xl">
+      {confirmElement}
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -158,7 +180,7 @@ export const CandidateDetailPage: React.FC = () => {
             to="/candidates"
             className="text-gray-400 hover:text-gray-600 text-sm"
           >
-            ← Candidates
+            ← {t("candidates.title")}
           </Link>
           <span className="text-gray-300">/</span>
           <div className="flex items-center gap-3">
@@ -171,7 +193,7 @@ export const CandidateDetailPage: React.FC = () => {
               <h1 className="text-xl font-bold text-gray-900">
                 {candidate.fullName ||
                   candidate.username ||
-                  "Unknown Candidate"}
+                  t("candidates.panel.unknownCandidate")}
               </h1>
               <p className="text-sm text-gray-400">
                 {candidate.job?.translations?.[0]?.title || "N/A"} · TG:{" "}
@@ -191,7 +213,7 @@ export const CandidateDetailPage: React.FC = () => {
           >
             {STATUSES.map((s) => (
               <option key={s} value={s}>
-                {s.charAt(0).toUpperCase() + s.slice(1)}
+                {t(`candidates.statuses.${s}` as any) || s.charAt(0).toUpperCase() + s.slice(1)}
               </option>
             ))}
           </select>
@@ -201,23 +223,23 @@ export const CandidateDetailPage: React.FC = () => {
       {/* Tabs */}
       <div className="flex gap-1 mb-6 border-b border-gray-200">
         {(["chat", "profile", "answers", "files", "comments"] as const).map(
-          (t) => (
+          (tabKey) => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
-                tab === t
+              key={tabKey}
+              onClick={() => setTab(tabKey)}
+              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                tab === tabKey
                   ? "border-blue-600 text-blue-600"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
-              {t}
-              {t === "chat" && messages.length > 0 && (
+              {TAB_LABELS[tabKey]}
+              {tabKey === "chat" && messages.length > 0 && (
                 <span className="ml-1 text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">
                   {messages.length}
                 </span>
               )}
-              {t === "comments" && candidate.comments?.length > 0 && (
+              {tabKey === "comments" && candidate.comments?.length > 0 && (
                 <span className="ml-1 text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full">
                   {candidate.comments.length}
                 </span>
@@ -232,14 +254,13 @@ export const CandidateDetailPage: React.FC = () => {
         <div className="flex flex-col h-[calc(100vh-280px)] card">
           {candidate.status === "incomplete" && (
             <div className="p-3 bg-yellow-50 border-b border-yellow-200 text-sm text-yellow-700">
-              ⚠️ Messaging is available once candidate submits their application
-              (status: Applied+)
+              {t("candidates.panel.incompleteWarning")}
             </div>
           )}
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {messages.length === 0 ? (
               <div className="text-center text-gray-400 py-8">
-                No messages yet
+                {t("candidates.panel.noMessages")}
               </div>
             ) : (
               messages.map((msg) => {
@@ -268,7 +289,7 @@ export const CandidateDetailPage: React.FC = () => {
                               className="max-w-full rounded-lg max-h-64 object-cover"
                             />
                           ) : (
-                            <p className="text-sm italic">📷 Photo</p>
+                            <p className="text-sm italic">{t("chats.photo")}</p>
                           )}
                           {msg.text && (
                             <p className="text-sm mt-1">{msg.text}</p>
@@ -281,7 +302,7 @@ export const CandidateDetailPage: React.FC = () => {
                           download={msg.fileName}
                           className={`flex items-center gap-2 text-sm ${isOutbound ? "text-blue-100" : "text-blue-600"}`}
                         >
-                          📎 {msg.fileName || "Document"}
+                          📎 {msg.fileName || t("candidates.panel.document")}
                         </a>
                       )}
                       {msg.type === "voice" && (
@@ -299,7 +320,7 @@ export const CandidateDetailPage: React.FC = () => {
                       <p
                         className={`text-xs mt-1 ${isOutbound ? "text-blue-200" : "text-gray-400"}`}
                       >
-                        {isOutbound ? msg.admin?.name || "Admin" : "Candidate"}{" "}
+                        {isOutbound ? msg.admin?.name || t("common.admin") : t("chats.candidate")}{" "}
                         · {format(new Date(msg.createdAt), "HH:mm")}
                       </p>
                     </div>
@@ -327,7 +348,7 @@ export const CandidateDetailPage: React.FC = () => {
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
-                  title="Attach file"
+                  title={t("candidates.panel.attachFile")}
                 >
                   📎
                 </button>
@@ -338,7 +359,7 @@ export const CandidateDetailPage: React.FC = () => {
                   onKeyDown={(e) =>
                     e.key === "Enter" && !e.shiftKey && handleSendText()
                   }
-                  placeholder="Type a message..."
+                  placeholder={t("candidates.panel.messageTypePlaceholder")}
                   className="input flex-1"
                   disabled={sending}
                 />
@@ -347,7 +368,7 @@ export const CandidateDetailPage: React.FC = () => {
                   disabled={!msgText.trim() || sending}
                   className="btn-primary px-4"
                 >
-                  {sending ? "..." : "Send"}
+                  {sending ? "…" : t("common.send")}
                 </button>
               </div>
             </div>
@@ -360,21 +381,16 @@ export const CandidateDetailPage: React.FC = () => {
         <div className="max-w-lg space-y-4">
           <div className="card p-5">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold">Personal Information</h3>
+              <h3 className="font-semibold">{t("candidates.panel.personalInfo")}</h3>
               <button
                 onClick={() => setEditProfile(!editProfile)}
                 className="text-sm text-blue-600 hover:text-blue-800"
               >
-                {editProfile ? "Cancel" : "Edit"}
+                {editProfile ? t("common.cancel") : t("candidates.panel.edit")}
               </button>
             </div>
             <div className="space-y-3">
-              {[
-                { label: "Full Name", key: "fullName" },
-                { label: "Age", key: "age" },
-                { label: "Phone", key: "phone" },
-                { label: "Email", key: "email" },
-              ].map(({ label, key }) => (
+              {PROFILE_FIELDS.map(({ label, key }) => (
                 <div key={key}>
                   <label className="label">{label}</label>
                   {editProfile ? (
@@ -388,39 +404,39 @@ export const CandidateDetailPage: React.FC = () => {
                         }))
                       }
                       className="input"
-                      placeholder={`Enter ${label.toLowerCase()}`}
+                      placeholder={t("candidates.panel.enterField", { field: label.toLowerCase() })}
                     />
                   ) : (
                     <p className="text-sm text-gray-700">
                       {(candidate as any)[key] || (
-                        <span className="text-gray-400">Not provided</span>
+                        <span className="text-gray-400">{t("common.notProvided")}</span>
                       )}
                     </p>
                   )}
                 </div>
               ))}
               <div>
-                <label className="label">Username</label>
+                <label className="label">{t("candidates.panel.username")}</label>
                 <p className="text-sm text-gray-700">
                   {candidate.username ? `@${candidate.username}` : "—"}
                 </p>
               </div>
               <div>
-                <label className="label">Telegram ID</label>
+                <label className="label">{t("candidates.panel.telegramId")}</label>
                 <p className="text-sm text-gray-700">{candidate.telegramId}</p>
               </div>
               <div>
-                <label className="label">Language</label>
+                <label className="label">{t("candidates.panel.language")}</label>
                 <p className="text-sm text-gray-700">{candidate.lang}</p>
               </div>
               <div>
-                <label className="label">Applied</label>
+                <label className="label">{t("candidates.panel.applied")}</label>
                 <p className="text-sm text-gray-700">
                   {format(new Date(candidate.createdAt), "PPpp")}
                 </p>
               </div>
               <div>
-                <label className="label">Last Activity</label>
+                <label className="label">{t("candidates.panel.lastActivity")}</label>
                 <p className="text-sm text-gray-700">
                   {format(new Date(candidate.lastActivity), "PPpp")}
                 </p>
@@ -428,7 +444,7 @@ export const CandidateDetailPage: React.FC = () => {
             </div>
             {editProfile && (
               <button className="btn-primary mt-4" onClick={handleSaveProfile}>
-                Save Profile
+                {t("candidates.panel.saveProfile")}
               </button>
             )}
           </div>
@@ -440,12 +456,12 @@ export const CandidateDetailPage: React.FC = () => {
         <div className="max-w-2xl space-y-3">
           {candidate.answers?.length === 0 ? (
             <div className="card p-8 text-center text-gray-400">
-              No answers recorded
+              {t("candidates.panel.noAnswers")}
             </div>
           ) : (
             candidate.answers?.map((answer: any) => {
               const questionText =
-                answer.question?.translations?.[0]?.text || "Unknown question";
+                answer.question?.translations?.[0]?.text || "—";
               const isAttachment = answer.question?.type === "attachment";
               const answerText =
                 answer.option?.translations?.[0]?.text ||
@@ -491,7 +507,7 @@ export const CandidateDetailPage: React.FC = () => {
         <div className="max-w-2xl space-y-2">
           {candidate.files?.length === 0 ? (
             <div className="card p-8 text-center text-gray-400">
-              No files uploaded
+              {t("candidates.panel.noFiles")}
             </div>
           ) : (
             candidate.files?.map((file: any) => (
@@ -508,7 +524,7 @@ export const CandidateDetailPage: React.FC = () => {
                   download={file.fileName}
                   className="btn-secondary text-sm py-1.5"
                 >
-                  Download
+                  {t("candidates.panel.download")}
                 </a>
               </div>
             ))
@@ -520,27 +536,27 @@ export const CandidateDetailPage: React.FC = () => {
       {tab === "comments" && (
         <div className="max-w-2xl space-y-4">
           <div className="card p-4">
-            <label className="label">Add Internal Comment</label>
+            <label className="label">{t("candidates.panel.addComment")}</label>
             <textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               className="input"
               rows={3}
-              placeholder="Leave an internal note (only visible to admins)..."
+              placeholder={t("candidates.panel.commentPlaceholder")}
             />
             <button
               className="btn-primary mt-2 text-sm"
               onClick={handleAddComment}
               disabled={!comment.trim()}
             >
-              Add Comment
+              {t("candidates.panel.addCommentBtn")}
             </button>
           </div>
 
           <div className="space-y-3">
             {candidate.comments?.length === 0 ? (
               <div className="text-center text-gray-400 text-sm py-4">
-                No comments yet
+                {t("candidates.panel.noComments")}
               </div>
             ) : (
               candidate.comments?.map((c: any) => (
@@ -551,7 +567,7 @@ export const CandidateDetailPage: React.FC = () => {
                         {c.admin?.name?.[0]?.toUpperCase() || "A"}
                       </div>
                       <span className="text-sm font-medium">
-                        {c.admin?.name || "Admin"}
+                        {c.admin?.name || t("common.admin")}
                       </span>
                       <span className="text-xs text-gray-400">
                         {format(new Date(c.createdAt), "PPpp")}
@@ -562,7 +578,7 @@ export const CandidateDetailPage: React.FC = () => {
                         onClick={() => handleDeleteComment(c.id)}
                         className="text-xs text-red-400 hover:text-red-600"
                       >
-                        Delete
+                        {t("candidates.panel.deleteComment")}
                       </button>
                     )}
                   </div>

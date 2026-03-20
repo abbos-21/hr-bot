@@ -196,24 +196,57 @@
         "meeting_scheduled": "Meeting scheduled notification",
         "meeting_scheduled_hint": "Sent to candidate when a meeting is scheduled. Use {date}, {time}, {note} placeholders",
         "meeting_reminder": "Meeting reminder notification",
-        "meeting_reminder_hint": "Sent before the meeting. Use {date}, {time}, {minutes}, {note} placeholders"
-      }
+        "meeting_reminder_hint": "Sent before the meeting. Use {date}, {time}, {minutes}, {note} placeholders",
+        "meeting_cancelled": "Meeting cancelled notification",
+        "meeting_cancelled_hint": "Sent when a meeting is cancelled. Use {date}, {time} placeholders"
+      },
+      "failedToSave": "Failed to save"
     },
     "settings": {
       "title": "Bot Settings",
       "botName": "Bot Name",
       "defaultLang": "Default Language",
       "saved": "Settings saved",
+      "saveSettings": "Save Settings",
       "updateToken": "Update Bot Token",
       "updateTokenWarning": "Changing the token will stop and restart the bot. Make sure the token is valid before saving.",
       "newToken": "New Bot Token",
       "tokenUpdated": "Token updated — bot restarted",
-      "updating": "Updating…"
+      "updating": "Updating…",
+      "failedToSave": "Failed to save",
+      "failedToUpdateToken": "Failed to update token",
+      "failedToAddLanguage": "Failed to add language",
+      "cannotDelete": "Cannot delete",
+      "botNotFound": "Bot not found"
     }
   },
   "playground": {
     "title": "Playground",
-    "subtitle": "Manage questions and flow"
+    "subtitle": "Manage questions and flow",
+    "failedToSave": "Failed to save",
+    "failedToToggle": "Failed to toggle option",
+    "failedToReorder": "Failed to reorder",
+    "failedToDelete": "Failed to delete",
+    "questionSaved": "Question saved",
+    "questionAdded": "Question added",
+    "questionDeleted": "Question deleted",
+    "addTextFirst": "Add question text in at least one language",
+    "addOptionFirst": "Add at least one answer option",
+    "editQuestion": "Edit question",
+    "editRequiredQuestion": "Edit required question",
+    "createQuestion": "Create question",
+    "addQuestion": "Add question",
+    "questionType": "Question type",
+    "noTextYet": "No text yet",
+    "saveChanges": "Save changes",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "deleteQuestion": "Delete question",
+    "requiredQuestions": "Required questions",
+    "additionalQuestions": "Additional questions",
+    "additionalNote": "Asked after required questions",
+    "pickFromList": "Pick from a list",
+    "photoOrDocument": "Photo or document"
   },
   "pipeline": {
     "title": "Pipeline",
@@ -275,7 +308,17 @@
     "audio": "🎵 Audio",
     "attachment": "📎 Attachment",
     "candidate": "Candidate",
-    "yesterday": "Yesterday"
+    "yesterday": "Yesterday",
+    "failedToSend": "Failed to send",
+    "failedToSendFile": "Failed to send file",
+    "noResults": "No results",
+    "tryDifferentName": "Try a different name",
+    "messagesFromBot": "Messages from bot users appear here",
+    "selectConversation": "Select a conversation",
+    "chooseFromList": "Choose from the list on the left",
+    "startConversation": "Start the conversation below",
+    "candidateInfo": "Candidate info",
+    "writeMessage": "Write a message…"
   },
   "candidates": {
     "title": "Candidates",
@@ -317,8 +360,24 @@
       "attachFile": "Attach file",
       "download": "Download",
       "deleteComment": "Delete",
+      "deleteCommentTitle": "Delete comment",
+      "deleteCommentMsg": "Delete this comment?",
       "edit": "Edit",
-      "saveProfile": "Save Profile"
+      "saveProfile": "Save Profile",
+      "unknownCandidate": "Unknown Candidate",
+      "failedToSend": "Failed to send",
+      "failedToSendFile": "Failed to send file",
+      "statusUpdatedTo": "Status updated to {{status}}",
+      "failedToUpdateStatus": "Failed to update status",
+      "failedToSave": "Failed to save",
+      "failedToAddComment": "Failed to add comment",
+      "failedToDelete": "Failed to delete",
+      "enterField": "Enter {{field}}",
+      "document": "Document",
+      "contact": "Contact",
+      "answers": "Answers",
+      "restoredToPipeline": "Restored to pipeline",
+      "moveBackToPipeline": "↩ Move Back to Pipeline"
     },
     "statuses": {
       "incomplete": "Incomplete",
@@ -440,7 +499,14 @@
     "branchDeleted": "Branch deleted",
     "branchDeleteFailed": "Failed to delete branch",
     "noBranches": "No branches yet",
-    "candidateCount": "Candidates"
+    "candidateCount": "Candidates",
+    "deletedOrgs": "Deleted organizations",
+    "noDeletedOrgs": "No deleted organizations",
+    "restore": "Restore",
+    "restored": "Organization restored",
+    "restoreFailed": "Failed to restore",
+    "deletedAt": "Deleted",
+    "deleteConfirmSoft": "Move this organization to trash? It can be restored later."
   },
   "meetings": {
     "schedule": "Schedule Meeting",
@@ -459,6 +525,19 @@
     "minBefore": "min before",
     "sent": "sent",
     "noMeetings": "No meetings scheduled"
+  },
+  "retiredStages": {
+    "title": "📦 Retired Stages",
+    "subtitle": "{{count}} archived stages · restore to bring back to the pipeline board",
+    "noRetiredYet": "No retired stages yet",
+    "noRetiredDesc": "Archive a stage from the Pipeline board to see it here",
+    "archived": "Archived {{date}}",
+    "restored": "Stage \"{{name}}\" restored to pipeline",
+    "deleted": "Stage \"{{name}}\" deleted",
+    "failedToRestore": "Failed to restore",
+    "failedToDelete": "Failed to delete",
+    "deleteTitle": "Delete stage \"{{name}}\"?",
+    "deleteMsg": "This will permanently delete the stage. This cannot be undone."
   },
   "confirm": {
     "cancel": "Cancel",

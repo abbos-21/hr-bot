@@ -135,7 +135,7 @@ export const CandidateDetailPanel: React.FC<Props> = ({
       setMessages((prev) => [...prev, msg]);
       setMsgText("");
     } catch {
-      toast.error("Failed to send");
+      toast.error(t("candidates.panel.failedToSend"));
     }
     setSending(false);
   };
@@ -146,7 +146,7 @@ export const CandidateDetailPanel: React.FC<Props> = ({
       const msg = await messagesApi.sendMedia(candidate.id, file, "document");
       setMessages((prev) => [...prev, msg]);
     } catch {
-      toast.error("Failed to send file");
+      toast.error(t("candidates.panel.failedToSendFile"));
     }
   };
 

@@ -67,7 +67,7 @@ const BroadcastModal: React.FC<{
       await onSend(text.trim());
       onClose();
     } catch {
-      toast.error("Broadcast failed");
+      toast.error(t("pipeline.broadcastFailed"));
       setSending(false);
     }
   };
@@ -85,10 +85,12 @@ const BroadcastModal: React.FC<{
           <h3 className="font-bold text-gray-900">
             {t("pipeline.notifyColumn")}
           </h3>
-          <p className="text-xs text-gray-400 mt-1">
-            Sends the same message to <strong>{candidateCount}</strong>{" "}
-            candidates in <strong>"{columnName}"</strong>.
-          </p>
+          <p
+            className="text-xs text-gray-400 mt-1"
+            dangerouslySetInnerHTML={{
+              __html: t("pipeline.notifyDesc", { count: candidateCount, name: columnName }),
+            }}
+          />
         </div>
         <div className="p-6 space-y-4">
           <textarea
@@ -937,7 +939,7 @@ export const CandidatesPage: React.FC = () => {
         await candidatesApi.update(candidateId, { status: "hired" });
         toast.success(t("pipeline.candidateHired"));
       } catch {
-        toast.error("Failed");
+        toast.error(t("pipeline.broadcastFailed"));
         fetchAll();
       }
       return;
@@ -949,7 +951,7 @@ export const CandidatesPage: React.FC = () => {
         await candidatesApi.update(candidateId, { status: "archived" });
         toast.success(t("pipeline.candidateArchived"));
       } catch {
-        toast.error("Failed");
+        toast.error(t("pipeline.broadcastFailed"));
         fetchAll();
       }
       return;
@@ -973,7 +975,7 @@ export const CandidatesPage: React.FC = () => {
             : { columnId: null },
         );
       } catch {
-        toast.error("Failed");
+        toast.error(t("pipeline.broadcastFailed"));
         fetchAll();
       }
       return;
@@ -996,7 +998,7 @@ export const CandidatesPage: React.FC = () => {
           : { columnId: overId },
       );
     } catch {
-      toast.error("Failed");
+      toast.error(t("pipeline.broadcastFailed"));
       fetchAll();
     }
   };

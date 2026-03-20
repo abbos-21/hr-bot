@@ -62,13 +62,13 @@ export const HiredCandidatesPage: React.FC = () => {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left px-4 py-3 text-gray-500 font-medium">
-                  Candidate
+                  {t("hired.columns.candidate")}
                 </th>
                 <th className="text-left px-4 py-3 text-gray-500 font-medium">
-                  Contact
+                  {t("candidates.panel.contact")}
                 </th>
                 <th className="text-left px-4 py-3 text-gray-500 font-medium">
-                  Hired
+                  {t("hired.columns.hiredDate")}
                 </th>
               </tr>
             </thead>
@@ -96,7 +96,7 @@ export const HiredCandidatesPage: React.FC = () => {
                       </div>
                       <div>
                         <p className="font-medium text-gray-900">
-                          {c.fullName || c.username || "Unknown"}
+                          {c.fullName || c.username || t("common.unknown")}
                         </p>
                         {c.username && (
                           <p className="text-xs text-gray-400">@{c.username}</p>
@@ -138,6 +138,7 @@ const MiniPanel: React.FC<{
   onClose: () => void;
   onRestore: (id: string) => void;
 }> = ({ candidateId, onClose, onRestore }) => {
+  const { t } = useT();
   const [candidate, setCandidate] = useState<any>(null);
 
   useEffect(() => {
@@ -147,7 +148,7 @@ const MiniPanel: React.FC<{
   const handleRestore = async () => {
     if (!candidate) return;
     await candidatesApi.update(candidate.id, { status: "active" });
-    toast.success("Restored to pipeline");
+    toast.success(t("candidates.panel.restoredToPipeline"));
     onRestore(candidate.id);
   };
 
@@ -170,7 +171,7 @@ const MiniPanel: React.FC<{
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
             <div></div>
             <div>
-              <p className="text-xs text-gray-400 mb-1">Contact</p>
+              <p className="text-xs text-gray-400 mb-1">{t("candidates.panel.contact")}</p>
               <p className="text-sm font-medium">
                 {candidate.phone || candidate.email || "—"}
               </p>
@@ -178,7 +179,7 @@ const MiniPanel: React.FC<{
             {candidate.answers?.length > 0 && (
               <div>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                  Answers
+                  {t("candidates.panel.answers")}
                 </p>
                 {candidate.answers.map((a: any) => (
                   <div key={a.id} className="mb-2">
@@ -199,7 +200,7 @@ const MiniPanel: React.FC<{
             onClick={handleRestore}
             className="w-full py-2.5 border border-blue-200 text-blue-600 hover:bg-blue-50 font-semibold rounded-xl transition-colors text-sm"
           >
-            ↩ Move Back to Pipeline
+            {t("candidates.panel.moveBackToPipeline")}
           </button>
         </div>
       </div>

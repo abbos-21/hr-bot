@@ -196,24 +196,57 @@
         "meeting_scheduled": "Uchrashuv belgilangani haqida xabar",
         "meeting_scheduled_hint": "Uchrashuv belgilanganda nomzodga yuboriladi. {date}, {time}, {note} ishlatiladi",
         "meeting_reminder": "Uchrashuv eslatmasi",
-        "meeting_reminder_hint": "Uchrashuvdan oldin yuboriladi. {date}, {time}, {minutes}, {note} ishlatiladi"
-      }
+        "meeting_reminder_hint": "Uchrashuvdan oldin yuboriladi. {date}, {time}, {minutes}, {note} ishlatiladi",
+        "meeting_cancelled": "Uchrashuv bekor qilindi xabari",
+        "meeting_cancelled_hint": "Uchrashuv bekor qilinganda yuboriladi. {date}, {time} ishlatiladi"
+      },
+      "failedToSave": "Saqlashda xato"
     },
     "settings": {
       "title": "Bot sozlamalari",
       "botName": "Bot nomi",
       "defaultLang": "Standart til",
       "saved": "Sozlamalar saqlandi",
+      "saveSettings": "Sozlamalarni saqlash",
       "updateToken": "Bot tokenini yangilash",
       "updateTokenWarning": "Tokenni o'zgartirish botni to'xtatib, qayta ishga tushiradi. Saqlashdan oldin token to'g'riligiga ishonch hosil qiling.",
       "newToken": "Yangi bot tokeni",
       "tokenUpdated": "Token yangilandi — bot qayta ishga tushirildi",
-      "updating": "Yangilanmoqda…"
+      "updating": "Yangilanmoqda…",
+      "failedToSave": "Saqlashda xato",
+      "failedToUpdateToken": "Tokenni yangilashda xato",
+      "failedToAddLanguage": "Til qo'shishda xato",
+      "cannotDelete": "O'chirib bo'lmadi",
+      "botNotFound": "Bot topilmadi"
     }
   },
   "playground": {
     "title": "Savollar",
-    "subtitle": "Savollar va oqimni boshqaring"
+    "subtitle": "Savollar va oqimni boshqaring",
+    "failedToSave": "Saqlashda xato",
+    "failedToToggle": "Variantni almashtishda xato",
+    "failedToReorder": "Tartibni o'zgartirishda xato",
+    "failedToDelete": "O'chirishda xato",
+    "questionSaved": "Savol saqlandi",
+    "questionAdded": "Savol qo'shildi",
+    "questionDeleted": "Savol o'chirildi",
+    "addTextFirst": "Kamida bitta tilda savol matnini kiriting",
+    "addOptionFirst": "Kamida bitta javob variantini qo'shing",
+    "editQuestion": "Savolni tahrirlash",
+    "editRequiredQuestion": "Majburiy savolni tahrirlash",
+    "createQuestion": "Savol yaratish",
+    "addQuestion": "Savol qo'shish",
+    "questionType": "Savol turi",
+    "noTextYet": "Hali matn yo'q",
+    "saveChanges": "O'zgarishlarni saqlash",
+    "moveUp": "Yuqoriga ko'tarish",
+    "moveDown": "Pastga tushirish",
+    "deleteQuestion": "Savolni o'chirish",
+    "requiredQuestions": "Majburiy savollar",
+    "additionalQuestions": "Qo'shimcha savollar",
+    "additionalNote": "Majburiy savollardan keyin so'raladi",
+    "pickFromList": "Ro'yxatdan tanlash",
+    "photoOrDocument": "Rasm yoki hujjat"
   },
   "pipeline": {
     "title": "Kandidatlar",
@@ -275,7 +308,17 @@
     "audio": "🎵 Audio",
     "attachment": "📎 Biriktirma",
     "candidate": "Nomzod",
-    "yesterday": "Kecha"
+    "yesterday": "Kecha",
+    "failedToSend": "Yuborishda xato",
+    "failedToSendFile": "Fayl yuborishda xato",
+    "noResults": "Natija topilmadi",
+    "tryDifferentName": "Boshqa ism bilan qidiring",
+    "messagesFromBot": "Bot foydalanuvchilaridan xabarlar shu yerda ko'rinadi",
+    "selectConversation": "Suhbatni tanlang",
+    "chooseFromList": "Chapdagi ro'yxatdan tanlang",
+    "startConversation": "Quyida suhbatni boshlang",
+    "candidateInfo": "Nomzod ma'lumotlari",
+    "writeMessage": "Xabar yozing…"
   },
   "candidates": {
     "title": "Nomzodlar",
@@ -317,8 +360,24 @@
       "attachFile": "Fayl biriktirish",
       "download": "Yuklab olish",
       "deleteComment": "O'chirish",
+      "deleteCommentTitle": "Izohni o'chirish",
+      "deleteCommentMsg": "Bu izohni o'chirishni xohlaysizmi?",
       "edit": "Tahrirlash",
-      "saveProfile": "Profilni saqlash"
+      "saveProfile": "Profilni saqlash",
+      "unknownCandidate": "Noma'lum nomzod",
+      "failedToSend": "Yuborishda xato",
+      "failedToSendFile": "Fayl yuborishda xato",
+      "statusUpdatedTo": "Holat {{status}} ga yangilandi",
+      "failedToUpdateStatus": "Holatni yangilashda xato",
+      "failedToSave": "Saqlashda xato",
+      "failedToAddComment": "Izoh qo'shishda xato",
+      "failedToDelete": "O'chirishda xato",
+      "enterField": "{{field}} kiriting",
+      "document": "Hujjat",
+      "contact": "Aloqa",
+      "answers": "Javoblar",
+      "restoredToPipeline": "Kandidatlar ro'yxatiga qaytarildi",
+      "moveBackToPipeline": "↩ Kandidatlar ro'yxatiga qaytarish"
     },
     "statuses": {
       "incomplete": "Yakunlanmagan",
@@ -440,7 +499,14 @@
     "branchDeleted": "Filial o'chirildi",
     "branchDeleteFailed": "Filial o'chirishda xato",
     "noBranches": "Hali filiallar yo'q",
-    "candidateCount": "Nomzodlar"
+    "candidateCount": "Nomzodlar",
+    "deletedOrgs": "O'chirilgan tashkilotlar",
+    "noDeletedOrgs": "O'chirilgan tashkilotlar yo'q",
+    "restore": "Tiklash",
+    "restored": "Tashkilot tiklandi",
+    "restoreFailed": "Tiklashda xato",
+    "deletedAt": "O'chirilgan",
+    "deleteConfirmSoft": "Bu tashkilotni o'chirmoqchimisiz? Keyinchalik tiklash mumkin."
   },
   "meetings": {
     "schedule": "Uchrashuv belgilash",
@@ -459,6 +525,19 @@
     "minBefore": "daq oldin",
     "sent": "yuborildi",
     "noMeetings": "Uchrashuvlar belgilanmagan"
+  },
+  "retiredStages": {
+    "title": "📦 Arxivlangan bosqichlar",
+    "subtitle": "{{count}} arxivlangan bosqich · tiklash uchun kandidatlar bo'limiga qaytaring",
+    "noRetiredYet": "Hali arxivlangan bosqichlar yo'q",
+    "noRetiredDesc": "Kandidatlar bo'limidan bosqichni arxivlang",
+    "archived": "Arxivlangan {{date}}",
+    "restored": "\"{{name}}\" bosqichi qayta tiklandi",
+    "deleted": "\"{{name}}\" bosqichi o'chirildi",
+    "failedToRestore": "Tiklashda xato",
+    "failedToDelete": "O'chirishda xato",
+    "deleteTitle": "\"{{name}}\" bosqichini o'chirish?",
+    "deleteMsg": "Bu bosqich butunlay o'chiriladi. Bu amalni bekor qilib bo'lmaydi."
   },
   "confirm": {
     "cancel": "Bekor qilish",

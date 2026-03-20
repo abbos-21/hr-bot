@@ -3,10 +3,12 @@ import { branchesApi } from "../api";
 import { useAuthStore } from "../store/auth";
 import { useT } from "../i18n";
 import toast from "react-hot-toast";
+import { useConfirm } from "../components/ConfirmModal";
 
 export const BranchesPage: React.FC = () => {
   const { admin } = useAuthStore();
   const { t } = useT();
+  const { confirm, element: confirmElement } = useConfirm();
   const [branches, setBranches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState("");
@@ -51,7 +53,12 @@ export const BranchesPage: React.FC = () => {
   };
 
   const handleDelete = async (branch: any) => {
-    if (!confirm(`${t("common.delete")} "${branch.name}"?`)) return;
+    const ok = await confirm({
+      title: t("common.delete"),
+      message: `${t("common.delete")} "${branch.name}"?`,
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await branchesApi.delete(branch.id);
       setBranches((prev) => prev.filter((b) => b.id !== branch.id));
@@ -63,6 +70,7 @@ export const BranchesPage: React.FC = () => {
 
   return (
     <div className="overflow-auto flex-1 p-8">
+      {confirmElement}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">

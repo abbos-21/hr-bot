@@ -196,24 +196,57 @@
         "meeting_scheduled": "Уведомление о назначенной встрече",
         "meeting_scheduled_hint": "Отправляется кандидату при назначении встречи. Используйте {date}, {time}, {note}",
         "meeting_reminder": "Напоминание о встрече",
-        "meeting_reminder_hint": "Отправляется перед встречей. Используйте {date}, {time}, {minutes}, {note}"
-      }
+        "meeting_reminder_hint": "Отправляется перед встречей. Используйте {date}, {time}, {minutes}, {note}",
+        "meeting_cancelled": "Уведомление об отмене встречи",
+        "meeting_cancelled_hint": "Отправляется при отмене встречи. Используйте {date}, {time}"
+      },
+      "failedToSave": "Не удалось сохранить"
     },
     "settings": {
       "title": "Настройки бота",
       "botName": "Название бота",
       "defaultLang": "Язык по умолчанию",
       "saved": "Настройки сохранены",
+      "saveSettings": "Сохранить настройки",
       "updateToken": "Обновить токен бота",
       "updateTokenWarning": "Изменение токена остановит и перезапустит бота. Убедитесь, что токен действителен перед сохранением.",
       "newToken": "Новый токен бота",
       "tokenUpdated": "Токен обновлён — бот перезапущен",
-      "updating": "Обновление…"
+      "updating": "Обновление…",
+      "failedToSave": "Не удалось сохранить",
+      "failedToUpdateToken": "Не удалось обновить токен",
+      "failedToAddLanguage": "Не удалось добавить язык",
+      "cannotDelete": "Невозможно удалить",
+      "botNotFound": "Бот не найден"
     }
   },
   "playground": {
     "title": "Конструктор",
-    "subtitle": "Управление вопросами и сценариями"
+    "subtitle": "Управление вопросами и сценариями",
+    "failedToSave": "Не удалось сохранить",
+    "failedToToggle": "Не удалось переключить опцию",
+    "failedToReorder": "Не удалось изменить порядок",
+    "failedToDelete": "Не удалось удалить",
+    "questionSaved": "Вопрос сохранён",
+    "questionAdded": "Вопрос добавлен",
+    "questionDeleted": "Вопрос удалён",
+    "addTextFirst": "Добавьте текст вопроса хотя бы на одном языке",
+    "addOptionFirst": "Добавьте хотя бы один вариант ответа",
+    "editQuestion": "Редактировать вопрос",
+    "editRequiredQuestion": "Редактировать обязательный вопрос",
+    "createQuestion": "Создать вопрос",
+    "addQuestion": "Добавить вопрос",
+    "questionType": "Тип вопроса",
+    "noTextYet": "Текст не задан",
+    "saveChanges": "Сохранить изменения",
+    "moveUp": "Переместить вверх",
+    "moveDown": "Переместить вниз",
+    "deleteQuestion": "Удалить вопрос",
+    "requiredQuestions": "Обязательные вопросы",
+    "additionalQuestions": "Дополнительные вопросы",
+    "additionalNote": "Задаются после обязательных вопросов",
+    "pickFromList": "Выбор из списка",
+    "photoOrDocument": "Фото или документ"
   },
   "pipeline": {
     "title": "Пайплайн",
@@ -275,7 +308,17 @@
     "audio": "🎵 Аудио",
     "attachment": "📎 Вложение",
     "candidate": "Кандидат",
-    "yesterday": "Вчера"
+    "yesterday": "Вчера",
+    "failedToSend": "Не удалось отправить",
+    "failedToSendFile": "Не удалось отправить файл",
+    "noResults": "Ничего не найдено",
+    "tryDifferentName": "Попробуйте другое имя",
+    "messagesFromBot": "Сообщения от пользователей бота появятся здесь",
+    "selectConversation": "Выберите беседу",
+    "chooseFromList": "Выберите из списка слева",
+    "startConversation": "Начните беседу ниже",
+    "candidateInfo": "Информация о кандидате",
+    "writeMessage": "Написать сообщение…"
   },
   "candidates": {
     "title": "Кандидаты",
@@ -317,8 +360,24 @@
       "attachFile": "Прикрепить файл",
       "download": "Скачать",
       "deleteComment": "Удалить",
+      "deleteCommentTitle": "Удалить комментарий",
+      "deleteCommentMsg": "Удалить этот комментарий?",
       "edit": "Редактировать",
-      "saveProfile": "Сохранить профиль"
+      "saveProfile": "Сохранить профиль",
+      "unknownCandidate": "Неизвестный кандидат",
+      "failedToSend": "Не удалось отправить",
+      "failedToSendFile": "Не удалось отправить файл",
+      "statusUpdatedTo": "Статус обновлён на {{status}}",
+      "failedToUpdateStatus": "Не удалось обновить статус",
+      "failedToSave": "Не удалось сохранить",
+      "failedToAddComment": "Не удалось добавить комментарий",
+      "failedToDelete": "Не удалось удалить",
+      "enterField": "Введите {{field}}",
+      "document": "Документ",
+      "contact": "Контакт",
+      "answers": "Ответы",
+      "restoredToPipeline": "Возвращён в пайплайн",
+      "moveBackToPipeline": "↩ Вернуть в пайплайн"
     },
     "statuses": {
       "incomplete": "Незавершённый",
@@ -440,7 +499,14 @@
     "branchDeleted": "Филиал удалён",
     "branchDeleteFailed": "Не удалось удалить филиал",
     "noBranches": "Пока нет филиалов",
-    "candidateCount": "Кандидаты"
+    "candidateCount": "Кандидаты",
+    "deletedOrgs": "Удалённые организации",
+    "noDeletedOrgs": "Нет удалённых организаций",
+    "restore": "Восстановить",
+    "restored": "Организация восстановлена",
+    "restoreFailed": "Не удалось восстановить",
+    "deletedAt": "Удалено",
+    "deleteConfirmSoft": "Переместить организацию в корзину? Её можно будет восстановить."
   },
   "meetings": {
     "schedule": "Назначить встречу",
@@ -459,6 +525,19 @@
     "minBefore": "мин до",
     "sent": "отправлено",
     "noMeetings": "Встречи не назначены"
+  },
+  "retiredStages": {
+    "title": "📦 Архивированные этапы",
+    "subtitle": "{{count}} архивированных этапов · восстановите для возврата в пайплайн",
+    "noRetiredYet": "Архивированных этапов пока нет",
+    "noRetiredDesc": "Архивируйте этап из пайплайна, чтобы увидеть его здесь",
+    "archived": "Архивирован {{date}}",
+    "restored": "Этап «{{name}}» восстановлен в пайплайне",
+    "deleted": "Этап «{{name}}» удалён",
+    "failedToRestore": "Не удалось восстановить",
+    "failedToDelete": "Не удалось удалить",
+    "deleteTitle": "Удалить этап «{{name}}»?",
+    "deleteMsg": "Этап будет безвозвратно удалён. Это действие нельзя отменить."
   },
   "confirm": {
     "cancel": "Отмена",

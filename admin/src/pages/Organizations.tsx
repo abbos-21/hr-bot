@@ -3,12 +3,16 @@ import { organizationsApi, botsApi, branchesApi } from "../api";
 import { useT } from "../i18n";
 import toast from "react-hot-toast";
 import { format } from "date-fns";
+import { useConfirm } from "../components/ConfirmModal";
 
 export const OrganizationsPage: React.FC = () => {
   const { t } = useT();
+  const { confirm, element: confirmElement } = useConfirm();
   const [orgs, setOrgs] = useState<any[]>([]);
+  const [deletedOrgs, setDeletedOrgs] = useState<any[]>([]);
   const [bots, setBots] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showDeleted, setShowDeleted] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({
     name: "",
@@ -26,9 +30,10 @@ export const OrganizationsPage: React.FC = () => {
   const [newBranchName, setNewBranchName] = useState("");
 
   useEffect(() => {
-    Promise.all([organizationsApi.list(), botsApi.list()])
-      .then(([o, b]) => {
+    Promise.all([organizationsApi.list(), organizationsApi.listDeleted(), botsApi.list()])
+      .then(([o, d, b]) => {
         setOrgs(o);
+        setDeletedOrgs(d);
         setBots(b);
       })
       .finally(() => setLoading(false));
@@ -78,13 +83,30 @@ export const OrganizationsPage: React.FC = () => {
   };
 
   const handleDelete = async (org: any) => {
-    if (!confirm(t("organizations.deleteConfirm"))) return;
+    const ok = await confirm({
+      title: t("common.delete"),
+      message: t("organizations.deleteConfirmSoft"),
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await organizationsApi.delete(org.id);
       setOrgs((prev) => prev.filter((o) => o.id !== org.id));
+      setDeletedOrgs((prev) => [{ ...org, deletedAt: new Date().toISOString(), isActive: false, bot: null }, ...prev]);
       toast.success(t("organizations.deleted"));
     } catch {
       toast.error(t("organizations.deleteFailed"));
+    }
+  };
+
+  const handleRestore = async (org: any) => {
+    try {
+      const restored = await organizationsApi.restore(org.id);
+      setDeletedOrgs((prev) => prev.filter((o) => o.id !== org.id));
+      setOrgs((prev) => [restored, ...prev]);
+      toast.success(t("organizations.restored"));
+    } catch {
+      toast.error(t("organizations.restoreFailed"));
     }
   };
 
@@ -163,6 +185,7 @@ export const OrganizationsPage: React.FC = () => {
 
   return (
     <div className="overflow-auto flex-1 p-8">
+      {confirmElement}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
@@ -480,6 +503,65 @@ export const OrganizationsPage: React.FC = () => {
               )}
             </div>
           ))
+        )}
+      </div>
+
+      {/* ── Deleted organizations ── */}
+      <div className="mt-8">
+        <button
+          onClick={() => setShowDeleted((v) => !v)}
+          className="flex items-center gap-2 text-sm font-medium text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          <svg
+            className={`w-4 h-4 transition-transform ${showDeleted ? "rotate-90" : ""}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+          {t("organizations.deletedOrgs")}
+          {deletedOrgs.length > 0 && (
+            <span className="ml-1 bg-gray-100 text-gray-500 text-xs font-semibold px-2 py-0.5 rounded-full">
+              {deletedOrgs.length}
+            </span>
+          )}
+        </button>
+
+        {showDeleted && (
+          <div className="mt-3 space-y-3">
+            {deletedOrgs.length === 0 ? (
+              <p className="text-sm text-gray-400 py-4 text-center">
+                {t("organizations.noDeletedOrgs")}
+              </p>
+            ) : (
+              deletedOrgs.map((org) => (
+                <div
+                  key={org.id}
+                  className="card p-4 opacity-60 flex items-center justify-between gap-4"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-700 truncate">
+                      {org.name}
+                    </p>
+                    <p className="text-xs text-gray-400">{org.login}</p>
+                    {org.deletedAt && (
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {t("organizations.deletedAt")}:{" "}
+                        {format(new Date(org.deletedAt), "MMM d, yyyy")}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleRestore(org)}
+                    className="flex-shrink-0 text-xs px-3 py-1.5 rounded-lg font-medium text-green-700 bg-green-50 hover:bg-green-100 transition-colors"
+                  >
+                    {t("organizations.restore")}
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
         )}
       </div>
     </div>

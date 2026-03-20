@@ -195,12 +195,16 @@ export const meetingsApi = {
 // Organizations
 export const organizationsApi = {
   list: () => api.get("/organizations").then((r) => r.data),
+  listDeleted: () =>
+    api.get("/organizations?deleted=true").then((r) => r.data),
   get: (id: string) => api.get(`/organizations/${id}`).then((r) => r.data),
   create: (data: any) => api.post("/organizations", data).then((r) => r.data),
   update: (id: string, data: any) =>
     api.put(`/organizations/${id}`, data).then((r) => r.data),
   delete: (id: string) =>
     api.delete(`/organizations/${id}`).then((r) => r.data),
+  restore: (id: string) =>
+    api.post(`/organizations/${id}/restore`).then((r) => r.data),
   assignBot: (id: string, botId: string) =>
     api.put(`/organizations/${id}/bot`, { botId }).then((r) => r.data),
   unlinkBot: (id: string) =>

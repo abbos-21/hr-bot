@@ -5,83 +5,6 @@ import { useConfirm } from "../components/ConfirmModal";
 import toast from "react-hot-toast";
 import { useT } from "../i18n";
 
-// ── Canonical message keys (must match botMessages.ts backend) ────────────────
-
-const MESSAGE_KEYS: { key: string; label: string; hint?: string }[] = [
-  {
-    key: "welcome",
-    label: "Language selection prompt",
-    hint: "Shown when user first starts the bot (if multiple languages)",
-  },
-  {
-    key: "survey_complete",
-    label: "Survey completed",
-    hint: "Shown after the last question is answered",
-  },
-  {
-    key: "answer_saved",
-    label: "Answer saved (generic)",
-    hint: "Shown after each text/attachment answer",
-  },
-  {
-    key: "invalid_option",
-    label: "Invalid choice selected",
-    hint: "Shown when user types text instead of picking a choice option",
-  },
-  {
-    key: "upload_file",
-    label: "Prompt to send file",
-    hint: "Shown below attachment questions",
-  },
-  {
-    key: "please_send_file",
-    label: "File expected, not text",
-    hint: "Shown when user sends text on an attachment question",
-  },
-  {
-    key: "please_send_photo",
-    label: "Profile photo prompt",
-    hint: "Shown below the profile photo question",
-  },
-  {
-    key: "message_received",
-    label: "New HR message notification",
-    hint: "Prefix shown before admin messages sent via Chats",
-  },
-  {
-    key: "invalid_date_format",
-    label: "Invalid birth date format",
-    hint: "Shown when user enters a date in wrong format on the age question",
-  },
-  {
-    key: "invalid_date_value",
-    label: "Birth date out of valid range",
-    hint: "Shown when the entered birth date is unrealistic",
-  },
-  {
-    key: "phone_use_button",
-    label: "Prompt to use phone button",
-    hint: "Shown if user types text instead of tapping the phone share button",
-  },
-];
-
-const DEFAULTS: Record<string, string> = {
-  welcome: "👋 Welcome! Please choose a language:",
-  survey_complete:
-    "✅ Thank you! Your application has been submitted successfully.",
-  answer_saved: "✅ Answer saved.",
-  invalid_option: "⚠️ Please select one of the provided options.",
-  upload_file: "📎 Please send a photo or file as your answer.",
-  please_send_file: "📎 Please send a photo or file, not text.",
-  please_send_photo: "📸 Please send a photo for your profile picture.",
-  message_received: "✉️ New message from HR:",
-  invalid_date_format:
-    "⚠️ Please enter your birth date in the format DD.MM.YYYY (e.g. 15.03.1998)",
-  invalid_date_value: "⚠️ Please enter a valid birth date.",
-  phone_use_button:
-    "📱 Please use the button below to share your phone number.",
-};
-
 // ── MessagesTab component ─────────────────────────────────────────────────────
 
 const MessagesTab: React.FC<{
@@ -90,9 +13,40 @@ const MessagesTab: React.FC<{
 }> = ({ botId, langs }) => {
   // state: { [lang]: { [key]: value } }
   const { t } = useT();
-  const [values, setValues] = useState<Record<string, Record<string, string>>>(
-    {},
-  );
+
+  // ── Canonical message keys (labels/hints come from i18n) ──────────────
+  const MESSAGE_KEYS: { key: string; labelKey: string; hintKey?: string }[] = [
+    { key: "welcome", labelKey: "botDetail.messages.keys.welcome", hintKey: "botDetail.messages.keys.welcome_hint" },
+    { key: "survey_complete", labelKey: "botDetail.messages.keys.survey_complete", hintKey: "botDetail.messages.keys.survey_complete_hint" },
+    { key: "answer_saved", labelKey: "botDetail.messages.keys.answer_saved", hintKey: "botDetail.messages.keys.answer_saved_hint" },
+    { key: "invalid_option", labelKey: "botDetail.messages.keys.invalid_option", hintKey: "botDetail.messages.keys.invalid_option_hint" },
+    { key: "upload_file", labelKey: "botDetail.messages.keys.upload_file", hintKey: "botDetail.messages.keys.upload_file_hint" },
+    { key: "please_send_file", labelKey: "botDetail.messages.keys.please_send_file", hintKey: "botDetail.messages.keys.please_send_file_hint" },
+    { key: "please_send_photo", labelKey: "botDetail.messages.keys.please_send_photo", hintKey: "botDetail.messages.keys.please_send_photo_hint" },
+    { key: "message_received", labelKey: "botDetail.messages.keys.message_received", hintKey: "botDetail.messages.keys.message_received_hint" },
+    { key: "invalid_date_format", labelKey: "botDetail.messages.keys.invalid_date_format", hintKey: "botDetail.messages.keys.invalid_date_format_hint" },
+    { key: "invalid_date_value", labelKey: "botDetail.messages.keys.invalid_date_value", hintKey: "botDetail.messages.keys.invalid_date_value_hint" },
+    { key: "phone_use_button", labelKey: "botDetail.messages.keys.phone_use_button", hintKey: "botDetail.messages.keys.phone_use_button_hint" },
+    { key: "meeting_cancelled", labelKey: "botDetail.messages.keys.meeting_cancelled", hintKey: "botDetail.messages.keys.meeting_cancelled_hint" },
+  ];
+
+  // These are default bot messages (not UI text — they are template values shown as placeholders)
+  const DEFAULTS: Record<string, string> = {
+    welcome: "👋 Welcome! Please choose a language:",
+    survey_complete: "✅ Thank you! Your application has been submitted successfully.",
+    answer_saved: "✅ Answer saved.",
+    invalid_option: "⚠️ Please select one of the provided options.",
+    upload_file: "📎 Please send a photo or file as your answer.",
+    please_send_file: "📎 Please send a photo or file, not text.",
+    please_send_photo: "📸 Please send a photo for your profile picture.",
+    message_received: "✉️ New message from HR:",
+    invalid_date_format: "⚠️ Please enter your birth date in the format DD.MM.YYYY (e.g. 15.03.1998)",
+    invalid_date_value: "⚠️ Please enter a valid birth date.",
+    phone_use_button: "📱 Please use the button below to share your phone number.",
+    meeting_cancelled: "❌ Your meeting on {date} at {time} has been cancelled.",
+  };
+
+  const [values, setValues] = useState<Record<string, Record<string, string>>>({});
   const [activeLang, setActiveLang] = useState(langs[0]?.code || "en");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -126,18 +80,16 @@ const MessagesTab: React.FC<{
       for (const lang of langs) {
         for (const { key } of MESSAGE_KEYS) {
           const val = getValue(lang.code, key).trim();
-          // Only save non-empty, non-default values (or anything the admin has typed)
           items.push({ lang: lang.code, key, value: val || "" });
         }
       }
-      // Filter out empty (will fall through to defaults in bot)
       await botsApi.saveMessages(
         botId,
         items.filter((i) => i.value),
       );
       toast.success(t("botDetail.messages.saved"));
     } catch {
-      toast.error("Failed to save");
+      toast.error(t("botDetail.messages.failedToSave"));
     }
     setSaving(false);
   };
@@ -148,12 +100,12 @@ const MessagesTab: React.FC<{
 
   if (loading)
     return (
-      <div className="text-gray-400 text-sm py-8 text-center">Loading…</div>
+      <div className="text-gray-400 text-sm py-8 text-center">{t("common.loading")}</div>
     );
   if (!langs.length)
     return (
       <div className="text-gray-400 text-sm py-8 text-center">
-        Add at least one language to configure messages.
+        {t("botDetail.messages.addLangFirst")}
       </div>
     );
 
@@ -178,10 +130,12 @@ const MessagesTab: React.FC<{
 
       {/* Message rows */}
       <div className="space-y-4">
-        {MESSAGE_KEYS.map(({ key, label, hint }) => {
+        {MESSAGE_KEYS.map(({ key, labelKey, hintKey }) => {
           const current = getValue(activeLang, key);
           const placeholder = DEFAULTS[key] || "";
           const isCustom = current.trim().length > 0;
+          const label = t(labelKey as any);
+          const hint = hintKey ? t(hintKey as any) : undefined;
 
           return (
             <div
@@ -198,7 +152,7 @@ const MessagesTab: React.FC<{
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {isCustom && (
                     <span className="text-xs font-medium text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
-                      Custom
+                      {t("common.custom")}
                     </span>
                   )}
                   {isCustom && (
@@ -206,7 +160,7 @@ const MessagesTab: React.FC<{
                       onClick={() => handleReset(activeLang, key)}
                       className="text-xs text-gray-400 hover:text-red-500 transition-colors underline"
                     >
-                      Reset to default
+                      {t("botDetail.messages.resetToDefault")}
                     </button>
                   )}
                 </div>
@@ -220,7 +174,7 @@ const MessagesTab: React.FC<{
               />
               {!isCustom && (
                 <p className="text-xs text-gray-400 mt-1">
-                  Using default:{" "}
+                  {t("botDetail.messages.usingDefault")}{" "}
                   <span className="text-gray-500 italic">
                     {placeholder.slice(0, 80)}
                     {placeholder.length > 80 ? "…" : ""}
@@ -281,7 +235,7 @@ export const BotDetailPage: React.FC = () => {
       setLangForm({ code: "", name: "" });
       toast.success(t("botDetail.languages.added"));
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Failed to add language");
+      toast.error(err.response?.data?.error || t("botDetail.settings.failedToAddLanguage"));
     } finally {
       setAddingLang(false);
     }
@@ -292,7 +246,7 @@ export const BotDetailPage: React.FC = () => {
       title: t("botDetail.languages.deleteTitle"),
       message: t("botDetail.languages.deleteMsg"),
       danger: true,
-      confirmLabel: "Delete",
+      confirmLabel: t("common.delete"),
     });
     if (!id || !ok) return;
     try {
@@ -303,7 +257,7 @@ export const BotDetailPage: React.FC = () => {
       }));
       toast.success(t("botDetail.languages.deleted"));
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Cannot delete");
+      toast.error(err.response?.data?.error || t("botDetail.settings.cannotDelete"));
     }
   };
 
@@ -315,7 +269,7 @@ export const BotDetailPage: React.FC = () => {
       setBot((b: any) => ({ ...b, ...settings }));
       toast.success(t("botDetail.settings.saved"));
     } catch {
-      toast.error("Failed to save");
+      toast.error(t("botDetail.settings.failedToSave"));
     }
   };
 
@@ -333,7 +287,7 @@ export const BotDetailPage: React.FC = () => {
       setNewToken("");
       toast.success(t("botDetail.settings.tokenUpdated"));
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Failed to update token");
+      toast.error(err.response?.data?.error || t("botDetail.settings.failedToUpdateToken"));
     } finally {
       setSavingToken(false);
     }
@@ -341,9 +295,9 @@ export const BotDetailPage: React.FC = () => {
 
   if (loading)
     return (
-      <div className="overflow-auto flex-1 p-8 text-gray-400">Loading...</div>
+      <div className="overflow-auto flex-1 p-8 text-gray-400">{t("common.loading")}</div>
     );
-  if (!bot) return <div className="p-8 text-gray-400">Bot not found</div>;
+  if (!bot) return <div className="p-8 text-gray-400">{t("botDetail.settings.botNotFound")}</div>;
 
   const langs = bot.languages || [];
 
@@ -356,7 +310,7 @@ export const BotDetailPage: React.FC = () => {
             to="/bots"
             className="text-gray-400 hover:text-gray-600 text-sm"
           >
-            ← Bots
+            {t("botDetail.back")}
           </Link>
           <span className="text-gray-300">/</span>
           <h1 className="text-xl font-bold text-gray-900">{bot.name}</h1>
@@ -371,24 +325,24 @@ export const BotDetailPage: React.FC = () => {
             <div className="text-2xl font-bold text-green-600">
               {bot._count?.candidates || 0}
             </div>
-            <div className="text-xs text-gray-500 mt-1">Candidates</div>
+            <div className="text-xs text-gray-500 mt-1">{t("botDetail.stats.candidates")}</div>
             <Link
               to={`/candidates?botId=${id}`}
               className="text-xs text-blue-500 hover:underline mt-1 block"
             >
-              View →
+              {t("botDetail.stats.viewCandidates")}
             </Link>
           </div>
           <div className="card p-4 text-center">
             <div className="text-2xl font-bold text-purple-600">
               {bot._count?.questions || 0}
             </div>
-            <div className="text-xs text-gray-500 mt-1">Questions</div>
+            <div className="text-xs text-gray-500 mt-1">{t("botDetail.stats.questions")}</div>
             <Link
               to="/playground"
               className="text-xs text-blue-500 hover:underline mt-1 block"
             >
-              Manage in Playground →
+              {t("botDetail.stats.managePlayground")}
             </Link>
           </div>
         </div>
@@ -415,10 +369,10 @@ export const BotDetailPage: React.FC = () => {
           <div className="space-y-6">
             <div className="card p-6">
               <h2 className="text-base font-semibold mb-4">
-                Supported Languages
+                {t("botDetail.languages.title")}
               </h2>
               {langs.length === 0 ? (
-                <p className="text-gray-400 text-sm">No languages configured</p>
+                <p className="text-gray-400 text-sm">{t("botDetail.languages.noLanguages")}</p>
               ) : (
                 <div className="space-y-2">
                   {langs.map((lang: any) => (
@@ -433,7 +387,7 @@ export const BotDetailPage: React.FC = () => {
                         <span className="font-medium">{lang.name}</span>
                         {lang.isDefault && (
                           <span className="badge bg-blue-100 text-blue-700">
-                            Default
+                            {t("botDetail.languages.defaultBadge")}
                           </span>
                         )}
                       </div>
@@ -442,7 +396,7 @@ export const BotDetailPage: React.FC = () => {
                           onClick={() => handleDeleteLanguage(lang.id)}
                           className="text-red-500 hover:text-red-700 text-sm"
                         >
-                          Remove
+                          {t("botDetail.languages.remove")}
                         </button>
                       )}
                     </div>
@@ -452,11 +406,11 @@ export const BotDetailPage: React.FC = () => {
             </div>
 
             <div className="card p-6">
-              <h2 className="text-base font-semibold mb-4">Add Language</h2>
+              <h2 className="text-base font-semibold mb-4">{t("botDetail.languages.addLanguage")}</h2>
               <form onSubmit={handleAddLanguage} className="flex gap-3">
                 <input
                   type="text"
-                  placeholder="Code (e.g. ru)"
+                  placeholder={t("botDetail.languages.codeLabel")}
                   value={langForm.code}
                   onChange={(e) =>
                     setLangForm((f) => ({
@@ -470,7 +424,7 @@ export const BotDetailPage: React.FC = () => {
                 />
                 <input
                   type="text"
-                  placeholder="Name (e.g. Russian)"
+                  placeholder={t("botDetail.languages.nameLabel")}
                   value={langForm.name}
                   onChange={(e) =>
                     setLangForm((f) => ({ ...f, name: e.target.value }))
@@ -483,11 +437,11 @@ export const BotDetailPage: React.FC = () => {
                   className="btn-primary"
                   disabled={addingLang}
                 >
-                  {addingLang ? "…" : "Add"}
+                  {addingLang ? "…" : t("common.add")}
                 </button>
               </form>
               <p className="text-xs text-gray-400 mt-2">
-                Common codes: en, ru, uz, de, fr, ar, zh, es
+                {t("botDetail.languages.commonCodes")}
               </p>
             </div>
           </div>
@@ -497,11 +451,9 @@ export const BotDetailPage: React.FC = () => {
         {tab === "messages" && (
           <div>
             <div className="mb-5 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
-              <p className="font-semibold mb-1">Bot System Messages</p>
+              <p className="font-semibold mb-1">{t("botDetail.messages.title")}</p>
               <p className="text-xs leading-relaxed">
-                These are messages your bot sends automatically in response to
-                user actions. Leave any field empty to use the built-in default.
-                Changes are applied immediately — no restart needed.
+                {t("botDetail.messages.hint")}
               </p>
             </div>
             {id && <MessagesTab botId={id} langs={langs} />}
@@ -512,10 +464,10 @@ export const BotDetailPage: React.FC = () => {
         {tab === "settings" && (
           <div className="space-y-6">
             <div className="card p-6 max-w-lg">
-              <h2 className="text-base font-semibold mb-4">Bot Settings</h2>
+              <h2 className="text-base font-semibold mb-4">{t("botDetail.settings.title")}</h2>
               <form onSubmit={handleSaveSettings} className="space-y-4">
                 <div>
-                  <label className="label">Bot Name</label>
+                  <label className="label">{t("botDetail.settings.botName")}</label>
                   <input
                     type="text"
                     value={settings.name}
@@ -527,7 +479,7 @@ export const BotDetailPage: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="label">Default Language</label>
+                  <label className="label">{t("botDetail.settings.defaultLang")}</label>
                   <select
                     value={settings.defaultLang}
                     onChange={(e) =>
@@ -546,22 +498,21 @@ export const BotDetailPage: React.FC = () => {
                   </select>
                 </div>
                 <button type="submit" className="btn-primary">
-                  Save Settings
+                  {t("botDetail.settings.saveSettings")}
                 </button>
               </form>
             </div>
 
             <div className="card p-6 max-w-lg border-orange-200 bg-orange-50">
               <h2 className="text-base font-semibold mb-1 text-orange-900">
-                Update Bot Token
+                {t("botDetail.settings.updateToken")}
               </h2>
               <p className="text-xs text-orange-700 mb-4">
-                Changing the token will stop and restart the bot. Make sure the
-                token is valid before saving.
+                {t("botDetail.settings.updateTokenWarning")}
               </p>
               <form onSubmit={handleUpdateToken} className="space-y-3">
                 <div>
-                  <label className="label text-orange-800">New Bot Token</label>
+                  <label className="label text-orange-800">{t("botDetail.settings.newToken")}</label>
                   <input
                     type="text"
                     value={newToken}

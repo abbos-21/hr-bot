@@ -3,8 +3,10 @@ import { useConfirm } from "../components/ConfirmModal";
 import { columnsApi } from "../api";
 import { format } from "date-fns";
 import toast from "react-hot-toast";
+import { useT } from "../i18n";
 
 export const RetiredStagesPage: React.FC = () => {
+  const { t } = useT();
   const [columns, setColumns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { confirm, element: confirmElement } = useConfirm();
@@ -21,26 +23,26 @@ export const RetiredStagesPage: React.FC = () => {
     try {
       await columnsApi.restore(col.id);
       setColumns((prev) => prev.filter((c) => c.id !== col.id));
-      toast.success(`Stage "${col.name}" restored to pipeline`);
+      toast.success(t("retiredStages.restored", { name: col.name }));
     } catch {
-      toast.error("Failed to restore");
+      toast.error(t("retiredStages.failedToRestore"));
     }
   };
 
   const handleDelete = async (col: any) => {
     const ok = await confirm({
-      title: `Delete stage "${col.name}"?`,
-      message: "This will permanently delete the stage. This cannot be undone.",
+      title: t("retiredStages.deleteTitle", { name: col.name }),
+      message: t("retiredStages.deleteMsg"),
       danger: true,
-      confirmLabel: "Delete",
+      confirmLabel: t("common.delete"),
     });
     if (!ok) return;
     try {
       await columnsApi.delete(col.id);
       setColumns((prev) => prev.filter((c) => c.id !== col.id));
-      toast.success(`Stage "${col.name}" deleted`);
+      toast.success(t("retiredStages.deleted", { name: col.name }));
     } catch {
-      toast.error("Failed to delete");
+      toast.error(t("retiredStages.failedToDelete"));
     }
   };
 
@@ -49,21 +51,20 @@ export const RetiredStagesPage: React.FC = () => {
       {confirmElement}
       <div className="overflow-auto flex-1 p-8">
         <div className="mb-6">
-          <h1 className="text-xl font-bold text-gray-900">📦 Retired Stages</h1>
+          <h1 className="text-xl font-bold text-gray-900">{t("retiredStages.title")}</h1>
           <p className="text-xs text-gray-400 mt-0.5">
-            {columns.length} archived stages · restore to bring back to the
-            pipeline board
+            {t("retiredStages.subtitle", { count: columns.length })}
           </p>
         </div>
 
         {loading ? (
-          <p className="text-gray-400 text-center py-12">Loading…</p>
+          <p className="text-gray-400 text-center py-12">{t("common.loading")}</p>
         ) : columns.length === 0 ? (
           <div className="text-center py-20 text-gray-400">
             <p className="text-4xl mb-3">📦</p>
-            <p className="text-sm font-medium">No retired stages yet</p>
+            <p className="text-sm font-medium">{t("retiredStages.noRetiredYet")}</p>
             <p className="text-xs mt-1">
-              Archive a stage from the Pipeline board to see it here
+              {t("retiredStages.noRetiredDesc")}
             </p>
           </div>
         ) : (
@@ -83,20 +84,20 @@ export const RetiredStagesPage: React.FC = () => {
                     {col.name}
                   </p>
                   <p className="text-xs text-gray-400 mt-0.5">
-                    Archived {format(new Date(col.updatedAt), "MMM d, yyyy")}
+                    {t("retiredStages.archived", { date: format(new Date(col.updatedAt), "MMM d, yyyy") })}
                   </p>
                   <div className="flex gap-2 mt-3">
                     <button
                       onClick={() => handleRestore(col)}
                       className="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors"
                     >
-                      ↩ Restore
+                      {t("pipeline.restoreStage")}
                     </button>
                     <button
                       onClick={() => handleDelete(col)}
                       className="text-xs font-semibold text-red-400 hover:text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors"
                     >
-                      Delete
+                      {t("common.delete")}
                     </button>
                   </div>
                 </div>

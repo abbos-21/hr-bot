@@ -180,13 +180,19 @@ router.post("/", async (req: AuthRequest, res: Response) => {
       include: { languages: true },
     });
 
-    // Start the bot
-    await botManager.startBot(bot.id, token);
+    // Start the bot (non-fatal — bot is already persisted)
+    try {
+      await botManager.startBot(bot.id, token);
+    } catch (startErr) {
+      console.error("Failed to start bot after creation:", startErr);
+    }
 
     // For org users: return a refreshed JWT with the new botId
     if (req.admin?.type === "organization") {
+      // Destructure out JWT internal fields (iat, exp) before re-signing
+      const { iat, exp, ...rest } = req.admin as any;
       const newPayload: JwtPayload = {
-        ...req.admin,
+        ...rest,
         botId: bot.id,
       };
       const newToken = jwt.sign(newPayload, config.jwtSecret, { expiresIn: "7d" });

@@ -11,13 +11,17 @@ const router = Router();
 router.use(authMiddleware);
 router.use(superAdminMiddleware);
 
-// GET /api/organizations
+const ORG_INCLUDE = {
+  branches: { orderBy: { name: "asc" } },
+  bot: { select: { id: true, name: true, username: true } },
+} as const;
+
+// GET /api/organizations — active only; pass ?deleted=true for soft-deleted
 router.get("/", async (req: AuthRequest, res: Response) => {
+  const showDeleted = req.query.deleted === "true";
   const orgs = await prisma.organization.findMany({
-    include: {
-      branches: { orderBy: { name: "asc" } },
-      bot: { select: { id: true, name: true, username: true } },
-    },
+    where: showDeleted ? { deletedAt: { not: null } } : { deletedAt: null },
+    include: ORG_INCLUDE,
     orderBy: { createdAt: "desc" },
   });
   return res.json(orgs);
@@ -32,7 +36,7 @@ router.post("/", async (req: AuthRequest, res: Response) => {
       .json({ error: "Name, login, and password are required" });
   }
 
-  // Check login uniqueness across Admin + Organization
+  // Check login uniqueness across Admin + Organization (including soft-deleted)
   const existingAdmin = await prisma.admin.findUnique({ where: { login } });
   if (existingAdmin)
     return res.status(400).json({ error: "Login already exists" });
@@ -55,10 +59,7 @@ router.post("/", async (req: AuthRequest, res: Response) => {
           }
         : undefined,
     },
-    include: {
-      branches: { orderBy: { name: "asc" } },
-      bot: { select: { id: true, name: true, username: true } },
-    },
+    include: ORG_INCLUDE,
   });
 
   // Assign bot if provided
@@ -69,13 +70,9 @@ router.post("/", async (req: AuthRequest, res: Response) => {
     });
   }
 
-  // Re-fetch with bot included
   const result = await prisma.organization.findUnique({
     where: { id: org.id },
-    include: {
-      branches: { orderBy: { name: "asc" } },
-      bot: { select: { id: true, name: true, username: true } },
-    },
+    include: ORG_INCLUDE,
   });
 
   return res.status(201).json(result);
@@ -85,10 +82,7 @@ router.post("/", async (req: AuthRequest, res: Response) => {
 router.get("/:id", async (req: AuthRequest, res: Response) => {
   const org = await prisma.organization.findUnique({
     where: { id: req.params.id },
-    include: {
-      branches: { orderBy: { name: "asc" } },
-      bot: { select: { id: true, name: true, username: true } },
-    },
+    include: ORG_INCLUDE,
   });
   if (!org) return res.status(404).json({ error: "Not found" });
   return res.json(org);
@@ -106,23 +100,48 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
   const org = await prisma.organization.update({
     where: { id: req.params.id },
     data: updateData,
-    include: {
-      branches: { orderBy: { name: "asc" } },
-      bot: { select: { id: true, name: true, username: true } },
-    },
+    include: ORG_INCLUDE,
   });
   return res.json(org);
 });
 
-// DELETE /api/organizations/:id
+// DELETE /api/organizations/:id — soft delete
 router.delete("/:id", async (req: AuthRequest, res: Response) => {
-  // Unlink bot first
+  const org = await prisma.organization.findUnique({
+    where: { id: req.params.id },
+  });
+  if (!org) return res.status(404).json({ error: "Not found" });
+
+  // Unlink bot so it becomes available again
   await prisma.bot.updateMany({
     where: { organizationId: req.params.id },
     data: { organizationId: null },
   });
-  await prisma.organization.delete({ where: { id: req.params.id } });
+
+  await prisma.organization.update({
+    where: { id: req.params.id },
+    data: { deletedAt: new Date(), isActive: false },
+  });
+
   return res.json({ ok: true });
+});
+
+// POST /api/organizations/:id/restore — undo soft delete
+router.post("/:id/restore", async (req: AuthRequest, res: Response) => {
+  const org = await prisma.organization.findUnique({
+    where: { id: req.params.id },
+  });
+  if (!org) return res.status(404).json({ error: "Not found" });
+  if (!org.deletedAt)
+    return res.status(400).json({ error: "Organization is not deleted" });
+
+  const restored = await prisma.organization.update({
+    where: { id: req.params.id },
+    data: { deletedAt: null, isActive: true },
+    include: ORG_INCLUDE,
+  });
+
+  return res.json(restored);
 });
 
 // PUT /api/organizations/:id/bot — assign a bot
@@ -143,10 +162,7 @@ router.put("/:id/bot", async (req: AuthRequest, res: Response) => {
 
   const org = await prisma.organization.findUnique({
     where: { id: req.params.id },
-    include: {
-      branches: { orderBy: { name: "asc" } },
-      bot: { select: { id: true, name: true, username: true } },
-    },
+    include: ORG_INCLUDE,
   });
   return res.json(org);
 });

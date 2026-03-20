@@ -13,6 +13,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { botsApi, questionsApi } from "../api";
 import toast from "react-hot-toast";
+import { useT } from "../i18n";
 import { useConfirm } from "../components/ConfirmModal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -214,6 +215,7 @@ function QuestionModal({
   onSave: (q: Question) => void;
   onClose: () => void;
 }) {
+  const { t } = useT();
   const isEdit = mode === "edit";
   const isRequired = !!question?.isRequired;
   const isPhone = question?.fieldKey === "phone";
@@ -316,11 +318,11 @@ function QuestionModal({
   async function handleSave() {
     if (!canSave) {
       if (hasNoText) {
-        toast.error("Add question text in at least one language");
+        toast.error(t("playground.addTextFirst"));
         return;
       }
       if (!hasEnoughOpts) {
-        toast.error("Add at least one answer option");
+        toast.error(t("playground.addOptionFirst"));
         return;
       }
     }
@@ -368,10 +370,10 @@ function QuestionModal({
         ? await questionsApi.update(question!.id, payload)
         : await questionsApi.create(payload);
       onSave(saved);
-      toast.success(isEdit ? "Question saved" : "Question added");
+      toast.success(isEdit ? t("playground.questionSaved") : t("playground.questionAdded"));
       onClose();
     } catch (err: any) {
-      toast.error(err?.response?.data?.error || "Failed to save");
+      toast.error(err?.response?.data?.error || t("playground.failedToSave"));
     }
     setSaving(false);
   }
@@ -400,7 +402,7 @@ function QuestionModal({
       };
       onSave(updatedQ);
     } catch (err: any) {
-      toast.error(err?.response?.data?.error || "Failed to toggle option");
+      toast.error(err?.response?.data?.error || t("playground.failedToToggle"));
     }
     setTogglingOption(null);
   }
@@ -423,7 +425,7 @@ function QuestionModal({
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label={isEdit ? "Edit question" : "Create question"}
+      aria-label={isEdit ? t("playground.editQuestion") : t("playground.createQuestion")}
     >
       <div
         className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[92dvh] sm:max-h-[88vh]"
@@ -436,11 +438,11 @@ function QuestionModal({
               <h2 className="text-sm font-bold text-gray-900 leading-snug">
                 {isEdit
                   ? isRequired
-                    ? "Edit required question"
-                    : "Edit question"
+                    ? t("playground.editRequiredQuestion")
+                    : t("playground.editQuestion")
                   : isBranchCreate
-                    ? "Add follow-up question"
-                    : "Add question"}
+                    ? t("playground.addQuestion")
+                    : t("playground.addQuestion")}
               </h2>
               {isBranchCreate && parentOptionLabel && (
                 <p className="text-xs text-violet-600 mt-0.5 truncate">
@@ -817,7 +819,7 @@ function QuestionModal({
             disabled={saving || !canSave}
             className="btn-primary text-sm py-2 px-5 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {saving ? "Saving…" : isEdit ? "Save changes" : "Add question"}
+            {saving ? t("common.saving") : isEdit ? t("playground.saveChanges") : t("playground.addQuestion")}
           </button>
         </div>
       </div>
@@ -852,6 +854,7 @@ function BranchSection({
   optionLabel: string;
   depth: number;
 }) {
+  const { t } = useT();
   const [showCreate, setShowCreate] = useState(false);
 
   const branchQs = allQuestions
@@ -871,7 +874,7 @@ function BranchSection({
       onUpdate({ ...q, branchOrder: swapIdx });
       onUpdate({ ...sibling, branchOrder: idx });
     } catch {
-      toast.error("Failed to reorder");
+      toast.error(t("playground.failedToReorder"));
     }
   }
 
@@ -1097,6 +1100,7 @@ function QuestionCard({
   isFirst?: boolean;
   isLast?: boolean;
 }) {
+  const { t } = useT();
   const [showEdit, setShowEdit] = useState(false);
   const { confirm, element: confirmEl } = useConfirm();
   const meta = TYPE_META[question.type];
@@ -1121,9 +1125,9 @@ function QuestionCard({
     try {
       await questionsApi.delete(question.id);
       onDelete(question.id);
-      toast.success("Deleted");
+      toast.success(t("playground.questionDeleted"));
     } catch (err: any) {
-      toast.error(err?.response?.data?.error || "Failed to delete");
+      toast.error(err?.response?.data?.error || t("playground.failedToDelete"));
     }
   }
 
@@ -1319,6 +1323,7 @@ function SectionHeader({
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export const PlaygroundPage: React.FC = () => {
+  const { t } = useT();
   const [bots, setBots] = useState<any[]>([]);
   const [selectedBotId, setSelectedBotId] = useState("");
   const [allQuestions, setAllQuestions] = useState<Question[]>([]);
@@ -1404,7 +1409,7 @@ export const PlaygroundPage: React.FC = () => {
       updateQuestion({ ...q, order: swapIdx });
       updateQuestion({ ...sibling, order: idx });
     } catch {
-      toast.error("Failed to reorder");
+      toast.error(t("playground.failedToReorder"));
     }
   }
 
@@ -1421,7 +1426,7 @@ export const PlaygroundPage: React.FC = () => {
       updateQuestion({ ...q, order: swapIdx });
       updateQuestion({ ...sibling, order: idx });
     } catch {
-      toast.error("Failed to reorder");
+      toast.error(t("playground.failedToReorder"));
     }
   }
 
@@ -1505,9 +1510,9 @@ export const PlaygroundPage: React.FC = () => {
         {!loading && selectedBotId && (
           <div className="space-y-8">
             {/* ── Required questions ── */}
-            <section aria-label="Required questions">
+            <section aria-label={t("playground.requiredQuestions")}>
               <SectionHeader
-                title="Required questions"
+                title={t("playground.requiredQuestions")}
                 note="Always asked first · cannot be removed"
               />
               <div className="space-y-2">
@@ -1533,10 +1538,10 @@ export const PlaygroundPage: React.FC = () => {
             </section>
 
             {/* ── Custom questions ── */}
-            <section aria-label="Additional questions">
+            <section aria-label={t("playground.additionalQuestions")}>
               <SectionHeader
-                title="Additional questions"
-                note="Asked after required questions"
+                title={t("playground.additionalQuestions")}
+                note={t("playground.additionalNote")}
               />
 
               {customQuestions.length === 0 ? (
