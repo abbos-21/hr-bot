@@ -79,9 +79,14 @@ export const Sidebar: React.FC = () => {
 
   return (
     <aside className="w-64 bg-gray-900 text-white min-h-screen flex flex-col">
-      <div className="p-5 border-b border-gray-700">
-        <h1 className="text-lg font-bold">🎯 HR Recruitment</h1>
-        <p className="text-xs text-gray-400 mt-1">{t("nav.adminPanel")}</p>
+      <div className="p-5 border-b border-gray-700 flex justify-center">
+        <div className="bg-white px-4 py-2 w-full">
+          <img
+            src="/logo.png"
+            alt="HR Base"
+            className="h-16 w-full object-cover"
+          />
+        </div>
       </div>
 
       <nav className="flex-1 p-4 space-y-1">

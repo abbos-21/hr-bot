@@ -29,9 +29,13 @@ export const LoginPage: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-900 to-gray-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="text-5xl mb-4">🎯</div>
-          <h1 className="text-2xl font-bold text-white">{t("login.title")}</h1>
-          <p className="text-blue-300 mt-1">{t("login.subtitle")}</p>
+          <div className="inline-block bg-white px-4 py-2 mb-4">
+            <img
+              src="/logo.png"
+              alt="HR Base"
+              className="h-24 object-cover w-64"
+            />
+          </div>
         </div>
         <div className="card p-8">
           <h2 className="text-xl font-semibold text-gray-800 mb-6">

@@ -76,13 +76,7 @@ export const questionsApi = {
   reorder: (questions: { id: string; order: number }[]) =>
     api.put("/questions/batch/reorder", { questions }).then((r) => r.data),
   reorderBranch: (questions: { id: string; branchOrder: number }[]) =>
-    Promise.all(
-      questions.map((q) =>
-        api
-          .put(`/questions/${q.id}`, { branchOrder: q.branchOrder })
-          .then((r: any) => r.data),
-      ),
-    ),
+    api.put("/questions/batch/reorder", { questions }).then((r) => r.data),
   toggleOption: (questionId: string, optionId: string, isActive: boolean) =>
     api
       .put(`/questions/${questionId}/options/${optionId}`, { isActive })

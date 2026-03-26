@@ -152,12 +152,6 @@ router.post("/:candidateId", async (req: AuthRequest, res: Response) => {
   });
   if (!candidate) return res.status(404).json({ error: "Candidate not found" });
 
-  if (candidate.status === "incomplete") {
-    return res
-      .status(400)
-      .json({ error: "Cannot message candidate with incomplete status" });
-  }
-
   const msgType = type || "text";
   if (msgType === "text" && !text) {
     return res.status(400).json({ error: "text required for text message" });
@@ -216,12 +210,6 @@ router.post(
     });
     if (!candidate)
       return res.status(404).json({ error: "Candidate not found" });
-
-    if (candidate.status === "incomplete") {
-      return res
-        .status(400)
-        .json({ error: "Cannot message candidate with incomplete status" });
-    }
 
     const localPath = req.file.path;
     const fileName = req.file.originalname;

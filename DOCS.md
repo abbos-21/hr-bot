@@ -126,12 +126,9 @@ Each bot can have multiple languages. The first added language or the one marked
 |-----|-----------|
 | `welcome` | Language selection prompt (when >1 language) |
 | `survey_complete` | After the last question is answered |
-| `answer_saved` | Generic answer acknowledgment |
 | `invalid_option` | User typed text when a choice was expected |
 | `upload_file` | Prompt to send file/photo for attachment questions |
 | `please_send_file` | User sent text when a file was expected |
-| `please_send_photo` | Prompt for profile photo |
-| `message_received` | Prefix before forwarded admin messages |
 | `invalid_date_format` | Birth date not in DD.MM.YYYY format |
 | `invalid_date_value` | Birth date out of range (14-80 years) |
 | `phone_use_button` | User typed text instead of using the phone share button |
@@ -203,7 +200,7 @@ Branch questions have their own ordering via `branchOrder`.
 ### 3.5 Per-Question Messages
 
 Each question translation can have:
-- `successMessage`: Shown after a valid answer (overrides generic `answer_saved`)
+- `successMessage`: Shown after a valid answer
 - `errorMessage`: Shown on validation failure (overrides generic error messages)
 - `phoneButtonText`: Label for the phone sharing button
 

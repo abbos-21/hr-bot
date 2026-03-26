@@ -252,11 +252,6 @@ export const CandidateDetailPage: React.FC = () => {
       {/* Chat Tab */}
       {tab === "chat" && (
         <div className="flex flex-col h-[calc(100vh-280px)] card">
-          {candidate.status === "incomplete" && (
-            <div className="p-3 bg-yellow-50 border-b border-yellow-200 text-sm text-yellow-700">
-              {t("candidates.panel.incompleteWarning")}
-            </div>
-          )}
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {messages.length === 0 ? (
               <div className="text-center text-gray-400 py-8">
@@ -332,19 +327,18 @@ export const CandidateDetailPage: React.FC = () => {
           </div>
 
           {/* Message input */}
-          {candidate.status !== "incomplete" && (
-            <div className="p-4 border-t border-gray-200">
-              <div className="flex gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleSendFile(file);
-                    e.target.value = "";
-                  }}
-                />
+          <div className="p-4 border-t border-gray-200">
+            <div className="flex gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleSendFile(file);
+                  e.target.value = "";
+                }}
+              />
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
@@ -372,7 +366,6 @@ export const CandidateDetailPage: React.FC = () => {
                 </button>
               </div>
             </div>
-          )}
         </div>
       )}
 

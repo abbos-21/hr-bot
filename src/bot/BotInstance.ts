@@ -322,12 +322,14 @@ export class BotInstance {
     lang: string,
     telegramId: string,
   ): Promise<void> {
-    // One candidate per (bot, telegram user) — no job concept
-    let candidate = await prisma.candidate.findUnique({
-      where: { botId_telegramId: { botId, telegramId } },
+    // Find the most recent incomplete application for this user, if any
+    let candidate = await prisma.candidate.findFirst({
+      where: { botId, telegramId, status: "incomplete" },
+      orderBy: { updatedAt: "desc" },
     });
 
     if (!candidate) {
+      // No incomplete application — start a fresh one (allows multiple submissions)
       const queue = await this.buildInitialQueue(botId);
       candidate = await prisma.candidate.create({
         data: {
@@ -344,9 +346,6 @@ export class BotInstance {
         type: "NEW_APPLICATION",
         payload: { candidateId: candidate.id, botId },
       });
-    } else if (candidate.status !== "incomplete") {
-      await ctx.reply("You have already submitted your application.");
-      return;
     } else {
       // Re-init queue if missing (in case bot was restarted mid-survey)
       const updateData: any = { lang, lastActivity: new Date() };
@@ -478,23 +477,19 @@ export class BotInstance {
         parse_mode: "MarkdownV2",
       });
     } else if (question.type === "attachment") {
-      const hint =
-        question.fieldKey === "profilePhoto"
-          ? await this.getTranslation(
-              botId,
-              lang,
-              "please_send_photo",
-              "📸 Please send your profile photo.",
-            )
-          : await this.getTranslation(
-              botId,
-              lang,
-              "upload_file",
-              "📎 Please send a file or photo.",
-            );
-      await ctx.reply(`${questionText}\n\n${this.escapeMd(hint)}`, {
-        parse_mode: "MarkdownV2",
-      });
+      if (question.fieldKey === "profilePhoto") {
+        await ctx.reply(questionText, { parse_mode: "MarkdownV2" });
+      } else {
+        const hint = await this.getTranslation(
+          botId,
+          lang,
+          "upload_file",
+          "📎 Please send a file or photo.",
+        );
+        await ctx.reply(`${questionText}\n\n${this.escapeMd(hint)}`, {
+          parse_mode: "MarkdownV2",
+        });
+      }
     } else if (question.fieldKey === "phone") {
       const buttonLabel =
         translation.phoneButtonText ||

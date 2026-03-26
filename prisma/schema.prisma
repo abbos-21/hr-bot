@@ -184,7 +184,7 @@ model Candidate {
   files    CandidateFile[]
   meetings Meeting[]
 
-  @@unique([botId, telegramId])
+  @@index([botId, telegramId])
 }
 
 model Answer {

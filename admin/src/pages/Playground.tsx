@@ -867,9 +867,9 @@ function BranchSection({
     if (swapIdx < 0 || swapIdx >= branchQs.length) return;
     const sibling = branchQs[swapIdx];
     try {
-      await Promise.all([
-        questionsApi.update(q.id, { branchOrder: swapIdx }),
-        questionsApi.update(sibling.id, { branchOrder: idx }),
+      await questionsApi.reorderBranch([
+        { id: q.id, branchOrder: swapIdx },
+        { id: sibling.id, branchOrder: idx },
       ]);
       onUpdate({ ...q, branchOrder: swapIdx });
       onUpdate({ ...sibling, branchOrder: idx });
@@ -1402,9 +1402,9 @@ export const PlaygroundPage: React.FC = () => {
     if (swapIdx < 0 || swapIdx >= requiredQuestions.length) return;
     const sibling = requiredQuestions[swapIdx];
     try {
-      await Promise.all([
-        questionsApi.update(q.id, { order: swapIdx }),
-        questionsApi.update(sibling.id, { order: idx }),
+      await questionsApi.reorder([
+        { id: q.id, order: swapIdx },
+        { id: sibling.id, order: idx },
       ]);
       updateQuestion({ ...q, order: swapIdx });
       updateQuestion({ ...sibling, order: idx });
@@ -1419,9 +1419,9 @@ export const PlaygroundPage: React.FC = () => {
     if (swapIdx < 0 || swapIdx >= customQuestions.length) return;
     const sibling = customQuestions[swapIdx];
     try {
-      await Promise.all([
-        questionsApi.update(q.id, { order: swapIdx }),
-        questionsApi.update(sibling.id, { order: idx }),
+      await questionsApi.reorder([
+        { id: q.id, order: swapIdx },
+        { id: sibling.id, order: idx },
       ]);
       updateQuestion({ ...q, order: swapIdx });
       updateQuestion({ ...sibling, order: idx });

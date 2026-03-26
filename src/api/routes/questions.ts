@@ -259,8 +259,14 @@ router.put("/batch/reorder", async (req: AuthRequest, res: Response) => {
   if (!Array.isArray(questions))
     return res.status(400).json({ error: "Invalid" });
   await prisma.$transaction(
-    questions.map((q: { id: string; order: number }) =>
-      prisma.question.update({ where: { id: q.id }, data: { order: q.order } }),
+    questions.map((q: { id: string; order: number; branchOrder?: number }) =>
+      prisma.question.update({
+        where: { id: q.id },
+        data: {
+          ...(q.order !== undefined && { order: q.order }),
+          ...(q.branchOrder !== undefined && { branchOrder: q.branchOrder }),
+        },
+      }),
     ),
   );
   return res.json({ success: true });

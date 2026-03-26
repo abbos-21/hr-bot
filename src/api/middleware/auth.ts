@@ -58,7 +58,8 @@ export async function getBotFilter(req: AuthRequest): Promise<{ botId?: string }
       botId = org?.bot?.id;
       if (botId) req.admin.botId = botId;
     }
-    if (botId) return { botId };
+    // If org has no bot yet, return a non-matching id so the query returns nothing
+    return { botId: botId ?? "none" };
   }
   return {};
 }

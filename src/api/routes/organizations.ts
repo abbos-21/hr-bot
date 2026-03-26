@@ -6,6 +6,7 @@ import {
   superAdminMiddleware,
   AuthRequest,
 } from "../middleware/auth";
+import { ensureBranchQuestion } from "./branches";
 
 const router = Router();
 router.use(authMiddleware);
@@ -68,6 +69,8 @@ router.post("/", async (req: AuthRequest, res: Response) => {
       where: { id: botId },
       data: { organizationId: org.id },
     });
+    // Sync branch question options for existing branches
+    await ensureBranchQuestion(org.id);
   }
 
   const result = await prisma.organization.findUnique({
@@ -159,6 +162,9 @@ router.put("/:id/bot", async (req: AuthRequest, res: Response) => {
     where: { id: botId },
     data: { organizationId: req.params.id },
   });
+
+  // Sync branch question options for existing branches
+  await ensureBranchQuestion(req.params.id);
 
   const org = await prisma.organization.findUnique({
     where: { id: req.params.id },

@@ -6,10 +6,11 @@ const router = Router();
 router.use(authMiddleware);
 
 /**
- * Find or create the branch question for an organization's bot.
+ * Find or create the branch question for an organization's bot,
+ * then ensure every active branch has a corresponding QuestionOption.
  * Returns the question ID, or null if no bot is assigned.
  */
-async function ensureBranchQuestion(organizationId: string): Promise<string | null> {
+export async function ensureBranchQuestion(organizationId: string): Promise<string | null> {
   const org = await prisma.organization.findUnique({
     where: { id: organizationId },
     include: { bot: { select: { id: true, defaultLang: true, languages: true } } },
@@ -18,7 +19,7 @@ async function ensureBranchQuestion(organizationId: string): Promise<string | nu
 
   const botId = org.bot.id;
 
-  // Check if branch question already exists
+  // ── 1. Ensure branch question exists ──────────────────────────────────────
   let branchQ = await prisma.question.findFirst({
     where: { botId, fieldKey: "branch", isRequired: true },
   });
@@ -53,6 +54,45 @@ async function ensureBranchQuestion(organizationId: string): Promise<string | nu
         translations: { create: translations },
       },
     });
+  }
+
+  // ── 2. Sync options: create missing options for active branches ────────────
+  const activeBranches = await prisma.branch.findMany({
+    where: { organizationId, isActive: true },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+
+  const existingOptions = await prisma.questionOption.findMany({
+    where: { questionId: branchQ.id, branchId: { not: null } },
+    select: { branchId: true },
+  });
+  const coveredBranchIds = new Set(existingOptions.map((o) => o.branchId));
+
+  const missingBranches = activeBranches.filter((b) => !coveredBranchIds.has(b.id));
+  if (missingBranches.length > 0) {
+    const maxOpt = await prisma.questionOption.findFirst({
+      where: { questionId: branchQ.id },
+      orderBy: { order: "desc" },
+      select: { order: true },
+    });
+    let nextOrder = (maxOpt?.order ?? -1) + 1;
+
+    const langs = org.bot.languages;
+    for (const branch of missingBranches) {
+      await prisma.questionOption.create({
+        data: {
+          questionId: branchQ.id,
+          order: nextOrder++,
+          branchId: branch.id,
+          translations: {
+            create: langs.length > 0
+              ? langs.map((l: any) => ({ lang: l.code, text: branch.name }))
+              : [{ lang: "uz", text: branch.name }],
+          },
+        },
+      });
+    }
   }
 
   return branchQ.id;
