@@ -290,7 +290,7 @@ const KanbanColumn: React.FC<{
   };
 
   return (
-    <div className="flex flex-col w-72 flex-shrink-0">
+    <div className="flex flex-col w-72 flex-shrink-0 h-full">
       <div className="flex items-center gap-2 mb-3 px-1">
         <span className={`w-2 h-2 rounded-full ${column.dot}`} />
         {editing ? (
@@ -372,7 +372,7 @@ const KanbanColumn: React.FC<{
       </div>
       <div
         ref={setNodeRef}
-        className={`flex-1 min-h-[120px] rounded-xl p-2 space-y-2 transition-colors duration-150 ${isOver ? "bg-blue-100 ring-2 ring-blue-300" : column.color}`}
+        className={`flex-1 min-h-[120px] rounded-xl p-2 space-y-2 overflow-y-auto transition-colors duration-150 ${isOver ? "bg-blue-100 ring-2 ring-blue-300" : column.color}`}
       >
         {candidates.map((c) => (
           <CandidateCard
@@ -416,7 +416,7 @@ const InProgressColumn: React.FC<{
   }, [menuOpen]);
 
   return (
-    <div className="flex flex-col w-72 flex-shrink-0">
+    <div className="flex flex-col w-72 flex-shrink-0 h-full">
       <div className="flex items-center gap-2 mb-3 px-1">
         <span className="text-sm leading-none">⏳</span>
         <span className="flex-1 text-xs font-semibold text-amber-600 uppercase tracking-wider">
@@ -449,7 +449,7 @@ const InProgressColumn: React.FC<{
       </div>
       <div
         ref={setNodeRef}
-        className={`flex-1 min-h-[120px] rounded-xl p-2 space-y-2 transition-colors duration-150 ${isOver ? "bg-blue-100 ring-2 ring-blue-300" : "bg-amber-50"}`}
+        className={`flex-1 min-h-[120px] rounded-xl p-2 space-y-2 overflow-y-auto transition-colors duration-150 ${isOver ? "bg-blue-100 ring-2 ring-blue-300" : "bg-amber-50"}`}
       >
         {candidates.length === 0 && (
           <div className="text-center text-xs py-8 text-amber-200 pointer-events-none">
@@ -582,7 +582,7 @@ const UnassignedColumn: React.FC<{
   }, [menuOpen]);
 
   return (
-    <div className="flex flex-col w-72 flex-shrink-0">
+    <div className="flex flex-col w-72 flex-shrink-0 h-full">
       <div className="flex items-center gap-2 mb-3 px-1">
         <span className="w-2 h-2 rounded-full bg-gray-300" />
         <span className="flex-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">
@@ -615,7 +615,7 @@ const UnassignedColumn: React.FC<{
       </div>
       <div
         ref={setNodeRef}
-        className={`flex-1 min-h-[120px] rounded-xl p-2 space-y-2 transition-colors ${isOver ? "bg-blue-100 ring-2 ring-blue-300" : "bg-gray-100"}`}
+        className={`flex-1 min-h-[120px] rounded-xl p-2 space-y-2 overflow-y-auto transition-colors ${isOver ? "bg-blue-100 ring-2 ring-blue-300" : "bg-gray-100"}`}
       >
         {candidates.map((c) => (
           <CandidateCard
@@ -706,7 +706,7 @@ const ArchivedKanbanColumn: React.FC<{
   }, [menuOpen]);
 
   return (
-    <div className="flex flex-col w-72 flex-shrink-0">
+    <div className="flex flex-col w-72 flex-shrink-0 h-full">
       <div className="flex items-center gap-2 mb-3 px-1">
         <span className={`w-2 h-2 rounded-full ${column.dot} opacity-50`} />
         <span className="flex-1 text-xs font-semibold text-gray-400 uppercase tracking-wider truncate">
@@ -748,7 +748,7 @@ const ArchivedKanbanColumn: React.FC<{
         </div>
       </div>
       <div
-        className={`flex-1 min-h-[120px] rounded-xl p-2 space-y-2 ${column.color} opacity-80`}
+        className={`flex-1 min-h-[120px] rounded-xl p-2 space-y-2 overflow-y-auto ${column.color} opacity-80`}
       >
         {candidates.map((c) => (
           <ArchivedCandidateCard
@@ -1496,7 +1496,7 @@ export const CandidatesPage: React.FC = () => {
           ) : (
             <div className="flex-1 overflow-x-auto overflow-y-hidden">
               <div
-                className="flex gap-5 p-6 h-full items-start"
+                className="flex gap-5 p-6 h-full items-stretch"
                 style={{ minWidth: "max-content" }}
               >
                 {archivedColumns.map((col) => (
@@ -1522,7 +1522,7 @@ export const CandidatesPage: React.FC = () => {
           >
             <div className="flex-1 overflow-x-auto overflow-y-hidden">
               <div
-                className="flex gap-5 p-6 h-full items-start"
+                className="flex gap-5 p-6 h-full items-stretch"
                 style={{ minWidth: "max-content" }}
               >
                 <InProgressColumn

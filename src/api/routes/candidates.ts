@@ -59,7 +59,7 @@ router.get("/", async (req: AuthRequest, res: Response) => {
       include: {
         _count: { select: { messages: true, files: true, comments: true } },
       },
-      orderBy: { lastActivity: "desc" },
+      orderBy: { createdAt: "desc" },
       skip,
       take: limitNum,
     }),
