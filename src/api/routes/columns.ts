@@ -61,22 +61,6 @@ router.post("/", async (req: AuthRequest, res: Response) => {
   return res.status(201).json(col);
 });
 
-// PUT /api/columns/:id  — rename or recolor
-router.put("/:id", async (req: AuthRequest, res: Response) => {
-  const { name, color, dot, order } = req.body;
-  const col = await prisma.kanbanColumn.update({
-    where: { id: req.params.id },
-    data: {
-      ...(name !== undefined && { name }),
-      ...(color !== undefined && { color }),
-      ...(dot !== undefined && { dot }),
-      ...(order !== undefined && { order }),
-      updatedAt: new Date(),
-    },
-  });
-  return res.json(col);
-});
-
 // PUT /api/columns/reorder  — [{id, order}]
 router.put("/reorder", async (req: AuthRequest, res: Response) => {
   const { columns } = req.body;
@@ -91,6 +75,22 @@ router.put("/reorder", async (req: AuthRequest, res: Response) => {
     ),
   );
   return res.json({ success: true });
+});
+
+// PUT /api/columns/:id  — rename or recolor
+router.put("/:id", async (req: AuthRequest, res: Response) => {
+  const { name, color, dot, order } = req.body;
+  const col = await prisma.kanbanColumn.update({
+    where: { id: req.params.id },
+    data: {
+      ...(name !== undefined && { name }),
+      ...(color !== undefined && { color }),
+      ...(dot !== undefined && { dot }),
+      ...(order !== undefined && { order }),
+      updatedAt: new Date(),
+    },
+  });
+  return res.json(col);
 });
 
 // POST /api/columns/:id/archive

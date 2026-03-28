@@ -88,7 +88,10 @@ const BroadcastModal: React.FC<{
           <p
             className="text-xs text-gray-400 mt-1"
             dangerouslySetInnerHTML={{
-              __html: t("pipeline.notifyDesc", { count: candidateCount, name: columnName }),
+              __html: t("pipeline.notifyDesc", {
+                count: candidateCount,
+                name: columnName,
+              }),
             }}
           />
         </div>
@@ -258,6 +261,8 @@ const KanbanColumn: React.FC<{
   onDelete: (id: string) => void;
   onRename: (id: string, name: string) => void;
   onBroadcast: (col: any, candidates: any[]) => void;
+  onMoveLeft?: () => void;
+  onMoveRight?: () => void;
 }> = ({
   column,
   candidates,
@@ -266,6 +271,8 @@ const KanbanColumn: React.FC<{
   onDelete,
   onRename,
   onBroadcast,
+  onMoveLeft,
+  onMoveRight,
 }) => {
   const { t } = useT();
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
@@ -320,6 +327,22 @@ const KanbanColumn: React.FC<{
         <span className="text-xs font-bold text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
           {candidates.length}
         </span>
+        <button
+          onClick={onMoveLeft}
+          disabled={!onMoveLeft}
+          title="Move left"
+          className="w-5 h-5 flex items-center justify-center rounded text-gray-300 hover:text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-20 disabled:cursor-not-allowed text-xl"
+        >
+          ‹
+        </button>
+        <button
+          onClick={onMoveRight}
+          disabled={!onMoveRight}
+          title="Move right"
+          className="w-5 h-5 flex items-center justify-center rounded text-gray-300 hover:text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-20 disabled:cursor-not-allowed text-xl"
+        >
+          ›
+        </button>
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setMenuOpen((o) => !o)}
@@ -1005,7 +1028,12 @@ export const CandidatesPage: React.FC = () => {
 
   const handleAddColumn = async (name: string, color: string, dot: string) => {
     try {
-      const col = await columnsApi.create({ name, color, dot, botId: filters.botId || undefined });
+      const col = await columnsApi.create({
+        name,
+        color,
+        dot,
+        botId: filters.botId || undefined,
+      });
       setColumns((prev) => [...prev, col]);
       setAddingColumn(false);
       toast.success(t("pipeline.stageCreated", { name }));
@@ -1055,12 +1083,36 @@ export const CandidatesPage: React.FC = () => {
     setColumns((prev) => prev.map((c) => (c.id === id ? { ...c, name } : c)));
   };
 
+  const handleMoveColumn = async (id: string, direction: "left" | "right") => {
+    const idx = columns.findIndex((c) => c.id === id);
+    if (idx === -1) return;
+    const newIdx = direction === "left" ? idx - 1 : idx + 1;
+    if (newIdx < 0 || newIdx >= columns.length) return;
+    const newCols = [...columns];
+    [newCols[idx], newCols[newIdx]] = [newCols[newIdx], newCols[idx]];
+    const updated = newCols.map((c, i) => ({ ...c, order: i }));
+    setColumns(updated);
+    try {
+      await columnsApi.reorder(
+        updated.map((c) => ({ id: c.id, order: c.order })),
+      );
+    } catch {
+      toast.error("Failed to reorder columns");
+      fetchAll();
+    }
+  };
+
   const fetchArchived = async () => {
     setArchivedLoading(true);
     try {
       const [cols, result] = await Promise.all([
         columnsApi.archived(filters.botId || undefined),
-        candidatesApi.list({ status: "archived", limit: 500, page: 1, ...(filters.botId && { botId: filters.botId }) }),
+        candidatesApi.list({
+          status: "archived",
+          limit: 500,
+          page: 1,
+          ...(filters.botId && { botId: filters.botId }),
+        }),
       ]);
       setArchivedColumns(cols);
       setArchivedCandidates(result.candidates || []);
@@ -1547,7 +1599,7 @@ export const CandidatesPage: React.FC = () => {
                   }
                 />
 
-                {columns.map((col) => (
+                {columns.map((col, colIdx) => (
                   <KanbanColumn
                     key={col.id}
                     column={col}
@@ -1560,6 +1612,16 @@ export const CandidatesPage: React.FC = () => {
                     onRename={handleRenameColumn}
                     onBroadcast={(col, cands) =>
                       setBroadcast({ name: col.name, candidates: cands })
+                    }
+                    onMoveLeft={
+                      colIdx > 0
+                        ? () => handleMoveColumn(col.id, "left")
+                        : undefined
+                    }
+                    onMoveRight={
+                      colIdx < columns.length - 1
+                        ? () => handleMoveColumn(col.id, "right")
+                        : undefined
                     }
                   />
                 ))}
