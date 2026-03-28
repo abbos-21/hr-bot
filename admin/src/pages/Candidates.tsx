@@ -815,7 +815,7 @@ export const CandidatesPage: React.FC = () => {
     setLoading(true);
     try {
       const [cols, result, inc] = await Promise.all([
-        columnsApi.list(),
+        columnsApi.list(filters.botId || undefined),
         candidatesApi.list({
           status: "active",
           limit: 500,
@@ -1005,7 +1005,7 @@ export const CandidatesPage: React.FC = () => {
 
   const handleAddColumn = async (name: string, color: string, dot: string) => {
     try {
-      const col = await columnsApi.create({ name, color, dot });
+      const col = await columnsApi.create({ name, color, dot, botId: filters.botId || undefined });
       setColumns((prev) => [...prev, col]);
       setAddingColumn(false);
       toast.success(t("pipeline.stageCreated", { name }));
@@ -1059,8 +1059,8 @@ export const CandidatesPage: React.FC = () => {
     setArchivedLoading(true);
     try {
       const [cols, result] = await Promise.all([
-        columnsApi.archived(),
-        candidatesApi.list({ status: "archived", limit: 500, page: 1 }),
+        columnsApi.archived(filters.botId || undefined),
+        candidatesApi.list({ status: "archived", limit: 500, page: 1, ...(filters.botId && { botId: filters.botId }) }),
       ]);
       setArchivedColumns(cols);
       setArchivedCandidates(result.candidates || []);

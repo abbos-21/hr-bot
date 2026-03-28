@@ -218,8 +218,10 @@ export const branchesApi = {
 };
 
 export const columnsApi = {
-  list: () => api.get("/columns").then((r) => r.data),
-  archived: () => api.get("/columns/archived").then((r) => r.data),
+  list: (botId?: string) =>
+    api.get("/columns", { params: botId ? { botId } : {} }).then((r) => r.data),
+  archived: (botId?: string) =>
+    api.get("/columns/archived", { params: botId ? { botId } : {} }).then((r) => r.data),
   create: (data: any) => api.post("/columns", data).then((r) => r.data),
   update: (id: string, data: any) =>
     api.put(`/columns/${id}`, data).then((r) => r.data),

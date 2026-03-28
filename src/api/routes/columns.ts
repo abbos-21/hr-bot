@@ -1,23 +1,37 @@
 import { Router, Response } from "express";
 import prisma from "../../db";
-import { authMiddleware, AuthRequest } from "../middleware/auth";
+import { authMiddleware, AuthRequest, getBotFilter } from "../middleware/auth";
 
 const router = Router();
 router.use(authMiddleware);
 
-// GET /api/columns  — all active columns (ordered)
-router.get("/", async (_req: AuthRequest, res: Response) => {
+/** Resolves the botId to scope columns to.
+ *  - Org users: their assigned bot (from JWT / DB lookup)
+ *  - Admin users: explicit ?botId query param (required for scoping)
+ */
+async function getColumnBotId(req: AuthRequest): Promise<string | undefined> {
+  if (req.admin?.type === "organization") {
+    const filter = await getBotFilter(req);
+    return filter.botId !== "none" ? filter.botId : undefined;
+  }
+  return (req.query.botId as string) || (req.body?.botId as string) || undefined;
+}
+
+// GET /api/columns?botId=...
+router.get("/", async (req: AuthRequest, res: Response) => {
+  const botId = await getColumnBotId(req);
   const cols = await prisma.kanbanColumn.findMany({
-    where: { isArchived: false },
+    where: { isArchived: false, ...(botId ? { botId } : {}) },
     orderBy: { order: "asc" },
   });
   return res.json(cols);
 });
 
-// GET /api/columns/archived
-router.get("/archived", async (_req: AuthRequest, res: Response) => {
+// GET /api/columns/archived?botId=...
+router.get("/archived", async (req: AuthRequest, res: Response) => {
+  const botId = await getColumnBotId(req);
   const cols = await prisma.kanbanColumn.findMany({
-    where: { isArchived: true },
+    where: { isArchived: true, ...(botId ? { botId } : {}) },
     orderBy: { updatedAt: "desc" },
   });
   return res.json(cols);
@@ -27,11 +41,17 @@ router.get("/archived", async (_req: AuthRequest, res: Response) => {
 router.post("/", async (req: AuthRequest, res: Response) => {
   const { name, color, dot } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: "name required" });
+
+  const botId = await getColumnBotId(req);
+  if (!botId) return res.status(400).json({ error: "botId required" });
+
   const last = await prisma.kanbanColumn.findFirst({
+    where: { botId },
     orderBy: { order: "desc" },
   });
   const col = await prisma.kanbanColumn.create({
     data: {
+      botId,
       name: name.trim(),
       color: color || "bg-slate-50",
       dot: dot || "bg-slate-400",
@@ -73,12 +93,11 @@ router.put("/reorder", async (req: AuthRequest, res: Response) => {
   return res.json({ success: true });
 });
 
-// POST /api/columns/:id/archive  — archive the stage AND all candidates inside it
+// POST /api/columns/:id/archive
 router.post("/:id/archive", async (req: AuthRequest, res: Response) => {
-  // Archive every active candidate that belongs to this column
   await prisma.candidate.updateMany({
     where: { columnId: req.params.id, status: "active" },
-    data: { status: "archived" }, // keep columnId so restoring the stage can find them back
+    data: { status: "archived" },
   });
   const col = await prisma.kanbanColumn.update({
     where: { id: req.params.id },
@@ -87,9 +106,8 @@ router.post("/:id/archive", async (req: AuthRequest, res: Response) => {
   return res.json(col);
 });
 
-// POST /api/columns/:id/restore  — restore stage and all its archived candidates
+// POST /api/columns/:id/restore
 router.post("/:id/restore", async (req: AuthRequest, res: Response) => {
-  // Re-activate all archived candidates that still reference this column
   await prisma.candidate.updateMany({
     where: { columnId: req.params.id, status: "archived" },
     data: { status: "active" },
@@ -101,9 +119,7 @@ router.post("/:id/restore", async (req: AuthRequest, res: Response) => {
   return res.json(col);
 });
 
-// DELETE /api/columns/:id  — permanent delete
-// • Active column  → candidates move to Unassigned (status stays active, columnId cleared)
-// • Archived column → candidates are permanently deleted along with the column
+// DELETE /api/columns/:id
 router.delete("/:id", async (req: AuthRequest, res: Response) => {
   const col = await prisma.kanbanColumn.findUnique({
     where: { id: req.params.id },
@@ -111,10 +127,8 @@ router.delete("/:id", async (req: AuthRequest, res: Response) => {
   if (!col) return res.status(404).json({ error: "Column not found" });
 
   if (col.isArchived) {
-    // Hard-delete all candidates that were archived with this column
     await prisma.candidate.deleteMany({ where: { columnId: req.params.id } });
   } else {
-    // Move active candidates to Unassigned
     await prisma.candidate.updateMany({
       where: { columnId: req.params.id },
       data: { status: "active", columnId: null },

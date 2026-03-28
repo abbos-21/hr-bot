@@ -62,11 +62,12 @@ model Bot {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-  questions    Question[]
-  languages    BotLanguage[]
-  candidates   Candidate[]
-  messages2    BotMessage[]
+  organization   Organization?   @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  questions      Question[]
+  languages      BotLanguage[]
+  candidates     Candidate[]
+  messages2      BotMessage[]
+  kanbanColumns  KanbanColumn[]
 }
 
 model BotMessage {
@@ -262,6 +263,8 @@ model Meeting {
 
 model KanbanColumn {
   id         String   @id @default(cuid())
+  botId      String?
+  bot        Bot?     @relation(fields: [botId], references: [id], onDelete: Cascade)
   name       String
   color      String   @default("bg-slate-50")
   dot        String   @default("bg-slate-400")
