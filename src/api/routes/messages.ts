@@ -103,17 +103,24 @@ router.post("/broadcast", async (req: AuthRequest, res: Response) => {
     where: { id: { in: candidateIds } },
   });
 
+  // Track (botId:telegramId) pairs already sent so the same Telegram user
+  // doesn't receive multiple copies when they have more than one candidate
+  // record in the same column (allowed since multiple applications are enabled).
+  const telegramSent = new Set<string>();
+
   let sent = 0;
   let failed = 0;
   for (const candidate of candidates) {
     try {
       const botInstance = botManager.getInstance(candidate.botId);
       let telegramMsgId: number | undefined;
-      if (botInstance && candidate.telegramId) {
+      const telegramKey = `${candidate.botId}:${candidate.telegramId}`;
+      if (botInstance && candidate.telegramId && !telegramSent.has(telegramKey)) {
         telegramMsgId = await botInstance.sendMessageToCandidate(
           candidate.telegramId,
           { type: "text", text: text.trim() },
         );
+        telegramSent.add(telegramKey);
       }
       const message = await prisma.message.create({
         data: {
