@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -181,7 +181,7 @@ const CandidateCard: React.FC<{
   candidate: any;
   onClick: () => void;
   faded?: boolean;
-}> = ({ candidate, onClick, faded }) => {
+}> = React.memo(({ candidate, onClick, faded }) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: candidate.id, disabled: !!faded });
   const style = transform
@@ -249,7 +249,7 @@ const CandidateCard: React.FC<{
       )}
     </div>
   );
-};
+});
 
 // ─── Droppable column ─────────────────────────────────────────────────────────
 
@@ -297,7 +297,7 @@ const KanbanColumn: React.FC<{
   };
 
   return (
-    <div className="flex flex-col w-72 flex-shrink-0 h-full">
+    <div className="flex flex-col w-64 sm:w-72 flex-shrink-0 h-full">
       <div className="flex items-center gap-2 mb-3 px-1">
         <span className={`w-2 h-2 rounded-full ${column.dot}`} />
         {editing ? (
@@ -439,7 +439,7 @@ const InProgressColumn: React.FC<{
   }, [menuOpen]);
 
   return (
-    <div className="flex flex-col w-72 flex-shrink-0 h-full">
+    <div className="flex flex-col w-64 sm:w-72 flex-shrink-0 h-full">
       <div className="flex items-center gap-2 mb-3 px-1">
         <span className="text-sm leading-none">⏳</span>
         <span className="flex-1 text-xs font-semibold text-amber-600 uppercase tracking-wider">
@@ -528,7 +528,7 @@ const AddColumnForm: React.FC<{
   const [preset, setPreset] = useState(0);
 
   return (
-    <div className="w-72 flex-shrink-0 bg-white rounded-xl border-2 border-blue-200 p-4 space-y-3">
+    <div className="w-64 sm:w-72 flex-shrink-0 bg-white rounded-xl border-2 border-blue-200 p-4 space-y-3">
       <p className="text-sm font-semibold text-gray-700">New Stage</p>
       <input
         autoFocus
@@ -605,7 +605,7 @@ const UnassignedColumn: React.FC<{
   }, [menuOpen]);
 
   return (
-    <div className="flex flex-col w-72 flex-shrink-0 h-full">
+    <div className="flex flex-col w-64 sm:w-72 flex-shrink-0 h-full">
       <div className="flex items-center gap-2 mb-3 px-1">
         <span className="w-2 h-2 rounded-full bg-gray-300" />
         <span className="flex-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">
@@ -729,7 +729,7 @@ const ArchivedKanbanColumn: React.FC<{
   }, [menuOpen]);
 
   return (
-    <div className="flex flex-col w-72 flex-shrink-0 h-full">
+    <div className="flex flex-col w-64 sm:w-72 flex-shrink-0 h-full">
       <div className="flex items-center gap-2 mb-3 px-1">
         <span className={`w-2 h-2 rounded-full ${column.dot} opacity-50`} />
         <span className="flex-1 text-xs font-semibold text-gray-400 uppercase tracking-wider truncate">
@@ -834,8 +834,8 @@ export const CandidatesPage: React.FC = () => {
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
 
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
+  const fetchAll = useCallback(async (showLoader = true) => {
+    if (showLoader) setLoading(true);
     try {
       const [cols, result, inc] = await Promise.all([
         columnsApi.list(filters.botId || undefined),
@@ -861,8 +861,11 @@ export const CandidatesPage: React.FC = () => {
       setAllCandidates(result.candidates || []);
       setIncompletes(inc.candidates || []);
     } catch {}
-    setLoading(false);
+    if (showLoader) setLoading(false);
   }, [filters.botId, filters.questionId, filters.optionId]);
+
+  /** Silent refresh — no loading spinner, no UI interruption */
+  const refreshSilently = useCallback(() => fetchAll(false), [fetchAll]);
 
   useEffect(() => {
     fetchAll();
@@ -897,9 +900,9 @@ export const CandidatesPage: React.FC = () => {
   }, [filterPanelOpen]);
 
   useWebSocket({
-    NEW_APPLICATION: () => fetchAll(),
-    STATUS_CHANGE: () => fetchAll(),
-    CANDIDATE_UPDATE: () => fetchAll(),
+    NEW_APPLICATION: () => refreshSilently(),
+    STATUS_CHANGE: () => refreshSilently(),
+    CANDIDATE_UPDATE: () => refreshSilently(),
     NEW_MESSAGE: (payload) => {
       if (payload?.message?.direction !== "inbound") return;
       const { candidateId, unreadCount } = payload;
@@ -963,7 +966,7 @@ export const CandidatesPage: React.FC = () => {
         toast.success(t("pipeline.candidateHired"));
       } catch {
         toast.error(t("pipeline.broadcastFailed"));
-        fetchAll();
+        refreshSilently();
       }
       return;
     }
@@ -975,7 +978,7 @@ export const CandidatesPage: React.FC = () => {
         toast.success(t("pipeline.candidateArchived"));
       } catch {
         toast.error(t("pipeline.broadcastFailed"));
-        fetchAll();
+        refreshSilently();
       }
       return;
     }
@@ -999,7 +1002,7 @@ export const CandidatesPage: React.FC = () => {
         );
       } catch {
         toast.error(t("pipeline.broadcastFailed"));
-        fetchAll();
+        refreshSilently();
       }
       return;
     }
@@ -1022,7 +1025,7 @@ export const CandidatesPage: React.FC = () => {
       );
     } catch {
       toast.error(t("pipeline.broadcastFailed"));
-      fetchAll();
+      refreshSilently();
     }
   };
 
@@ -1098,7 +1101,7 @@ export const CandidatesPage: React.FC = () => {
       );
     } catch {
       toast.error("Failed to reorder columns");
-      fetchAll();
+      refreshSilently();
     }
   };
 
@@ -1134,7 +1137,7 @@ export const CandidatesPage: React.FC = () => {
       setArchivedCandidates((prev) =>
         prev.filter((c) => c.columnId !== col.id),
       );
-      fetchAll();
+      refreshSilently();
       toast.success(t("pipeline.stageRestored", { name: col.name }));
     } catch {
       toast.error(t("common.restore") + " failed");
@@ -1201,7 +1204,7 @@ export const CandidatesPage: React.FC = () => {
                 }
               : c,
           );
-        fetchAll();
+        refreshSilently();
         return prev;
       });
     } else {
@@ -1219,30 +1222,50 @@ export const CandidatesPage: React.FC = () => {
     }
   };
 
-  const visibleCandidates = allCandidates.filter((c) => {
-    if (!filters.search) return true;
+  const visibleCandidates = useMemo(() => {
+    if (!filters.search) return allCandidates;
     const q = filters.search.toLowerCase();
-    return (
-      (c.fullName || "").toLowerCase().includes(q) ||
-      (c.phone || "").includes(q) ||
-      (c.username || "").toLowerCase().includes(q)
+    return allCandidates.filter(
+      (c) =>
+        (c.fullName || "").toLowerCase().includes(q) ||
+        (c.phone || "").includes(q) ||
+        (c.username || "").toLowerCase().includes(q),
     );
-  });
+  }, [allCandidates, filters.search]);
 
-  const visibleInc = incompletes.filter((c) => {
-    if (!filters.search) return true;
+  const visibleInc = useMemo(() => {
+    if (!filters.search) return incompletes;
     const q = filters.search.toLowerCase();
-    return (
-      (c.fullName || "").toLowerCase().includes(q) ||
-      (c.username || "").toLowerCase().includes(q)
+    return incompletes.filter(
+      (c) =>
+        (c.fullName || "").toLowerCase().includes(q) ||
+        (c.username || "").toLowerCase().includes(q),
     );
-  });
+  }, [incompletes, filters.search]);
 
-  const uncolumned = visibleCandidates.filter((c) => !c.columnId);
-  const activeCandidate = activeId
-    ? allCandidates.find((c) => c.id === activeId) ||
-      incompletes.find((c) => c.id === activeId)
-    : null;
+  const uncolumned = useMemo(
+    () => visibleCandidates.filter((c) => !c.columnId),
+    [visibleCandidates],
+  );
+
+  /** Pre-group candidates by columnId to avoid O(columns × candidates) filtering in render */
+  const candidatesByColumn = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    for (const c of visibleCandidates) {
+      if (c.columnId) {
+        (map[c.columnId] ||= []).push(c);
+      }
+    }
+    return map;
+  }, [visibleCandidates]);
+  const activeCandidate = useMemo(
+    () =>
+      activeId
+        ? allCandidates.find((c) => c.id === activeId) ||
+          incompletes.find((c) => c.id === activeId)
+        : null,
+    [activeId, allCandidates, incompletes],
+  );
 
   return (
     <>
@@ -1266,10 +1289,10 @@ export const CandidatesPage: React.FC = () => {
       )}
       <div className="flex flex-col h-full overflow-hidden bg-gray-50">
         {/* Top bar */}
-        <div className="px-6 py-3 bg-white border-b border-gray-200 flex-shrink-0">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">Pipeline</h1>
+        <div className="px-3 sm:px-6 py-3 bg-white border-b border-gray-200 flex-shrink-0">
+          <div className="flex items-center justify-between gap-2 sm:gap-3">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900">Pipeline</h1>
               <p className="text-xs text-gray-400 mt-0.5">
                 {visibleCandidates.length} {t("pipeline.active").toLowerCase()}{" "}
                 · {visibleInc.length} {t("pipeline.inProgress").toLowerCase()}
@@ -1396,7 +1419,7 @@ export const CandidatesPage: React.FC = () => {
                   );
                 })()}
                 {filterPanelOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl border border-gray-200 shadow-2xl z-50 overflow-hidden">
+                  <div className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-80 max-w-[20rem] bg-white rounded-2xl border border-gray-200 shadow-2xl z-50 overflow-hidden">
                     <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                       <span className="text-sm font-bold text-gray-900">
                         Filters
@@ -1548,7 +1571,7 @@ export const CandidatesPage: React.FC = () => {
           ) : (
             <div className="flex-1 overflow-x-auto overflow-y-hidden">
               <div
-                className="flex gap-5 p-6 h-full items-stretch"
+                className="flex gap-3 sm:gap-5 p-3 sm:p-6 h-full items-stretch"
                 style={{ minWidth: "max-content" }}
               >
                 {archivedColumns.map((col) => (
@@ -1574,7 +1597,7 @@ export const CandidatesPage: React.FC = () => {
           >
             <div className="flex-1 overflow-x-auto overflow-y-hidden">
               <div
-                className="flex gap-5 p-6 h-full items-stretch"
+                className="flex gap-3 sm:gap-5 p-3 sm:p-6 h-full items-stretch"
                 style={{ minWidth: "max-content" }}
               >
                 <InProgressColumn
@@ -1603,9 +1626,7 @@ export const CandidatesPage: React.FC = () => {
                   <KanbanColumn
                     key={col.id}
                     column={col}
-                    candidates={visibleCandidates.filter(
-                      (c) => c.columnId === col.id,
-                    )}
+                    candidates={candidatesByColumn[col.id] || []}
                     onCardClick={handleCardClick}
                     onArchive={handleArchiveColumn}
                     onDelete={handleDeleteColumn}
@@ -1660,7 +1681,7 @@ export const CandidatesPage: React.FC = () => {
 
             <DragOverlay dropAnimation={null}>
               {activeCandidate ? (
-                <div className="w-72 bg-white rounded-xl border-2 border-blue-400 shadow-2xl p-3.5 rotate-2 opacity-95 pointer-events-none">
+                <div className="w-64 sm:w-72 bg-white rounded-xl border-2 border-blue-400 shadow-2xl p-3.5 rotate-2 opacity-95 pointer-events-none">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-sm font-bold">
                       {(

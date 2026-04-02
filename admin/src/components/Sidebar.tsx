@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "../store/auth";
 import { messagesApi } from "../api";
 import { useWebSocket } from "../hooks/useWebSocket";
@@ -8,9 +8,11 @@ import { useT, LANGUAGES } from "../i18n";
 export const Sidebar: React.FC = () => {
   const { admin, logout } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const { t, lang, setLang } = useT();
   const [totalUnread, setTotalUnread] = useState(0);
   const [langOpen, setLangOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const langRef = useRef<HTMLDivElement>(null);
 
   const isOrg = admin?.type === "organization";
@@ -45,6 +47,11 @@ export const Sidebar: React.FC = () => {
 
   const DIVIDER_BEFORE = "/analytics";
 
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
+
   const refreshUnread = useCallback(() => {
     messagesApi
       .conversations()
@@ -77,19 +84,19 @@ export const Sidebar: React.FC = () => {
 
   const currentLang = LANGUAGES.find((l) => l.code === lang)!;
 
-  return (
-    <aside className="w-64 bg-gray-900 text-white min-h-screen flex flex-col">
-      <div className="p-5 border-b border-gray-700 flex justify-center">
+  const sidebarContent = (
+    <>
+      <div className="p-4 md:p-5 border-b border-gray-700 flex justify-center">
         <div className="bg-white px-4 py-2 w-full">
           <img
             src="/logo.png"
             alt="HR Base"
-            className="h-16 w-full object-cover"
+            className="h-12 md:h-16 w-full object-cover"
           />
         </div>
       </div>
 
-      <nav className="flex-1 p-4 space-y-1">
+      <nav className="flex-1 p-3 md:p-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => (
           <React.Fragment key={item.path}>
             {item.path === DIVIDER_BEFORE && (
@@ -118,7 +125,7 @@ export const Sidebar: React.FC = () => {
         ))}
       </nav>
 
-      <div className="p-4 border-t border-gray-700 space-y-3">
+      <div className="p-3 md:p-4 border-t border-gray-700 space-y-3">
         {/* Language Switcher */}
         <div className="relative" ref={langRef}>
           <button
@@ -210,6 +217,48 @@ export const Sidebar: React.FC = () => {
           </button>
         </div>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile hamburger button */}
+      <button
+        onClick={() => setMobileOpen(true)}
+        className="md:hidden fixed top-3 left-3 z-50 w-10 h-10 bg-gray-900 text-white rounded-xl flex items-center justify-center shadow-lg"
+        aria-label="Open menu"
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
+      {/* Desktop sidebar */}
+      <aside className="hidden md:flex w-64 bg-gray-900 text-white min-h-screen flex-col flex-shrink-0">
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile sidebar overlay */}
+      {mobileOpen && (
+        <>
+          <div
+            className="md:hidden fixed inset-0 bg-black/50 z-40"
+            onClick={() => setMobileOpen(false)}
+          />
+          <aside className="md:hidden fixed inset-y-0 left-0 w-72 max-w-[85vw] bg-gray-900 text-white flex flex-col z-50 shadow-2xl">
+            <button
+              onClick={() => setMobileOpen(false)}
+              className="absolute top-3 right-3 text-gray-400 hover:text-white p-1"
+              aria-label="Close menu"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            {sidebarContent}
+          </aside>
+        </>
+      )}
+    </>
   );
 };

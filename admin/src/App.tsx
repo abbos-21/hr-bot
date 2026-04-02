@@ -46,7 +46,7 @@ const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({
   return (
     <div className="flex min-h-screen h-screen">
       <Sidebar />
-      <main className="flex-1 overflow-hidden flex flex-col">{children}</main>
+      <main className="flex-1 overflow-hidden flex flex-col min-w-0">{children}</main>
     </div>
   );
 };

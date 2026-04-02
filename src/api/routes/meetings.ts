@@ -71,6 +71,7 @@ router.post("/", async (req: AuthRequest, res: Response) => {
         }),
         note: note || "",
       },
+      { candidateId, adminId: getAdminId(req) },
     );
   }
 
@@ -124,6 +125,7 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
             minute: "2-digit",
           }),
         },
+        { candidateId: existing.candidateId, adminId: getAdminId(req) },
       );
     }
   }
@@ -166,6 +168,7 @@ router.delete("/:id", async (req: AuthRequest, res: Response) => {
           minute: "2-digit",
         }),
       },
+      { candidateId: existing.candidateId, adminId: getAdminId(req) },
     );
   }
 

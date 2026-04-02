@@ -408,7 +408,7 @@ export const CandidateDetailPanel: React.FC<Props> = ({
 
           {/* Chat tab */}
           {tab === "chat" && (
-            <div className="flex flex-col h-[400px]">
+            <div className="flex flex-col h-[300px] sm:h-[400px]">
               <div className="flex-1 overflow-y-auto p-4 space-y-2">
                 {messages.map((msg) => {
                   const isOut = msg.direction === "outbound";
@@ -802,7 +802,7 @@ export const CandidateDetailPanel: React.FC<Props> = ({
   return (
     <>
       <div className="fixed inset-0 bg-black/10 z-30" onClick={onClose} />
-      <div className="fixed top-0 right-0 h-full w-[420px] bg-white shadow-2xl z-40 flex flex-col">
+      <div className="fixed top-0 right-0 h-full w-full sm:w-[420px] bg-white shadow-2xl z-40 flex flex-col">
         {panelBody}
       </div>
       {lightbox}

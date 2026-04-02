@@ -289,16 +289,16 @@ export const BotDetailPage: React.FC = () => {
 
   if (loading)
     return (
-      <div className="overflow-auto flex-1 p-8 text-gray-400">{t("common.loading")}</div>
+      <div className="overflow-auto flex-1 p-4 sm:p-6 md:p-8 text-gray-400">{t("common.loading")}</div>
     );
-  if (!bot) return <div className="p-8 text-gray-400">{t("botDetail.settings.botNotFound")}</div>;
+  if (!bot) return <div className="p-4 sm:p-6 md:p-8 text-gray-400">{t("botDetail.settings.botNotFound")}</div>;
 
   const langs = bot.languages || [];
 
   return (
     <>
       {confirmElement}
-      <div className="overflow-auto flex-1 p-8 max-w-3xl">
+      <div className="overflow-auto flex-1 p-4 sm:p-6 md:p-8 max-w-3xl">
         <div className="flex items-center gap-3 mb-6">
           <Link
             to="/bots"

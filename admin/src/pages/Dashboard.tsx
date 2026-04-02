@@ -55,14 +55,14 @@ export const DashboardPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="overflow-auto flex-1 p-8 flex items-center justify-center">
+      <div className="overflow-auto flex-1 p-4 sm:p-6 md:p-8 flex items-center justify-center">
         <div className="text-gray-400">{t("common.loading")}</div>
       </div>
     );
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 md:p-8">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">
           {t("dashboard.title")}

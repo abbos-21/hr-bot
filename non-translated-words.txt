@@ -1,0 +1,11 @@
+Dashboard:
+Candidate Pipeline, Quick Links, incomplete, active, hired, archived, View all candidates, Manage bots, Chats, Analytics
+
+Question Playground:
+Question Playground, 6 required, Add question (button), Always asked first · cannot be removed, Required, 🏢 Branch, Edit (button), Options managed via Branches page · toggle on/off here, branch (button), 👤 Full name, 🎂 Date of birth, Expects DD.MM.YYYY · age auto-calculated, 📱 Phone, Uses Telegram contact button, 📸 Profile photo, 💼 Position, No additional questions yet, Add custom questions to collect more info. Use Choice questions to create conditional follow-up paths., Add first question (button)
+
+Add question modal (When "Add question" button inside Question Playground is clicked):
+Text, Free-text answer, Choice, Pick from list, File, Photo or document and any other non-translated words inside the modal
+
+Chats:
+Chats, Search conversations... (input placeholder)

@@ -184,7 +184,7 @@ export const OrganizationsPage: React.FC = () => {
   };
 
   return (
-    <div className="overflow-auto flex-1 p-8">
+    <div className="overflow-auto flex-1 p-4 sm:p-6 md:p-8">
       {confirmElement}
       <div className="flex items-center justify-between mb-8">
         <div>

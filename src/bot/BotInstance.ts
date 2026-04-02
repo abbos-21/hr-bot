@@ -1058,6 +1058,7 @@ export class BotInstance {
     lang: string,
     key: "meeting_scheduled" | "meeting_reminder" | "meeting_cancelled",
     vars: { date: string; time: string; minutes?: number; note?: string },
+    options?: { candidateId?: string; adminId?: string },
   ): Promise<void> {
     try {
       let text = await this.getTranslation(this.botId, lang, key, "");
@@ -1067,7 +1068,31 @@ export class BotInstance {
         .replace("{minutes}", String(vars.minutes || ""))
         .replace("{note}", vars.note || "");
       const chatId = parseInt(telegramId);
-      await this.bot.api.sendMessage(chatId, text.trim());
+      const sent = await this.bot.api.sendMessage(chatId, text.trim());
+
+      // Save the notification as an outbound message so it appears in the chat
+      if (options?.candidateId) {
+        const message = await prisma.message.create({
+          data: {
+            candidateId: options.candidateId,
+            adminId: options.adminId || null,
+            direction: "outbound",
+            type: "text",
+            text: text.trim(),
+            telegramMsgId: sent.message_id,
+          },
+          include: { admin: { select: { id: true, name: true } } },
+        });
+
+        wsManager.broadcast({
+          type: "NEW_MESSAGE",
+          payload: {
+            candidateId: options.candidateId,
+            message,
+            direction: "outbound",
+          },
+        });
+      }
     } catch (error) {
       console.error(`Error sending ${key} to ${telegramId}:`, error);
     }

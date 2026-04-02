@@ -49,7 +49,7 @@ export const RetiredStagesPage: React.FC = () => {
   return (
     <>
       {confirmElement}
-      <div className="overflow-auto flex-1 p-8">
+      <div className="overflow-auto flex-1 p-4 sm:p-6 md:p-8">
         <div className="mb-6">
           <h1 className="text-xl font-bold text-gray-900">{t("retiredStages.title")}</h1>
           <p className="text-xs text-gray-400 mt-0.5">

@@ -33,11 +33,11 @@ export const LoginPage: React.FC = () => {
             <img
               src="/logo.png"
               alt="HR Base"
-              className="h-24 object-cover w-64"
+              className="h-16 sm:h-24 object-cover w-48 sm:w-64"
             />
           </div>
         </div>
-        <div className="card p-8">
+        <div className="card p-5 sm:p-8">
           <h2 className="text-xl font-semibold text-gray-800 mb-6">
             {t("login.signIn")}
           </h2>

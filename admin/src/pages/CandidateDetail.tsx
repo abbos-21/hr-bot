@@ -151,9 +151,9 @@ export const CandidateDetailPage: React.FC = () => {
     }
   };
 
-  if (loading) return <div className="p-8 text-gray-400">{t("common.loading")}</div>;
+  if (loading) return <div className="p-4 sm:p-6 md:p-8 text-gray-400">{t("common.loading")}</div>;
   if (!candidate)
-    return <div className="p-8 text-gray-400">{t("candidates.notFound")}</div>;
+    return <div className="p-4 sm:p-6 md:p-8 text-gray-400">{t("candidates.notFound")}</div>;
 
   const TAB_LABELS: Record<string, string> = {
     chat: t("candidates.panel.tabs.chat"),
@@ -171,7 +171,7 @@ export const CandidateDetailPage: React.FC = () => {
   ];
 
   return (
-    <div className="p-8 max-w-7xl">
+    <div className="p-4 sm:p-6 md:p-8 max-w-7xl">
       {confirmElement}
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
@@ -251,7 +251,7 @@ export const CandidateDetailPage: React.FC = () => {
 
       {/* Chat Tab */}
       {tab === "chat" && (
-        <div className="flex flex-col h-[calc(100vh-280px)] card">
+        <div className="flex flex-col h-[calc(100vh-220px)] sm:h-[calc(100vh-280px)] card">
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {messages.length === 0 ? (
               <div className="text-center text-gray-400 py-8">

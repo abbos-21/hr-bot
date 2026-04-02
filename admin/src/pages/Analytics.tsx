@@ -62,19 +62,19 @@ export const AnalyticsPage: React.FC = () => {
   }, [selectedBot, days]);
 
   return (
-    <div className="overflow-auto flex-1 p-8">
-      <div className="flex items-center justify-between mb-8">
+    <div className="overflow-auto flex-1 p-4 sm:p-6 md:p-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
             {t("analytics.title")}
           </h1>
           <p className="text-gray-500 mt-1">{t("analytics.subtitle")}</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-2 sm:gap-3 flex-wrap">
           <select
             value={selectedBot}
             onChange={(e) => setSelectedBot(e.target.value)}
-            className="input w-44"
+            className="input w-full sm:w-44"
           >
             <option value="">{t("analytics.allBots")}</option>
             {bots.map((b) => (
@@ -86,7 +86,7 @@ export const AnalyticsPage: React.FC = () => {
           <select
             value={days}
             onChange={(e) => setDays(parseInt(e.target.value))}
-            className="input w-36"
+            className="input w-full sm:w-36"
           >
             <option value={7}>{t("analytics.last7days")}</option>
             <option value={30}>{t("analytics.last30days")}</option>

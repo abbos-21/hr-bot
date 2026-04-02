@@ -103,7 +103,7 @@ const MessageBubble: React.FC<{
         <img
           src={filesApi.serveUrl(msg.id)}
           alt="photo"
-          className="max-w-[260px] max-h-[320px] rounded-xl object-cover cursor-zoom-in"
+          className="max-w-full sm:max-w-[260px] max-h-[320px] rounded-xl object-cover cursor-zoom-in"
           onClick={() =>
             onImageClick && onImageClick(filesApi.serveUrl(msg.id))
           }
@@ -116,7 +116,7 @@ const MessageBubble: React.FC<{
           <audio
             controls
             src={filesApi.serveUrl(msg.id)}
-            className="h-8 w-48"
+            className="h-8 w-full max-w-[12rem]"
           />
         </div>
       );
@@ -125,7 +125,7 @@ const MessageBubble: React.FC<{
         <video
           controls
           src={filesApi.serveUrl(msg.id)}
-          className="max-w-[260px] max-h-[200px] rounded-xl"
+          className="max-w-full sm:max-w-[260px] max-h-[200px] rounded-xl"
         />
       );
     if (msg.type === "audio")
@@ -135,7 +135,7 @@ const MessageBubble: React.FC<{
           <audio
             controls
             src={filesApi.serveUrl(msg.id)}
-            className="h-8 w-48"
+            className="h-8 w-full max-w-[12rem]"
           />
         </div>
       );
@@ -160,7 +160,7 @@ const MessageBubble: React.FC<{
   return (
     <div className={`flex ${isOut ? "justify-end" : "justify-start"} mb-1`}>
       <div
-        className={`max-w-[70%] rounded-2xl px-3.5 py-2.5 ${isOut ? "bg-blue-600 text-white rounded-tr-sm" : "bg-white text-gray-800 rounded-tl-sm shadow-sm border border-gray-100"}`}
+        className={`max-w-[85%] sm:max-w-[70%] rounded-2xl px-3.5 py-2.5 ${isOut ? "bg-blue-600 text-white rounded-tr-sm" : "bg-white text-gray-800 rounded-tl-sm shadow-sm border border-gray-100"}`}
       >
         {content()}
         <p
@@ -354,12 +354,19 @@ export const ChatsPage: React.FC = () => {
       (!selectedBotId || c.botId === selectedBotId),
   );
 
+  // On mobile, show conversation list when nothing is selected, show chat when selected
+  const showConvList = !selectedId;
+
   return (
     <>
       <div className="flex h-full overflow-hidden">
         {/* ── LEFT: Conversation list ──────────────────────────────────────── */}
-        <div className="w-80 flex-shrink-0 border-r border-gray-200 bg-white flex flex-col">
-          <div className="px-4 pt-5 pb-3 border-b border-gray-100">
+        <div
+          className={`${
+            selectedId ? "hidden sm:flex" : "flex"
+          } w-full sm:w-80 flex-shrink-0 border-r border-gray-200 bg-white flex-col`}
+        >
+          <div className="px-4 pt-4 sm:pt-5 pb-3 border-b border-gray-100">
             <h1 className="text-lg font-bold text-gray-900 mb-3">Chats</h1>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
@@ -469,7 +476,11 @@ export const ChatsPage: React.FC = () => {
         </div>
 
         {/* ── CENTER: Chat ─────────────────────────────────────────────────── */}
-        <div className="flex-1 flex flex-col bg-gray-50 min-w-0 overflow-hidden">
+        <div
+          className={`${
+            !selectedId ? "hidden sm:flex" : "flex"
+          } flex-1 flex-col bg-gray-50 min-w-0 overflow-hidden`}
+        >
           {!selectedId ? (
             <div className="flex-1 flex flex-col items-center justify-center text-gray-400 select-none">
               <div className="w-24 h-24 rounded-3xl bg-white border-2 border-gray-100 flex items-center justify-center text-4xl mb-5 shadow-sm">
@@ -485,10 +496,19 @@ export const ChatsPage: React.FC = () => {
           ) : (
             <>
               {/* Chat header */}
-              <div className="flex items-center gap-3 px-6 py-3.5 bg-white border-b border-gray-200 flex-shrink-0 shadow-sm">
+              <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-6 py-3 sm:py-3.5 bg-white border-b border-gray-200 flex-shrink-0 shadow-sm">
+                {/* Back button on mobile */}
+                <button
+                  onClick={() => setSelectedId(null)}
+                  className="sm:hidden w-8 h-8 flex items-center justify-center text-gray-500 hover:text-gray-700 flex-shrink-0"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
                 {selectedConv && <Avatar conv={selectedConv} size="md" />}
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-gray-900 truncate">
+                  <p className="font-bold text-gray-900 truncate text-sm sm:text-base">
                     {selectedConv ? candidateName(selectedConv) : "…"}
                   </p>
                   {selectedConv?.username && (
@@ -498,7 +518,7 @@ export const ChatsPage: React.FC = () => {
                   )}
                 </div>
                 {selectedConv?.botName && (
-                  <span className="text-xs text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full flex-shrink-0">
+                  <span className="hidden sm:inline-flex text-xs text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full flex-shrink-0">
                     🤖 {selectedConv.botName}
                   </span>
                 )}
@@ -529,7 +549,7 @@ export const ChatsPage: React.FC = () => {
               </div>
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto px-6 py-4">
+              <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-4">
                 {loadingMsgs ? (
                   <div className="flex items-center justify-center h-full text-gray-400 text-sm">
                     {t("common.loading")}
@@ -560,8 +580,8 @@ export const ChatsPage: React.FC = () => {
               </div>
 
               {/* Input bar */}
-              <div className="flex-shrink-0 bg-white border-t border-gray-200 px-6 py-4">
-                <div className="flex items-end gap-3 max-w-3xl mx-auto">
+              <div className="flex-shrink-0 bg-white border-t border-gray-200 px-3 sm:px-6 py-3 sm:py-4">
+                <div className="flex items-end gap-2 sm:gap-3 max-w-3xl mx-auto">
                   <input
                     type="file"
                     ref={fileInputRef}
@@ -622,7 +642,7 @@ export const ChatsPage: React.FC = () => {
         {/* ── RIGHT: Candidate info panel ───────────────────────────────────── */}
         {/* Inline panel (not fixed overlay) when in chat context */}
         {showInfo && selectedId && (
-          <div className="w-[380px] flex-shrink-0 border-l border-gray-200 bg-white flex flex-col overflow-y-auto">
+          <div className="fixed inset-0 sm:static sm:inset-auto w-full sm:w-[380px] flex-shrink-0 border-l border-gray-200 bg-white flex flex-col overflow-y-auto z-30">
             <CandidateDetailPanel
               candidateId={selectedId}
               inline={true}
@@ -639,7 +659,7 @@ export const ChatsPage: React.FC = () => {
       {/* Lightbox */}
       {lightboxSrc && (
         <div
-          className="fixed inset-0 z-[200] bg-black/80 flex items-center justify-center"
+          className="fixed inset-0 z-[200] bg-black/80 flex items-center justify-center p-4"
           onClick={() => setLightboxSrc(null)}
         >
           <img
