@@ -68,6 +68,7 @@ const BroadcastModal: React.FC<{
       onClose();
     } catch {
       toast.error(t("pipeline.broadcastFailed"));
+    } finally {
       setSending(false);
     }
   };

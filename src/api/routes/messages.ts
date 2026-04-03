@@ -108,24 +108,44 @@ router.post("/broadcast", async (req: AuthRequest, res: Response) => {
   // record in the same column (allowed since multiple applications are enabled).
   const telegramSent = new Set<string>();
 
+  // --- Phase 1: Send Telegram messages with concurrency limit (25 at a time) ---
+  const CONCURRENCY = 25;
+  const telegramResults = new Map<string, number | undefined>();
+
+  for (let i = 0; i < candidates.length; i += CONCURRENCY) {
+    const batch = candidates.slice(i, i + CONCURRENCY);
+    await Promise.allSettled(
+      batch.map(async (candidate) => {
+        const botInstance = botManager.getInstance(candidate.botId);
+        const telegramKey = `${candidate.botId}:${candidate.telegramId}`;
+        if (botInstance && candidate.telegramId && !telegramSent.has(telegramKey)) {
+          telegramSent.add(telegramKey);
+          try {
+            const msgId = await botInstance.sendMessageToCandidate(
+              candidate.telegramId,
+              { type: "text", text: text.trim() },
+            );
+            telegramResults.set(candidate.id, msgId);
+          } catch {
+            // Telegram send failed — will still record the DB message
+          }
+        }
+      }),
+    );
+  }
+
+  // --- Phase 2: Persist messages + update activity in parallel ---
   let sent = 0;
   let failed = 0;
-  for (const candidate of candidates) {
-    try {
-      const botInstance = botManager.getInstance(candidate.botId);
-      let telegramMsgId: number | undefined;
-      const telegramKey = `${candidate.botId}:${candidate.telegramId}`;
-      if (botInstance && candidate.telegramId && !telegramSent.has(telegramKey)) {
-        telegramMsgId = await botInstance.sendMessageToCandidate(
-          candidate.telegramId,
-          { type: "text", text: text.trim() },
-        );
-        telegramSent.add(telegramKey);
-      }
+  const adminId = getAdminId(req);
+
+  const results = await Promise.allSettled(
+    candidates.map(async (candidate) => {
+      const telegramMsgId = telegramResults.get(candidate.id);
       const message = await prisma.message.create({
         data: {
           candidateId: candidate.id,
-          adminId: getAdminId(req),
+          adminId,
           direction: "outbound",
           type: "text",
           text: text.trim(),
@@ -141,11 +161,14 @@ router.post("/broadcast", async (req: AuthRequest, res: Response) => {
         type: "NEW_MESSAGE",
         payload: { candidateId: candidate.id, message },
       });
-      sent++;
-    } catch {
-      failed++;
-    }
+    }),
+  );
+
+  for (const r of results) {
+    if (r.status === "fulfilled") sent++;
+    else failed++;
   }
+
   return res.json({ sent, failed, total: candidates.length });
 });
 

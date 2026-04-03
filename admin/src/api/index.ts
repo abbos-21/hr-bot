@@ -129,7 +129,7 @@ export const messagesApi = {
   markAsRead: (candidateId: string) =>
     api.post(`/messages/${candidateId}/read`).then((r) => r.data),
   broadcast: (candidateIds: string[], text: string) =>
-    api.post("/messages/broadcast", { candidateIds, text }).then((r) => r.data),
+    api.post("/messages/broadcast", { candidateIds, text }, { timeout: 120000 }).then((r) => r.data),
 };
 
 // Analytics
