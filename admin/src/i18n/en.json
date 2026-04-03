@@ -369,7 +369,13 @@
     "moveLeft": "Move left",
     "moveRight": "Move right",
     "failedToReorder": "Failed to reorder columns",
-    "searchConversations": "Search conversations…"
+    "searchConversations": "Search conversations…",
+    "newStage": "New Stage",
+    "addStageBtn": "Add Stage",
+    "filterFallback": "Filter",
+    "optionFallback": "Option",
+    "restoreFailed": "Restore failed",
+    "deleteFailed": "Delete failed"
   },
   "chats": {
     "title": "Chats",
@@ -405,7 +411,8 @@
         "answers": "Answers",
         "chat": "Chat",
         "files": "Files",
-        "comments": "Notes"
+        "comments": "Notes",
+        "meetings": "Meetings"
       },
       "noAnswers": "No answers recorded",
       "noMessages": "No messages yet",
@@ -454,7 +461,22 @@
       "contact": "Contact",
       "answers": "Answers",
       "restoredToPipeline": "Restored to pipeline",
-      "moveBackToPipeline": "↩ Move Back to Pipeline"
+      "moveBackToPipeline": "↩ Move Back to Pipeline",
+      "noUsername": "No username",
+      "surveyInProgress": "Survey in progress - step {{step}} completed",
+      "botAnswers": "Bot Answers",
+      "questionFallback": "Question",
+      "notesHeading": "Notes",
+      "addNotePlaceholder": "Add a note...",
+      "fileFallback": "File",
+      "messagePlaceholder": "Message...",
+      "moveToPipeline": "Move to Pipeline",
+      "markAsHired": "Mark as Hired",
+      "archiveCandidate": "Archive Candidate",
+      "restoreToPipeline": "Restore to Pipeline",
+      "updateFailed": "Update failed",
+      "deleteFailed": "Delete failed",
+      "position": "Position"
     },
     "statuses": {
       "incomplete": "Incomplete",

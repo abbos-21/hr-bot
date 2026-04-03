@@ -170,7 +170,7 @@ export const CandidateDetailPanel: React.FC<Props> = ({
   const panelBody =
     loading || !candidate ? (
       <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
-        Loading...
+        {t("common.loading")}
       </div>
     ) : (
       <>
@@ -190,10 +190,10 @@ export const CandidateDetailPanel: React.FC<Props> = ({
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-bold text-gray-900 truncate">
-              {candidate.fullName || candidate.username || "Unknown"}
+              {candidate.fullName || candidate.username || t("common.unknown")}
             </p>
             <p className="text-xs text-gray-400">
-              {candidate.username ? `@${candidate.username}` : "No username"}
+              {candidate.username ? `@${candidate.username}` : t("candidates.panel.noUsername")}
             </p>
           </div>
           <button
@@ -210,22 +210,22 @@ export const CandidateDetailPanel: React.FC<Props> = ({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
-                  Status
+                  {t("candidates.panel.status")}
                 </p>
                 <select
                   value={candidate.status}
                   onChange={(e) => handleStatusChange(e.target.value)}
                   className="w-full text-sm font-semibold text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none"
                 >
-                  <option value="incomplete">In Progress</option>
-                  <option value="active">Active</option>
-                  <option value="hired">Hired</option>
-                  <option value="archived">Archived</option>
+                  <option value="incomplete">{t("candidates.statuses.incomplete")}</option>
+                  <option value="active">{t("candidates.statuses.active")}</option>
+                  <option value="hired">{t("candidates.statuses.hired")}</option>
+                  <option value="archived">{t("candidates.statuses.archived")}</option>
                 </select>
               </div>
               <div>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
-                  Contact
+                  {t("candidates.panel.contact")}
                 </p>
                 <p className="text-sm font-semibold text-gray-700 truncate">
                   {candidate.phone ||
@@ -238,14 +238,14 @@ export const CandidateDetailPanel: React.FC<Props> = ({
             {candidate.status === "active" && columns.length > 0 && (
               <div>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
-                  Stage
+                  {t("candidates.panel.stage")}
                 </p>
                 <select
                   value={candidate.columnId || ""}
                   onChange={(e) => handleColumnChange(e.target.value)}
                   className="w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none"
                 >
-                  <option value="">-- Unassigned --</option>
+                  <option value="">-- {t("candidates.panel.unassigned")} --</option>
                   {columns.map((col: any) => (
                     <option key={col.id} value={col.id}>
                       {col.name}
@@ -259,8 +259,7 @@ export const CandidateDetailPanel: React.FC<Props> = ({
               <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2 flex items-center gap-2">
                 <span className="text-amber-500 text-sm">...</span>
                 <p className="text-xs text-amber-700 font-medium">
-                  Survey in progress - step {candidate.currentStep || 0}{" "}
-                  completed
+                  {t("candidates.panel.surveyInProgress").replace("{{step}}", String(candidate.currentStep || 0))}
                 </p>
               </div>
             )}
@@ -268,18 +267,18 @@ export const CandidateDetailPanel: React.FC<Props> = ({
 
           {/* Tabs */}
           <div className="flex mx-5 mt-4 border-b border-gray-100">
-            {(["answers", "chat", "files", "meetings"] as const).map((t) => (
+            {(["answers", "chat", "files", "meetings"] as const).map((tabKey) => (
               <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`px-3 py-2 text-xs font-semibold capitalize border-b-2 -mb-px transition-colors ${
-                  tab === t
+                key={tabKey}
+                onClick={() => setTab(tabKey)}
+                className={`px-3 py-2 text-xs font-semibold border-b-2 -mb-px transition-colors ${
+                  tab === tabKey
                     ? "border-blue-500 text-blue-600"
                     : "border-transparent text-gray-400 hover:text-gray-600"
                 }`}
               >
-                {t}
-                {t === "chat" && messages.length > 0 && (
+                {t(`candidates.panel.tabs.${tabKey}`)}
+                {tabKey === "chat" && messages.length > 0 && (
                   <span className="ml-1 bg-blue-100 text-blue-600 rounded-full px-1.5 text-xs">
                     {messages.length}
                   </span>
@@ -296,7 +295,7 @@ export const CandidateDetailPanel: React.FC<Props> = ({
                   {candidate.age && (
                     <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
                       <p className="text-xs text-amber-500 font-semibold uppercase tracking-wider mb-1">
-                        Age
+                        {t("candidates.panel.age")}
                       </p>
                       <p className="text-sm font-semibold text-gray-800">
                         {candidate.age}
@@ -306,7 +305,7 @@ export const CandidateDetailPanel: React.FC<Props> = ({
                   {candidate.position && (
                     <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3">
                       <p className="text-xs text-indigo-500 font-semibold uppercase tracking-wider mb-1">
-                        Position
+                        {t("candidates.panel.position")}
                       </p>
                       <p className="text-sm font-semibold text-gray-800">
                         {candidate.position}
@@ -319,13 +318,13 @@ export const CandidateDetailPanel: React.FC<Props> = ({
                 .length > 0 && (
                 <div className="space-y-3">
                   <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                    Bot Answers
+                    {t("candidates.panel.botAnswers")}
                   </p>
                   {candidate.answers
                     .filter((a: any) => !a.question?.isRequired)
                     .map((answer: any) => {
                       const q =
-                        answer.question?.translations?.[0]?.text || "Question";
+                        answer.question?.translations?.[0]?.text || t("candidates.panel.questionFallback");
                       const isAttachment =
                         answer.question?.type === "attachment";
                       const a =
@@ -371,10 +370,10 @@ export const CandidateDetailPanel: React.FC<Props> = ({
                 }
               >
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                  Notes
+                  {t("candidates.panel.notesHeading")}
                 </p>
                 {(!candidate.comments || candidate.comments.length === 0) && (
-                  <p className="text-xs text-gray-300 mb-2">No notes yet</p>
+                  <p className="text-xs text-gray-300 mb-2">{t("candidates.panel.noComments")}</p>
                 )}
                 {candidate.comments?.map((c: any) => (
                   <div
@@ -392,7 +391,7 @@ export const CandidateDetailPanel: React.FC<Props> = ({
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleAddComment()}
-                    placeholder="Add a note..."
+                    placeholder={t("candidates.panel.addNotePlaceholder")}
                     className="flex-1 text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-300"
                   />
                   <button
@@ -448,7 +447,7 @@ export const CandidateDetailPanel: React.FC<Props> = ({
                                   : {})}
                                 className={`flex items-center gap-1 ${isOut ? "text-blue-100" : "text-blue-600"}`}
                               >
-                                {msg.fileName || "File"}
+                                {msg.fileName || t("candidates.panel.fileFallback")}
                               </a>
                             );
                           })()}
@@ -485,7 +484,7 @@ export const CandidateDetailPanel: React.FC<Props> = ({
                   onClick={() => fileInputRef.current?.click()}
                   className="w-9 h-9 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors"
                 >
-                  clip
+                  📎
                 </button>
                 <input
                   value={msgText}
@@ -493,7 +492,7 @@ export const CandidateDetailPanel: React.FC<Props> = ({
                   onKeyDown={(e) =>
                     e.key === "Enter" && !e.shiftKey && handleSendMessage()
                   }
-                  placeholder="Message..."
+                  placeholder={t("candidates.panel.messagePlaceholder")}
                   className="flex-1 text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-300"
                 />
                 <button
@@ -512,7 +511,7 @@ export const CandidateDetailPanel: React.FC<Props> = ({
             <div className="p-5">
               {!candidate.files || candidate.files.length === 0 ? (
                 <p className="text-sm text-gray-400 text-center py-4">
-                  No files uploaded
+                  {t("candidates.panel.noFiles")}
                 </p>
               ) : (
                 candidate.files.map((f: any) => {
@@ -532,10 +531,10 @@ export const CandidateDetailPanel: React.FC<Props> = ({
                     >
                       <span className="text-2xl">
                         {f.mimeType === "application/pdf"
-                          ? "pdf"
+                          ? "📄"
                           : viewable
-                            ? "img"
-                            : "doc"}
+                            ? "🖼️"
+                            : "📎"}
                       </span>
                       <div>
                         <p className="text-sm font-medium text-gray-800">
@@ -700,7 +699,7 @@ export const CandidateDetailPanel: React.FC<Props> = ({
                                   ),
                                 );
                               } catch {
-                                toast.error(t("common.update") + " failed");
+                                toast.error(t("candidates.panel.updateFailed"));
                               }
                             }}
                             className="text-xs px-2 py-1 rounded-lg text-red-600 hover:bg-red-100 transition-colors"
@@ -716,7 +715,7 @@ export const CandidateDetailPanel: React.FC<Props> = ({
                                 prev.filter((mt) => mt.id !== m.id),
                               );
                             } catch {
-                              toast.error(t("common.delete") + " failed");
+                              toast.error(t("candidates.panel.deleteFailed"));
                             }
                           }}
                           className="text-xs px-2 py-1 rounded-lg text-gray-400 hover:bg-gray-200 transition-colors"
@@ -739,7 +738,7 @@ export const CandidateDetailPanel: React.FC<Props> = ({
               onClick={() => handleStatusChange("active")}
               className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors text-sm"
             >
-              Move to Pipeline
+              {t("candidates.panel.moveToPipeline")}
             </button>
           )}
           {candidate.status !== "hired" &&
@@ -748,7 +747,7 @@ export const CandidateDetailPanel: React.FC<Props> = ({
                 onClick={() => handleStatusChange("hired")}
                 className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors"
               >
-                Mark as Hired
+                {t("candidates.panel.markAsHired")}
               </button>
             )}
           {candidate.status === "active" && (
@@ -756,7 +755,7 @@ export const CandidateDetailPanel: React.FC<Props> = ({
               onClick={() => handleStatusChange("archived")}
               className="w-full py-2.5 border border-red-200 text-red-500 hover:bg-red-50 font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors text-sm"
             >
-              Archive Candidate
+              {t("candidates.panel.archiveCandidate")}
             </button>
           )}
           {candidate.status === "archived" && (
@@ -764,7 +763,7 @@ export const CandidateDetailPanel: React.FC<Props> = ({
               onClick={() => handleStatusChange("active")}
               className="w-full py-2.5 border border-blue-200 text-blue-600 hover:bg-blue-50 font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors text-sm"
             >
-              Restore to Pipeline
+              {t("candidates.panel.restoreToPipeline")}
             </button>
           )}
         </div>

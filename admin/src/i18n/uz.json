@@ -369,7 +369,13 @@
     "moveLeft": "Chapga siljitish",
     "moveRight": "O'ngga siljitish",
     "failedToReorder": "Ustunlar tartibini o'zgartirishda xato",
-    "searchConversations": "Suhbatlarni qidirish…"
+    "searchConversations": "Suhbatlarni qidirish…",
+    "newStage": "Yangi bosqich",
+    "addStageBtn": "Bosqich qo'shish",
+    "filterFallback": "Filtr",
+    "optionFallback": "Variant",
+    "restoreFailed": "Tiklashda xato",
+    "deleteFailed": "O'chirishda xato"
   },
   "chats": {
     "title": "Chatlar",
@@ -405,7 +411,8 @@
         "answers": "Javoblar",
         "chat": "Chat",
         "files": "Fayllar",
-        "comments": "Izohlar"
+        "comments": "Izohlar",
+        "meetings": "Uchrashuvlar"
       },
       "noAnswers": "Javoblar yo'q",
       "noMessages": "Hali xabarlar yo'q",
@@ -454,7 +461,22 @@
       "contact": "Aloqa",
       "answers": "Javoblar",
       "restoredToPipeline": "Kandidatlar ro'yxatiga qaytarildi",
-      "moveBackToPipeline": "↩ Kandidatlar ro'yxatiga qaytarish"
+      "moveBackToPipeline": "↩ Kandidatlar ro'yxatiga qaytarish",
+      "noUsername": "Foydalanuvchi nomi yo'q",
+      "surveyInProgress": "So'rovnoma jarayonda — {{step}}-qadam bajarildi",
+      "botAnswers": "Bot javoblari",
+      "questionFallback": "Savol",
+      "notesHeading": "Eslatmalar",
+      "addNotePlaceholder": "Eslatma qo'shish...",
+      "fileFallback": "Fayl",
+      "messagePlaceholder": "Xabar...",
+      "moveToPipeline": "Kandidatlar ro'yxatiga o'tkazish",
+      "markAsHired": "Ishga qabul qilingan deb belgilash",
+      "archiveCandidate": "Kandidatni arxivlash",
+      "restoreToPipeline": "Kandidatlar ro'yxatiga qaytarish",
+      "updateFailed": "Yangilashda xato",
+      "deleteFailed": "O'chirishda xato",
+      "position": "Lavozim"
     },
     "statuses": {
       "incomplete": "Yakunlanmagan",

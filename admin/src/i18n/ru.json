@@ -369,7 +369,13 @@
     "moveLeft": "Сдвинуть влево",
     "moveRight": "Сдвинуть вправо",
     "failedToReorder": "Не удалось изменить порядок колонок",
-    "searchConversations": "Поиск бесед…"
+    "searchConversations": "Поиск бесед…",
+    "newStage": "Новый этап",
+    "addStageBtn": "Добавить этап",
+    "filterFallback": "Фильтр",
+    "optionFallback": "Вариант",
+    "restoreFailed": "Ошибка восстановления",
+    "deleteFailed": "Ошибка удаления"
   },
   "chats": {
     "title": "Чаты",
@@ -405,7 +411,8 @@
         "answers": "Ответы",
         "chat": "Чат",
         "files": "Файлы",
-        "comments": "Заметки"
+        "comments": "Заметки",
+        "meetings": "Встречи"
       },
       "noAnswers": "Ответы отсутствуют",
       "noMessages": "Сообщений пока нет",
@@ -454,7 +461,22 @@
       "contact": "Контакт",
       "answers": "Ответы",
       "restoredToPipeline": "Возвращён в пайплайн",
-      "moveBackToPipeline": "↩ Вернуть в пайплайн"
+      "moveBackToPipeline": "↩ Вернуть в пайплайн",
+      "noUsername": "Нет имени пользователя",
+      "surveyInProgress": "Опрос в процессе — шаг {{step}} завершён",
+      "botAnswers": "Ответы бота",
+      "questionFallback": "Вопрос",
+      "notesHeading": "Заметки",
+      "addNotePlaceholder": "Добавить заметку...",
+      "fileFallback": "Файл",
+      "messagePlaceholder": "Сообщение...",
+      "moveToPipeline": "Перевести в пайплайн",
+      "markAsHired": "Отметить как нанятого",
+      "archiveCandidate": "Архивировать кандидата",
+      "restoreToPipeline": "Вернуть в пайплайн",
+      "updateFailed": "Ошибка обновления",
+      "deleteFailed": "Ошибка удаления",
+      "position": "Должность"
     },
     "statuses": {
       "incomplete": "Незавершённый",

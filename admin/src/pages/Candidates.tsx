@@ -139,12 +139,13 @@ const ConfirmModal: React.FC<{
 }> = ({
   title,
   message,
-  confirmLabel = "Confirm",
+  confirmLabel,
   danger = false,
   onConfirm,
   onCancel,
 }) => {
   const { t } = useT();
+  const label = confirmLabel || t("common.confirm");
   return (
     <div
       className="fixed inset-0 z-[300] bg-black/40 flex items-center justify-center p-4"
@@ -167,7 +168,7 @@ const ConfirmModal: React.FC<{
             onClick={onConfirm}
             className={`px-4 py-2 text-sm font-semibold text-white rounded-xl transition-colors ${danger ? "bg-red-500 hover:bg-red-600" : "bg-amber-500 hover:bg-amber-600"}`}
           >
-            {confirmLabel}
+            {label}
           </button>
         </div>
       </div>
@@ -182,6 +183,7 @@ const CandidateCard: React.FC<{
   onClick: () => void;
   faded?: boolean;
 }> = React.memo(({ candidate, onClick, faded }) => {
+  const { t } = useT();
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: candidate.id, disabled: !!faded });
   const style = transform
@@ -217,7 +219,7 @@ const CandidateCard: React.FC<{
         )}
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-gray-800 text-sm truncate">
-            {candidate.fullName || candidate.username || "Unknown"}
+            {candidate.fullName || candidate.username || t("common.unknown")}
           </p>
           {(candidate.age || candidate.position) && (
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
@@ -443,7 +445,7 @@ const InProgressColumn: React.FC<{
       <div className="flex items-center gap-2 mb-3 px-1">
         <span className="text-sm leading-none">⏳</span>
         <span className="flex-1 text-xs font-semibold text-amber-600 uppercase tracking-wider">
-          In Progress
+          {t("pipeline.inProgress")}
         </span>
         <span className="text-xs font-bold text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
           {candidates.length}
@@ -476,7 +478,7 @@ const InProgressColumn: React.FC<{
       >
         {candidates.length === 0 && (
           <div className="text-center text-xs py-8 text-amber-200 pointer-events-none">
-            No candidates yet
+            {t("pipeline.noCandidatesYet")}
           </div>
         )}
         {candidates.map((c) => (
@@ -529,7 +531,7 @@ const AddColumnForm: React.FC<{
 
   return (
     <div className="w-64 sm:w-72 flex-shrink-0 bg-white rounded-xl border-2 border-blue-200 p-4 space-y-3">
-      <p className="text-sm font-semibold text-gray-700">New Stage</p>
+      <p className="text-sm font-semibold text-gray-700">{t("pipeline.newStage")}</p>
       <input
         autoFocus
         value={name}
@@ -569,7 +571,7 @@ const AddColumnForm: React.FC<{
           disabled={!name.trim()}
           className="btn-primary text-xs px-3 py-1.5 disabled:opacity-40"
         >
-          Add
+          {t("common.add")}
         </button>
         <button
           onClick={onCancel}
@@ -609,7 +611,7 @@ const UnassignedColumn: React.FC<{
       <div className="flex items-center gap-2 mb-3 px-1">
         <span className="w-2 h-2 rounded-full bg-gray-300" />
         <span className="flex-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-          Unassigned
+          {t("pipeline.unassigned")}
         </span>
         <span className="text-xs font-bold text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
           {candidates.length}
@@ -658,6 +660,7 @@ const ArchivedCandidateCard: React.FC<{
   candidate: any;
   onClick: () => void;
 }> = ({ candidate, onClick }) => {
+  const { t } = useT();
   const initials = (
     (candidate.fullName || candidate.username || "?")[0] || "?"
   ).toUpperCase();
@@ -680,7 +683,7 @@ const ArchivedCandidateCard: React.FC<{
         )}
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-gray-600 text-sm truncate">
-            {candidate.fullName || candidate.username || "Unknown"}
+            {candidate.fullName || candidate.username || t("common.unknown")}
           </p>
           {(candidate.age || candidate.position) && (
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
@@ -782,7 +785,7 @@ const ArchivedKanbanColumn: React.FC<{
         ))}
         {candidates.length === 0 && (
           <div className="text-center text-xs py-8 text-gray-300 pointer-events-none">
-            No candidates
+            {t("pipeline.noCandidates")}
           </div>
         )}
       </div>
@@ -1067,7 +1070,7 @@ export const CandidatesPage: React.FC = () => {
     setConfirmModal({
       title: t("pipeline.deleteStageTitle", { name: col?.name || "" }),
       message: t("pipeline.deleteStageMsg"),
-      confirmLabel: "Delete",
+      confirmLabel: t("common.delete"),
       danger: true,
       onConfirm: async () => {
         setConfirmModal(null);
@@ -1140,7 +1143,7 @@ export const CandidatesPage: React.FC = () => {
       refreshSilently();
       toast.success(t("pipeline.stageRestored", { name: col.name }));
     } catch {
-      toast.error(t("common.restore") + " failed");
+      toast.error(t("pipeline.restoreFailed"));
     }
   };
 
@@ -1152,7 +1155,7 @@ export const CandidatesPage: React.FC = () => {
       title: t("pipeline.deleteArchivedTitle", { name: col.name }),
       message: t("pipeline.deleteArchivedMsg", { name: col.name, count }),
       danger: true,
-      confirmLabel: "Delete",
+      confirmLabel: t("common.delete"),
     });
     if (!ok) return;
     try {
@@ -1163,7 +1166,7 @@ export const CandidatesPage: React.FC = () => {
       );
       toast.success(t("pipeline.stageDeleted", { name: col.name }));
     } catch {
-      toast.error(t("common.delete") + " failed");
+      toast.error(t("pipeline.deleteFailed"));
     }
   };
 
@@ -1292,7 +1295,7 @@ export const CandidatesPage: React.FC = () => {
         <div className="px-3 sm:px-6 py-3 bg-white border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center justify-between gap-2 sm:gap-3">
             <div className="min-w-0">
-              <h1 className="text-lg sm:text-xl font-bold text-gray-900">Pipeline</h1>
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900">{t("pipeline.title")}</h1>
               <p className="text-xs text-gray-400 mt-0.5">
                 {visibleCandidates.length} {t("pipeline.active").toLowerCase()}{" "}
                 · {visibleInc.length} {t("pipeline.inProgress").toLowerCase()}
@@ -1303,7 +1306,7 @@ export const CandidatesPage: React.FC = () => {
               <div className="flex items-center gap-1.5 flex-wrap justify-end">
                 {filters.botId && (
                   <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-violet-100 text-violet-700">
-                    🤖 {bots.find((b) => b.id === filters.botId)?.name || "Bot"}
+                    🤖 {bots.find((b) => b.id === filters.botId)?.name || t("pipeline.filterBot")}
                     <button
                       onClick={() =>
                         setFilters((f) => ({
@@ -1356,13 +1359,13 @@ export const CandidatesPage: React.FC = () => {
                   onClick={() => handleSwitchView("active")}
                   className={`px-3.5 py-1.5 text-sm font-semibold rounded-lg transition-all ${viewMode === "active" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
                 >
-                  Active
+                  {t("pipeline.active")}
                 </button>
                 <button
                   onClick={() => handleSwitchView("archived")}
                   className={`flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-semibold rounded-lg transition-all ${viewMode === "archived" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
                 >
-                  Archived
+                  {t("pipeline.archived")}
                   {archivedColumns.length > 0 && viewMode === "archived" && (
                     <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-600 text-xs font-bold flex items-center justify-center">
                       {archivedColumns.length}
@@ -1377,7 +1380,7 @@ export const CandidatesPage: React.FC = () => {
                 </span>
                 <input
                   type="text"
-                  placeholder="Search…"
+                  placeholder={t("common.search")}
                   value={filters.search}
                   onChange={(e) =>
                     setFilters((f) => ({ ...f, search: e.target.value }))
@@ -1409,7 +1412,7 @@ export const CandidatesPage: React.FC = () => {
                           clipRule="evenodd"
                         />
                       </svg>
-                      Filters
+                      {t("common.filters")}
                       {activeCount > 0 && (
                         <span className="w-5 h-5 rounded-full bg-white text-blue-600 text-xs font-bold flex items-center justify-center">
                           {activeCount}
@@ -1422,7 +1425,7 @@ export const CandidatesPage: React.FC = () => {
                   <div className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-80 max-w-[20rem] bg-white rounded-2xl border border-gray-200 shadow-2xl z-50 overflow-hidden">
                     <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                       <span className="text-sm font-bold text-gray-900">
-                        Filters
+                        {t("common.filters")}
                       </span>
                       <button
                         onClick={() =>
@@ -1435,14 +1438,14 @@ export const CandidatesPage: React.FC = () => {
                         }
                         className="text-xs text-gray-400 hover:text-red-500 font-medium"
                       >
-                        Reset all
+                        {t("common.resetAll")}
                       </button>
                     </div>
                     <div className="p-4 space-y-5 max-h-[70vh] overflow-y-auto">
                       {bots.length > 0 && (
                         <div>
                           <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2.5">
-                            Bot
+                            {t("pipeline.filterBot")}
                           </p>
                           <div className="space-y-1.5">
                             {[
@@ -1484,7 +1487,7 @@ export const CandidatesPage: React.FC = () => {
                         const qLabel =
                           q.filterLabel ||
                           q.translations?.[0]?.text ||
-                          "Filter";
+                          t("pipeline.filterFallback");
                         return (
                           <div key={q.id}>
                             <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2.5">
@@ -1492,10 +1495,10 @@ export const CandidatesPage: React.FC = () => {
                             </p>
                             <div className="space-y-1.5">
                               {[
-                                { id: "", text: "Any" },
+                                { id: "", text: t("common.any") },
                                 ...q.options.map((o: any) => ({
                                   id: o.id,
-                                  text: o.translations?.[0]?.text || "Option",
+                                  text: o.translations?.[0]?.text || t("pipeline.optionFallback"),
                                 })),
                               ].map((opt) => {
                                 const selected =
@@ -1538,7 +1541,7 @@ export const CandidatesPage: React.FC = () => {
                         onClick={() => setFilterPanelOpen(false)}
                         className="w-full text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl py-2 transition-colors"
                       >
-                        Apply Filters
+                        {t("common.applyFilters")}
                       </button>
                     </div>
                   </div>
@@ -1550,7 +1553,7 @@ export const CandidatesPage: React.FC = () => {
 
         {loading ? (
           <div className="flex-1 flex items-center justify-center text-gray-400">
-            Loading…
+            {t("common.loading")}
           </div>
         ) : viewMode === "archived" ? (
           /* ── Archived view ──────────────────────────────────────────────── */
@@ -1658,7 +1661,7 @@ export const CandidatesPage: React.FC = () => {
                     className="flex flex-col items-center justify-center w-40 min-h-[120px] rounded-xl border-2 border-dashed border-gray-200 text-gray-300 hover:border-blue-300 hover:text-blue-400 transition-all flex-shrink-0 gap-2 text-sm font-medium"
                   >
                     <span className="text-2xl">+</span>
-                    Add Stage
+                    {t("pipeline.addStageBtn")}
                   </button>
                 )}
 
@@ -1693,7 +1696,7 @@ export const CandidatesPage: React.FC = () => {
                     <p className="font-semibold text-gray-800 text-sm">
                       {activeCandidate.fullName ||
                         activeCandidate.username ||
-                        "Unknown"}
+                        t("common.unknown")}
                     </p>
                   </div>
                 </div>

@@ -264,7 +264,7 @@ export const AnalyticsPage: React.FC = () => {
                         return (
                           <tr key={status} className="border-b border-gray-50">
                             <td className="py-2 capitalize font-medium">
-                              {status}
+                              {t(`candidates.statuses.${status}`) || status}
                             </td>
                             <td className="py-2 text-right">{count}</td>
                             <td className="py-2 text-right text-gray-500">

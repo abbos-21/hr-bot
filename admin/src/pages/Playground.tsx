@@ -995,7 +995,7 @@ function OptionsView({
     <div className="mt-2 space-y-1">
       {question.options.map((opt, i) => {
         const id = opt.id || `_${i}`;
-        const label = optText(opt, primaryLang) || `Option ${i + 1}`;
+        const label = optText(opt, primaryLang) || t("playground.optionN").replace("{{n}}", String(i + 1));
         const branchCount = allQuestions.filter(
           (q) => q.parentOptionId === opt.id,
         ).length;

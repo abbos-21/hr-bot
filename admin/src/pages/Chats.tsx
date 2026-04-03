@@ -17,8 +17,8 @@ function formatConvTime(dateStr: string, t: (key: string) => string) {
   return format(d, "MMM d");
 }
 
-function candidateName(c: any) {
-  return c.fullName || (c.username ? `@${c.username}` : "Unknown");
+function candidateName(c: any, t: (key: string) => string) {
+  return c.fullName || (c.username ? `@${c.username}` : t("common.unknown"));
 }
 
 function candidateInitials(c: any) {
@@ -47,7 +47,7 @@ function lastMsgPreview(msg: any, t: (key: string) => string) {
   if (!msg) return t("chats.noMessages");
   if (msg.type === "text") return msg.text || "…";
   if (msg.type === "photo") return t("chats.photo");
-  if (msg.type === "document") return `📎 ${msg.fileName || "File"}`;
+  if (msg.type === "document") return `📎 ${msg.fileName || t("candidates.panel.fileFallback")}`;
   if (msg.type === "voice") return t("chats.voice");
   if (msg.type === "video") return t("chats.video");
   if (msg.type === "audio") return t("chats.audio");
@@ -89,6 +89,7 @@ const MessageBubble: React.FC<{
   msg: any;
   onImageClick?: (src: string) => void;
 }> = ({ msg, onImageClick }) => {
+  const { t } = useT();
   const isOut = msg.direction === "outbound";
 
   const content = () => {
@@ -150,11 +151,11 @@ const MessageBubble: React.FC<{
           className={`flex items-center gap-1.5 text-sm ${isOut ? "text-blue-100 hover:text-white" : "text-blue-600 hover:text-blue-700"}`}
         >
           {msg.mimeType === "application/pdf" ? "📄" : "📎"}{" "}
-          {msg.fileName || "File"}
+          {msg.fileName || t("candidates.panel.fileFallback")}
         </a>
       );
     }
-    return <p className="text-sm text-gray-400 italic">Unsupported message</p>;
+    return <p className="text-sm text-gray-400 italic">{t("chats.attachment")}</p>;
   };
 
   return (
@@ -349,7 +350,7 @@ export const ChatsPage: React.FC = () => {
   const filteredConvs = conversations.filter(
     (c) =>
       (!search ||
-        candidateName(c).toLowerCase().includes(search.toLowerCase()) ||
+        candidateName(c, t).toLowerCase().includes(search.toLowerCase()) ||
         (c.username && c.username.toLowerCase().includes(search.toLowerCase()))) &&
       (!selectedBotId || c.botId === selectedBotId),
   );
@@ -440,7 +441,7 @@ export const ChatsPage: React.FC = () => {
                         <p
                           className={`text-sm truncate ${hasUnread ? "font-bold text-gray-900" : "font-medium text-gray-800"}`}
                         >
-                          {candidateName(conv)}
+                          {candidateName(conv, t)}
                         </p>
                         {conv.lastActivity && (
                           <span
@@ -457,7 +458,7 @@ export const ChatsPage: React.FC = () => {
                           className={`text-xs truncate ${hasUnread ? "text-gray-700 font-medium" : "text-gray-400"}`}
                         >
                           {conv.lastMessage?.direction === "outbound" && (
-                            <span className="text-gray-400">You: </span>
+                            <span className="text-gray-400">{t("common.you")}: </span>
                           )}
                           {lastMsgPreview(conv.lastMessage, t)}
                         </p>
@@ -509,7 +510,7 @@ export const ChatsPage: React.FC = () => {
                 {selectedConv && <Avatar conv={selectedConv} size="md" />}
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-gray-900 truncate text-sm sm:text-base">
-                    {selectedConv ? candidateName(selectedConv) : "…"}
+                    {selectedConv ? candidateName(selectedConv, t) : "…"}
                   </p>
                   {selectedConv?.username && (
                     <p className="text-xs text-gray-400">
