@@ -101,7 +101,7 @@ export const DashboardPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card p-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">
-            Candidate Pipeline
+            {t("dashboard.candidatePipeline")}
           </h2>
           <div className="space-y-3">
             {overview &&
@@ -118,7 +118,7 @@ export const DashboardPage: React.FC = () => {
                   <div key={status}>
                     <div className="flex justify-between text-sm mb-1">
                       <span className="capitalize font-medium text-gray-700">
-                        {status}
+                        {t(`candidates.statuses.${status}`) || status}
                       </span>
                       <span className="text-gray-500">{count}</span>
                     </div>
@@ -136,14 +136,14 @@ export const DashboardPage: React.FC = () => {
 
         <div className="card p-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">
-            Quick Links
+            {t("dashboard.quickLinks")}
           </h2>
           <div className="grid grid-cols-2 gap-3">
             {[
-              { label: "View all candidates", path: "/candidates", icon: "👥" },
-              { label: "Manage bots", path: "/bots", icon: "🤖" },
-              { label: "Chats", path: "/chats", icon: "💬" },
-              { label: "Analytics", path: "/analytics", icon: "📈" },
+              { label: t("dashboard.viewAllCandidates"), path: "/candidates", icon: "👥" },
+              { label: t("dashboard.manageBots"), path: "/bots", icon: "🤖" },
+              { label: t("dashboard.chatsLink"), path: "/chats", icon: "💬" },
+              { label: t("dashboard.analyticsLink"), path: "/analytics", icon: "📈" },
             ].map((link) => (
               <Link
                 key={link.path}

@@ -330,7 +330,7 @@ const KanbanColumn: React.FC<{
         <button
           onClick={onMoveLeft}
           disabled={!onMoveLeft}
-          title="Move left"
+          title={t("pipeline.moveLeft")}
           className="w-5 h-5 flex items-center justify-center rounded text-gray-300 hover:text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-20 disabled:cursor-not-allowed text-xl"
         >
           ‹
@@ -338,7 +338,7 @@ const KanbanColumn: React.FC<{
         <button
           onClick={onMoveRight}
           disabled={!onMoveRight}
-          title="Move right"
+          title={t("pipeline.moveRight")}
           className="w-5 h-5 flex items-center justify-center rounded text-gray-300 hover:text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-20 disabled:cursor-not-allowed text-xl"
         >
           ›
@@ -1100,7 +1100,7 @@ export const CandidatesPage: React.FC = () => {
         updated.map((c) => ({ id: c.id, order: c.order })),
       );
     } catch {
-      toast.error("Failed to reorder columns");
+      toast.error(t("pipeline.failedToReorder"));
       refreshSilently();
     }
   };

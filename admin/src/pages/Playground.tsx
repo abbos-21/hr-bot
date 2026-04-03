@@ -55,54 +55,39 @@ interface Question {
 
 // ─── Meta / helpers ────────────────────────────────────────────────────────────
 
-const TYPE_META: Record<
-  QType,
-  {
-    icon: string;
-    label: string;
-    desc: string;
-    color: string;
-    bg: string;
-    border: string;
-  }
-> = {
-  text: {
-    icon: "✏️",
-    label: "Text",
-    desc: "Free-text answer",
-    color: "text-sky-700",
-    bg: "bg-sky-50",
-    border: "border-sky-200",
-  },
-  choice: {
-    icon: "☑️",
-    label: "Choice",
-    desc: "Pick from a list",
-    color: "text-violet-700",
-    bg: "bg-violet-50",
-    border: "border-violet-200",
-  },
-  attachment: {
-    icon: "📎",
-    label: "File",
-    desc: "Photo or document",
-    color: "text-emerald-700",
-    bg: "bg-emerald-50",
-    border: "border-emerald-200",
-  },
+interface TypeMeta {
+  icon: string;
+  label: string;
+  desc: string;
+  color: string;
+  bg: string;
+  border: string;
+}
+
+const TYPE_STYLE: Record<QType, { icon: string; color: string; bg: string; border: string }> = {
+  text: { icon: "✏️", color: "text-sky-700", bg: "bg-sky-50", border: "border-sky-200" },
+  choice: { icon: "☑️", color: "text-violet-700", bg: "bg-violet-50", border: "border-violet-200" },
+  attachment: { icon: "📎", color: "text-emerald-700", bg: "bg-emerald-50", border: "border-emerald-200" },
 };
 
-const REQUIRED_META: Record<string, { label: string; hint?: string }> = {
-  fullName: { label: "👤 Full name" },
-  age: {
-    label: "🎂 Date of birth",
-    hint: "Expects DD.MM.YYYY · age auto-calculated",
-  },
-  phone: { label: "📱 Phone", hint: "Uses Telegram contact button" },
-  profilePhoto: { label: "📸 Profile photo" },
-  position: { label: "💼 Position" },
-  branch: { label: "🏢 Branch", hint: "Options managed via Branches page · toggle on/off here" },
-};
+function getTypeMeta(t: (k: string) => string): Record<QType, TypeMeta> {
+  return {
+    text: { ...TYPE_STYLE.text, label: t("playground.typeText"), desc: t("playground.typeTextDesc") },
+    choice: { ...TYPE_STYLE.choice, label: t("playground.typeChoice"), desc: t("playground.typeChoiceDesc") },
+    attachment: { ...TYPE_STYLE.attachment, label: t("playground.typeFile"), desc: t("playground.typeFileDesc") },
+  };
+}
+
+function getRequiredMeta(t: (k: string) => string): Record<string, { label: string; hint?: string }> {
+  return {
+    fullName: { label: t("playground.fieldFullName") },
+    age: { label: t("playground.fieldAge"), hint: t("playground.fieldAgeHint") },
+    phone: { label: t("playground.fieldPhone"), hint: t("playground.fieldPhoneHint") },
+    profilePhoto: { label: t("playground.fieldProfilePhoto") },
+    position: { label: t("playground.fieldPosition") },
+    branch: { label: t("playground.fieldBranch"), hint: t("playground.fieldBranchHint") },
+  };
+}
 
 function qText(q: Question): string {
   return q.translations[0]?.text || "";
@@ -141,7 +126,7 @@ function LangInputs({
     <div className="space-y-2">
       {langs.map((l, idx) => {
         const val = values[l.code] || "";
-        const ph = placeholder ? placeholder(l) : `In ${l.name}…`;
+        const ph = placeholder ? placeholder(l) : `${l.name}…`;
         const missingOther =
           langs.some((x) => x.code !== l.code && values[x.code]?.trim()) &&
           !val.trim();
@@ -417,6 +402,7 @@ function QuestionModal({
     );
   }
 
+  const TYPE_META = getTypeMeta(t);
   const m = TYPE_META[type];
 
   return (
@@ -446,7 +432,7 @@ function QuestionModal({
               </h2>
               {isBranchCreate && parentOptionLabel && (
                 <p className="text-xs text-violet-600 mt-0.5 truncate">
-                  ↳ Shown when candidate picks{" "}
+                  ↳ {t("playground.shownWhenPicks")}{" "}
                   <strong>"{parentOptionLabel}"</strong>
                 </p>
               )}
@@ -522,10 +508,10 @@ function QuestionModal({
           {/* Question text */}
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-              Question text
+              {t("playground.questionText")}
               {hasMissingText && (
                 <span className="ml-2 font-normal text-amber-500 normal-case tracking-normal">
-                  · missing in{" "}
+                  · {t("playground.missingIn")}{" "}
                   {langs
                     .filter((l) => !texts[l.code]?.trim())
                     .map((l) => l.name)
@@ -537,7 +523,7 @@ function QuestionModal({
               langs={langs}
               values={texts}
               onChange={(lang, val) => setTexts((t) => ({ ...t, [lang]: val }))}
-              placeholder={(l) => `What do you want to ask in ${l.name}?`}
+              placeholder={(l) => t("playground.askInLang").replace("{{lang}}", l.name)}
               multiline
               inputRef={firstRef as React.RefObject<HTMLTextAreaElement>}
             />
@@ -547,9 +533,9 @@ function QuestionModal({
           {isPhone && (
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                Button label
+                {t("playground.buttonLabel")}
                 <span className="ml-1 font-normal text-gray-400 normal-case tracking-normal">
-                  — the "Share phone" button text
+                  — {t("playground.sharePhoneButtonHint")}
                 </span>
               </label>
               <LangInputs
@@ -558,7 +544,7 @@ function QuestionModal({
                 onChange={(lang, val) =>
                   setPhoneLabels((t) => ({ ...t, [lang]: val }))
                 }
-                placeholder={() => "📱 Share phone number"}
+                placeholder={() => t("playground.sharePhoneNumber")}
               />
             </div>
           )}
@@ -568,10 +554,9 @@ function QuestionModal({
             <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-100 rounded-xl p-3.5 text-sm text-emerald-700">
               <span className="text-xl leading-none mt-0.5">📎</span>
               <div>
-                <p className="font-semibold text-sm">File / photo upload</p>
+                <p className="font-semibold text-sm">{t("playground.fileUploadTitle")}</p>
                 <p className="text-xs text-emerald-600 mt-0.5">
-                  The candidate will be prompted to send a file or photo. No
-                  options needed.
+                  {t("playground.fileUploadDesc")}
                 </p>
               </div>
             </div>
@@ -581,14 +566,14 @@ function QuestionModal({
           {type === "choice" && isBranch && isEdit && (
             <div>
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 block">
-                Filial variantlari
+                {t("playground.branchOptions")}
                 <span className="ml-1 font-normal text-gray-400 normal-case tracking-normal">
-                  — yoqish/o'chirish
+                  — {t("playground.branchToggleHint")}
                 </span>
               </label>
               {question!.options.length === 0 ? (
                 <p className="text-xs text-gray-400 italic py-3">
-                  Filiallar topilmadi. Filiallar sahifasidan yangi filial qo'shing.
+                  {t("playground.noBranchesFound")}
                 </p>
               ) : (
                 <div className="space-y-1.5">
@@ -632,7 +617,7 @@ function QuestionModal({
                           className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 ${
                             active ? "bg-green-500" : "bg-gray-300"
                           } ${toggling ? "opacity-50" : ""}`}
-                          aria-label={`${active ? "O'chirish" : "Yoqish"}: ${label}`}
+                          aria-label={`${active ? t("playground.disable") : t("playground.enable")}: ${label}`}
                         >
                           <span
                             className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
@@ -646,7 +631,7 @@ function QuestionModal({
                 </div>
               )}
               <p className="text-xs text-gray-400 mt-2">
-                O'chirilgan filiallar botda ko'rsatilmaydi. Yangi filial qo'shish uchun Filiallar sahifasiga o'ting.
+                {t("playground.branchDisabledHint")}
               </p>
             </div>
           )}
@@ -656,10 +641,10 @@ function QuestionModal({
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Answer options
+                  {t("playground.answerOptions")}
                   {options.length === 0 && (
                     <span className="ml-2 font-normal text-red-400 normal-case tracking-normal">
-                      · required
+                      · {t("playground.required").toLowerCase()}
                     </span>
                   )}
                 </label>
@@ -668,7 +653,7 @@ function QuestionModal({
                   onClick={addOption}
                   className="text-xs font-semibold text-violet-600 hover:text-violet-800 transition-colors"
                 >
-                  + Add option
+                  {t("playground.addOption")}
                 </button>
               </div>
 
@@ -677,13 +662,13 @@ function QuestionModal({
                   <div key={i} className="bg-gray-50 rounded-xl p-3 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-gray-400">
-                        Option {i + 1}
+                        {t("playground.optionN").replace("{{n}}", String(i + 1))}
                       </span>
                       <button
                         type="button"
                         onClick={() => removeOption(i)}
                         className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-red-500 transition-colors rounded"
-                        aria-label={`Remove option ${i + 1}`}
+                        aria-label={t("playground.removeOptionN").replace("{{n}}", String(i + 1))}
                       >
                         <svg
                           className="w-3.5 h-3.5"
@@ -704,7 +689,7 @@ function QuestionModal({
                       langs={langs}
                       values={opt.translations}
                       onChange={(lang, val) => setOptLang(i, lang, val)}
-                      placeholder={(l) => `Option ${i + 1} in ${l.name}…`}
+                      placeholder={(l) => t("playground.optionInLang").replace("{{n}}", String(i + 1)).replace("{{lang}}", l.name)}
                     />
                   </div>
                 ))}
@@ -715,7 +700,7 @@ function QuestionModal({
                     onClick={addOption}
                     className="w-full py-3 border-2 border-dashed border-violet-200 rounded-xl text-sm text-violet-400 hover:border-violet-400 hover:text-violet-600 hover:bg-violet-50 transition-colors"
                   >
-                    + Add first option
+                    {t("playground.addFirstOption")}
                   </button>
                 )}
               </div>
@@ -723,20 +708,19 @@ function QuestionModal({
               {/* Filter label */}
               <div className="mt-3">
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">
-                  Pipeline filter label
+                  {t("playground.filterLabelTitle")}
                   <span className="ml-1 font-normal text-gray-400 normal-case tracking-normal">
-                    — optional
+                    — {t("playground.optional")}
                   </span>
                 </label>
                 <input
                   value={filterLabel}
                   onChange={(e) => setFilterLabel(e.target.value)}
                   className="input w-full text-sm"
-                  placeholder="e.g. Position, Experience level, Framework…"
+                  placeholder={t("playground.filterLabelPlaceholder")}
                 />
                 <p className="text-xs text-gray-400 mt-1">
-                  When set, this question becomes a filter in the Candidates
-                  pipeline.
+                  {t("playground.filterLabelHint")}
                 </p>
               </div>
             </div>
@@ -752,8 +736,8 @@ function QuestionModal({
             >
               <span className="flex items-center gap-2">
                 <span>💬</span>
-                Response messages
-                <span className="font-normal text-gray-400">— optional</span>
+                {t("playground.responseMessages")}
+                <span className="font-normal text-gray-400">— {t("playground.optional")}</span>
               </span>
               <svg
                 className={`w-3.5 h-3.5 transition-transform ${showMessages ? "rotate-180" : ""}`}
@@ -773,12 +757,11 @@ function QuestionModal({
             {showMessages && (
               <div className="px-4 pb-4 pt-1 space-y-4 border-t border-gray-100">
                 <p className="text-xs text-gray-400">
-                  Custom messages sent to the candidate immediately after they
-                  answer.
+                  {t("playground.customMessages")}
                 </p>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1.5">
-                    ✅ After a valid answer
+                    ✅ {t("playground.afterValidAnswer")}
                   </label>
                   <LangInputs
                     langs={langs}
@@ -786,13 +769,13 @@ function QuestionModal({
                     onChange={(lang, val) =>
                       setSuccessMsgs((m) => ({ ...m, [lang]: val }))
                     }
-                    placeholder={() => "e.g. Great, thank you!"}
+                    placeholder={() => t("playground.validAnswerPlaceholder")}
                   />
                 </div>
                 {!isPhone && type !== "choice" && (
                   <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1.5">
-                      ❌ After an invalid answer
+                      ❌ {t("playground.afterInvalidAnswer")}
                     </label>
                     <LangInputs
                       langs={langs}
@@ -800,7 +783,7 @@ function QuestionModal({
                       onChange={(lang, val) =>
                         setErrorMsgs((m) => ({ ...m, [lang]: val }))
                       }
-                      placeholder={() => "e.g. Please try again."}
+                      placeholder={() => t("playground.invalidAnswerPlaceholder")}
                     />
                   </div>
                 )}
@@ -812,7 +795,7 @@ function QuestionModal({
         {/* ── Footer ── */}
         <div className="flex-shrink-0 px-5 py-4 border-t border-gray-100 flex items-center justify-end gap-3">
           <button onClick={onClose} className="btn-secondary text-sm py-2 px-4">
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             onClick={handleSave}
@@ -891,8 +874,7 @@ function BranchSection({
     <div className={`mt-2 pl-3 border-l-2 ${accent}`}>
       <p className="text-[11px] text-gray-400 mb-2 flex items-center gap-1.5">
         <span className="text-gray-300">↳</span>
-        If <span className="font-semibold text-gray-600">"{optionLabel}"</span>,
-        also ask:
+        {t("playground.ifOptionAlsoAsk").replace("{{option}}", optionLabel)}
       </p>
       <div className="space-y-2">
         {branchQs.map((q, idx) => (
@@ -903,7 +885,7 @@ function BranchSection({
                 onClick={() => move(q, "up")}
                 disabled={idx === 0}
                 className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-gray-600 hover:bg-gray-100 rounded text-[10px] disabled:invisible transition-colors"
-                aria-label="Move up"
+                aria-label={t("playground.moveUp")}
               >
                 ▲
               </button>
@@ -911,7 +893,7 @@ function BranchSection({
                 onClick={() => move(q, "down")}
                 disabled={idx === branchQs.length - 1}
                 className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-gray-600 hover:bg-gray-100 rounded text-[10px] disabled:invisible transition-colors"
-                aria-label="Move down"
+                aria-label={t("playground.moveDown")}
               >
                 ▼
               </button>
@@ -934,7 +916,7 @@ function BranchSection({
 
         {branchQs.length === 0 && !showCreate && (
           <p className="text-xs text-gray-400 italic">
-            No follow-up questions yet.
+            {t("playground.noFollowUpYet")}
           </p>
         )}
 
@@ -956,7 +938,7 @@ function BranchSection({
               d="M12 4v16m8-8H4"
             />
           </svg>
-          Add follow-up question
+          {t("playground.addFollowUp")}
         </button>
       </div>
 
@@ -990,6 +972,7 @@ function OptionsView({
   onDelete,
   onAdd,
 }: SharedCardProps & { question: Question; depth: number }) {
+  const { t } = useT();
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
 
   const toggle = (id: string) =>
@@ -1002,7 +985,7 @@ function OptionsView({
   if (question.options.length === 0)
     return (
       <p className="text-xs text-red-400 mt-1">
-        No options — click Edit to add
+        {t("playground.noOptionsClickEdit")}
       </p>
     );
 
@@ -1025,7 +1008,7 @@ function OptionsView({
               <span className={`text-sm flex-1 min-w-0 truncate ${opt.isActive === false ? "text-gray-300 line-through" : "text-gray-600"}`}>
                 {label}
                 {opt.isActive === false && (
-                  <span className="ml-1.5 text-[10px] text-gray-300 no-underline font-medium">o'chirilgan</span>
+                  <span className="ml-1.5 text-[10px] text-gray-300 no-underline font-medium">{t("playground.optionDisabled")}</span>
                 )}
               </span>
               {opt.id && (
@@ -1041,15 +1024,15 @@ function OptionsView({
                   aria-expanded={isOpen}
                   title={
                     branchCount > 0
-                      ? `${branchCount} follow-up question${branchCount !== 1 ? "s" : ""}`
-                      : "Add follow-up questions"
+                      ? t("playground.followUpCount").replace("{{count}}", String(branchCount))
+                      : t("playground.addFollowUps")
                   }
                 >
                   <span>↳</span>
                   {branchCount > 0 ? (
                     <span>{branchCount}</span>
                   ) : (
-                    <span>branch</span>
+                    <span>{t("playground.branchLabel").toLowerCase()}</span>
                   )}
                 </button>
               )}
@@ -1103,6 +1086,8 @@ function QuestionCard({
   const { t } = useT();
   const [showEdit, setShowEdit] = useState(false);
   const { confirm, element: confirmEl } = useConfirm();
+  const TYPE_META = getTypeMeta(t);
+  const REQUIRED_META = getRequiredMeta(t);
   const meta = TYPE_META[question.type];
   const isRequired = !!question.isRequired;
   const isBranch = !!question.parentOptionId;
@@ -1115,11 +1100,10 @@ function QuestionCard({
 
   async function handleDelete() {
     const ok = await confirm({
-      title: "Delete this question?",
-      message:
-        "This permanently removes the question, all branch questions attached to its options, and all recorded answers.",
+      title: t("playground.deleteThisQuestion"),
+      message: t("playground.deleteQuestionMsg"),
       danger: true,
-      confirmLabel: "Delete",
+      confirmLabel: t("playground.deleteConfirm"),
     });
     if (!ok) return;
     try {
@@ -1150,7 +1134,7 @@ function QuestionCard({
                 onClick={onMoveUp}
                 disabled={isFirst}
                 className="w-5 h-5 flex items-center justify-center text-gray-200 hover:text-gray-600 hover:bg-gray-100 rounded text-[10px] disabled:invisible transition-colors"
-                aria-label="Move question up"
+                aria-label={t("playground.moveUp")}
               >
                 ▲
               </button>
@@ -1158,7 +1142,7 @@ function QuestionCard({
                 onClick={onMoveDown}
                 disabled={isLast}
                 className="w-5 h-5 flex items-center justify-center text-gray-200 hover:text-gray-600 hover:bg-gray-100 rounded text-[10px] disabled:invisible transition-colors"
-                aria-label="Move question down"
+                aria-label={t("playground.moveDown")}
               >
                 ▼
               </button>
@@ -1180,7 +1164,7 @@ function QuestionCard({
             <div className="flex flex-wrap items-center gap-1.5 mb-1">
               {isRequired ? (
                 <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                  Required
+                  {t("playground.required")}
                 </span>
               ) : (
                 <span
@@ -1191,7 +1175,7 @@ function QuestionCard({
               )}
               {isBranch && (
                 <span className="text-xs text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full">
-                  ↳ Branch
+                  ↳ {t("playground.branchLabel")}
                 </span>
               )}
               {question.filterLabel && (
@@ -1208,7 +1192,7 @@ function QuestionCard({
             <p
               className={`text-sm font-medium ${qText(question) ? "text-gray-800" : "text-gray-300 italic"}`}
             >
-              {qText(question) || "No text yet"}
+              {qText(question) || t("playground.noTextYet")}
             </p>
 
             {/* Required field hint */}
@@ -1252,15 +1236,15 @@ function QuestionCard({
             <button
               onClick={() => setShowEdit(true)}
               className="px-2.5 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-              aria-label="Edit question"
+              aria-label={t("playground.editQuestion")}
             >
-              Edit
+              {t("playground.editQuestion")}
             </button>
             {!isRequired && (
               <button
                 onClick={handleDelete}
                 className="w-7 h-7 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                aria-label="Delete question"
+                aria-label={t("playground.deleteQuestion")}
               >
                 <svg
                   className="w-3.5 h-3.5"
@@ -1437,14 +1421,14 @@ export const PlaygroundPage: React.FC = () => {
         <div className="flex items-center justify-between max-w-2xl mx-auto">
           <div>
             <h1 className="text-base font-bold text-gray-900">
-              Question Playground
+              {t("playground.questionPlayground")}
             </h1>
             {!loading && selectedBotId && (
               <p className="text-xs text-gray-400 mt-0.5 leading-none">
-                {requiredQuestions.length} required
+                {t("playground.nRequired").replace("{{n}}", String(requiredQuestions.length))}
                 {customQuestions.length > 0 &&
-                  ` · ${customQuestions.length} custom`}
-                {branchCount > 0 && ` · ${branchCount} branch`}
+                  ` · ${t("playground.nCustom").replace("{{n}}", String(customQuestions.length))}`}
+                {branchCount > 0 && ` · ${t("playground.nBranch").replace("{{n}}", String(branchCount))}`}
               </p>
             )}
           </div>
@@ -1454,7 +1438,7 @@ export const PlaygroundPage: React.FC = () => {
               onChange={(e) => setSelectedBotId(e.target.value)}
               className="text-sm border border-gray-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 max-w-[160px]"
             >
-              {bots.length === 0 && <option value="">No bots</option>}
+              {bots.length === 0 && <option value="">{t("playground.noBots")}</option>}
               {bots.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}
@@ -1479,7 +1463,7 @@ export const PlaygroundPage: React.FC = () => {
                     d="M12 4v16m8-8H4"
                   />
                 </svg>
-                Add question
+                {t("playground.addQuestion")}
               </button>
             )}
           </div>
@@ -1492,7 +1476,7 @@ export const PlaygroundPage: React.FC = () => {
         {loading && (
           <div className="text-center py-20 text-gray-400">
             <p className="text-2xl mb-3 animate-pulse">⚙️</p>
-            <p className="text-sm">Loading questions…</p>
+            <p className="text-sm">{t("playground.loadingQuestions")}</p>
           </div>
         )}
 
@@ -1501,9 +1485,9 @@ export const PlaygroundPage: React.FC = () => {
           <div className="text-center py-20 text-gray-400">
             <p className="text-3xl mb-3">🤖</p>
             <p className="text-sm font-medium text-gray-500">
-              No bots configured
+              {t("playground.noBotsConfigured")}
             </p>
-            <p className="text-xs mt-1">Add a bot in the Bots page first.</p>
+            <p className="text-xs mt-1">{t("playground.addBotFirst")}</p>
           </div>
         )}
 
@@ -1513,7 +1497,7 @@ export const PlaygroundPage: React.FC = () => {
             <section aria-label={t("playground.requiredQuestions")}>
               <SectionHeader
                 title={t("playground.requiredQuestions")}
-                note="Always asked first · cannot be removed"
+                note={t("playground.alwaysAskedFirst")}
               />
               <div className="space-y-2">
                 {requiredQuestions.map((q, idx) => (
@@ -1548,18 +1532,16 @@ export const PlaygroundPage: React.FC = () => {
                 <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-2xl">
                   <p className="text-3xl mb-3">💬</p>
                   <p className="text-sm font-semibold text-gray-700 mb-1">
-                    No additional questions yet
+                    {t("playground.noAdditionalYet")}
                   </p>
                   <p className="text-xs text-gray-400 mb-5 max-w-xs mx-auto">
-                    Add custom questions to collect more info. Use{" "}
-                    <strong>Choice</strong> questions to create conditional
-                    follow-up paths.
+                    {t("playground.noAdditionalDesc")}
                   </p>
                   <button
                     onClick={() => setShowCreate(true)}
                     className="btn-primary text-sm py-2 px-5"
                   >
-                    + Add first question
+                    {t("playground.addFirstQuestion")}
                   </button>
                 </div>
               ) : (

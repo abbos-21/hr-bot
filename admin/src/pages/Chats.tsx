@@ -367,7 +367,7 @@ export const ChatsPage: React.FC = () => {
           } w-full sm:w-80 flex-shrink-0 border-r border-gray-200 bg-white flex-col`}
         >
           <div className="px-4 pt-4 sm:pt-5 pb-3 border-b border-gray-100">
-            <h1 className="text-lg font-bold text-gray-900 mb-3">Chats</h1>
+            <h1 className="text-lg font-bold text-gray-900 mb-3">{t("chats.title")}</h1>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
                 🔍
@@ -375,7 +375,7 @@ export const ChatsPage: React.FC = () => {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search conversations…"
+                placeholder={t("pipeline.searchConversations")}
                 className="w-full pl-8 pr-3 py-2 text-sm bg-gray-100 rounded-xl border-0 focus:outline-none focus:ring-2 focus:ring-blue-300 placeholder-gray-400"
               />
             </div>
