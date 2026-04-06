@@ -140,32 +140,9 @@ router.post("/", async (req: AuthRequest, res: Response) => {
     include: { _count: { select: { candidates: true } } },
   });
 
-  // Auto-add option to branch question
-  const branchQId = await ensureBranchQuestion(organizationId);
-  if (branchQId) {
-    const maxOpt = await prisma.questionOption.findFirst({
-      where: { questionId: branchQId },
-      orderBy: { order: "desc" },
-      select: { order: true },
-    });
-    const bot = await prisma.bot.findFirst({
-      where: { organizationId },
-      include: { languages: true },
-    });
-    const langs = bot?.languages || [];
-    await prisma.questionOption.create({
-      data: {
-        questionId: branchQId,
-        order: (maxOpt?.order ?? -1) + 1,
-        branchId: branch.id,
-        translations: {
-          create: langs.length > 0
-            ? langs.map((l: any) => ({ lang: l.code, text: name }))
-            : [{ lang: "uz", text: name }],
-        },
-      },
-    });
-  }
+  // Auto-add option to branch question (ensureBranchQuestion already
+  // creates a QuestionOption for every active branch that lacks one)
+  await ensureBranchQuestion(organizationId);
 
   return res.status(201).json(branch);
 });
