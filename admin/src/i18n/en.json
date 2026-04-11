@@ -476,7 +476,8 @@
       "restoreToPipeline": "Restore to Pipeline",
       "updateFailed": "Update failed",
       "deleteFailed": "Delete failed",
-      "position": "Position"
+      "position": "Position",
+      "branch": "Branch"
     },
     "statuses": {
       "incomplete": "Incomplete",

@@ -290,7 +290,7 @@ export const CandidateDetailPanel: React.FC<Props> = ({
           {/* Answers tab */}
           {tab === "answers" && (
             <div className="p-5 space-y-4">
-              {(candidate.age || candidate.position) && (
+              {(candidate.age || candidate.position || candidate.branch) && (
                 <div className="grid grid-cols-2 gap-2">
                   {candidate.age && (
                     <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
@@ -309,6 +309,16 @@ export const CandidateDetailPanel: React.FC<Props> = ({
                       </p>
                       <p className="text-sm font-semibold text-gray-800">
                         {candidate.position}
+                      </p>
+                    </div>
+                  )}
+                  {candidate.branch && (
+                    <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3">
+                      <p className="text-xs text-emerald-500 font-semibold uppercase tracking-wider mb-1">
+                        {t("candidates.panel.branch")}
+                      </p>
+                      <p className="text-sm font-semibold text-gray-800">
+                        {candidate.branch.name}
                       </p>
                     </div>
                   )}

@@ -476,7 +476,8 @@
       "restoreToPipeline": "Kandidatlar ro'yxatiga qaytarish",
       "updateFailed": "Yangilashda xato",
       "deleteFailed": "O'chirishda xato",
-      "position": "Lavozim"
+      "position": "Lavozim",
+      "branch": "Filial"
     },
     "statuses": {
       "incomplete": "Yakunlanmagan",

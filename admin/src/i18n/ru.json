@@ -476,7 +476,8 @@
       "restoreToPipeline": "Вернуть в пайплайн",
       "updateFailed": "Ошибка обновления",
       "deleteFailed": "Ошибка удаления",
-      "position": "Должность"
+      "position": "Должность",
+      "branch": "Филиал"
     },
     "statuses": {
       "incomplete": "Незавершённый",
