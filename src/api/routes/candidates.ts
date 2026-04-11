@@ -58,6 +58,7 @@ router.get("/", async (req: AuthRequest, res: Response) => {
       where,
       include: {
         _count: { select: { messages: true, files: true, comments: true } },
+        branch: { select: { id: true, name: true } },
       },
       orderBy: { createdAt: "desc" },
       skip,

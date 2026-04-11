@@ -222,11 +222,16 @@ const CandidateCard: React.FC<{
           <p className="font-semibold text-gray-800 text-sm truncate">
             {candidate.fullName || candidate.username || t("common.unknown")}
           </p>
-          {(candidate.age || candidate.position) && (
+          {(candidate.age || candidate.position || candidate.branch) && (
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               {candidate.position && (
                 <span className="text-xs text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-full truncate max-w-[120px]">
                   💼 {candidate.position}
+                </span>
+              )}
+              {candidate.branch && (
+                <span className="text-xs text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full truncate max-w-[120px]">
+                  🏢 {candidate.branch.name}
                 </span>
               )}
               {candidate.age && (
