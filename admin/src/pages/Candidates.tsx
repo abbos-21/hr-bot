@@ -1340,7 +1340,7 @@ export const CandidatesPage: React.FC = () => {
                     if (!q || !opt) return null;
                     return (
                       <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-indigo-100 text-indigo-700">
-                        🔽 {q.fieldKey === "branch" ? t("questions.branchLabel") : (q.filterLabel || q.translations?.[0]?.text)}:{" "}
+                        🔽 {q.fieldKey === "branch" ? t("playground.branchLabel") : (q.filterLabel || q.translations?.[0]?.text)}:{" "}
                         {opt.translations?.[0]?.text}
                         <button
                           onClick={() =>
@@ -1493,7 +1493,7 @@ export const CandidatesPage: React.FC = () => {
                         filterQuestions.map((q: any) => {
                           const qLabel =
                             q.fieldKey === "branch"
-                              ? t("questions.branchLabel")
+                              ? t("playground.branchLabel")
                               : q.filterLabel ||
                                 q.translations?.[0]?.text ||
                                 t("pipeline.filterFallback");

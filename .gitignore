@@ -1,8 +1,8 @@
 node_modules/
 dist/
 .env
-*.db
-*.db-journal
+# *.db
+# *.db-journal
 uploads/
 admin/node_modules/
 admin/dist/
