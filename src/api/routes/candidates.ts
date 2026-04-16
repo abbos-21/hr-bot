@@ -15,7 +15,7 @@ router.use(authMiddleware);
 
 // GET /api/candidates
 router.get("/", async (req: AuthRequest, res: Response) => {
-  const { botId, status, search, page, limit, questionId, optionId } =
+  const { botId, status, search, page, limit, questionIds, optionIds } =
     req.query;
   const where: any = { ...(await getBotFilter(req)) };
   if (botId) where.botId = botId as string;
@@ -39,14 +39,18 @@ router.get("/", async (req: AuthRequest, res: Response) => {
     ];
   }
 
-  // Filter by answer to a specific choice question option
-  if (questionId && optionId) {
-    where.answers = {
-      some: {
-        questionId: questionId as string,
-        optionId: optionId as string,
-      },
-    };
+  // Filter by one or more answer pairs (AND semantics)
+  if (questionIds && optionIds) {
+    const qIds = (questionIds as string).split(",").filter(Boolean);
+    const oIds = (optionIds as string).split(",").filter(Boolean);
+    const pairs = qIds
+      .map((qid, i) => ({ questionId: qid, optionId: oIds[i] }))
+      .filter((p) => p.questionId && p.optionId);
+    if (pairs.length === 1) {
+      where.answers = { some: pairs[0] };
+    } else if (pairs.length > 1) {
+      where.AND = pairs.map((p) => ({ answers: { some: p } }));
+    }
   }
 
   const pageNum = parseInt(page as string) || 1;

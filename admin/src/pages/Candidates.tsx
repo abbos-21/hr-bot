@@ -24,6 +24,7 @@ import { CandidateDetailPanel } from "../components/Candidatedetailpanel";
 import { useConfirm } from "../components/ConfirmModal";
 import { useT } from "../i18n";
 import { isViewableInBrowser } from "../utils/media";
+import { useAuthStore } from "../store/auth";
 
 // ─── Color presets ────────────────────────────────────────────────────────────
 
@@ -810,9 +811,9 @@ export const CandidatesPage: React.FC = () => {
   const [filters, setFilters] = useState({
     botId: "",
     search: "",
-    questionId: "",
-    optionId: "",
+    answerFilters: [] as { questionId: string; optionId: string }[],
   });
+  const { isAdmin, isOrg } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [confirmModal, setConfirmModal] = useState<{
     title: string;
@@ -846,6 +847,13 @@ export const CandidatesPage: React.FC = () => {
   const fetchAll = useCallback(async (showLoader = true) => {
     if (showLoader) setLoading(true);
     try {
+      const answerParams =
+        filters.answerFilters.length > 0
+          ? {
+              questionIds: filters.answerFilters.map((f) => f.questionId).join(","),
+              optionIds: filters.answerFilters.map((f) => f.optionId).join(","),
+            }
+          : {};
       const [cols, result, inc] = await Promise.all([
         columnsApi.list(filters.botId || undefined),
         candidatesApi.list({
@@ -853,11 +861,7 @@ export const CandidatesPage: React.FC = () => {
           limit: 500,
           page: 1,
           ...(filters.botId && { botId: filters.botId }),
-          ...(filters.questionId &&
-            filters.optionId && {
-              questionId: filters.questionId,
-              optionId: filters.optionId,
-            }),
+          ...answerParams,
         }),
         candidatesApi.list({
           status: "incomplete",
@@ -871,7 +875,7 @@ export const CandidatesPage: React.FC = () => {
       setIncompletes(inc.candidates || []);
     } catch {}
     if (showLoader) setLoading(false);
-  }, [filters.botId, filters.questionId, filters.optionId]);
+  }, [filters.botId, filters.answerFilters]);
 
   /** Silent refresh — no loading spinner, no UI interruption */
   const refreshSilently = useCallback(() => fetchAll(false), [fetchAll]);
@@ -894,7 +898,7 @@ export const CandidatesPage: React.FC = () => {
         ),
       );
     });
-  }, [filters.botId]);
+  }, [filters.botId, isOrg]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -1318,8 +1322,7 @@ export const CandidatesPage: React.FC = () => {
                         setFilters((f) => ({
                           ...f,
                           botId: "",
-                          questionId: "",
-                          optionId: "",
+                          answerFilters: [],
                         }))
                       }
                       className="ml-0.5 hover:opacity-70 font-bold"
@@ -1328,35 +1331,33 @@ export const CandidatesPage: React.FC = () => {
                     </button>
                   </span>
                 )}
-                {filters.questionId &&
-                  filters.optionId &&
-                  (() => {
-                    const q = filterQuestions.find(
-                      (q: any) => q.id === filters.questionId,
-                    );
-                    const opt = q?.options?.find(
-                      (o: any) => o.id === filters.optionId,
-                    );
-                    if (!q || !opt) return null;
-                    return (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-indigo-100 text-indigo-700">
-                        🔽 {q.fieldKey === "branch" ? t("playground.branchLabel") : (q.filterLabel || q.translations?.[0]?.text)}:{" "}
-                        {opt.translations?.[0]?.text}
-                        <button
-                          onClick={() =>
-                            setFilters((f) => ({
-                              ...f,
-                              questionId: "",
-                              optionId: "",
-                            }))
-                          }
-                          className="ml-0.5 hover:opacity-70 font-bold"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    );
-                  })()}
+                {filters.answerFilters.map((af) => {
+                  const q = filterQuestions.find((q: any) => q.id === af.questionId);
+                  const opt = q?.options?.find((o: any) => o.id === af.optionId);
+                  if (!q || !opt) return null;
+                  return (
+                    <span
+                      key={`${af.questionId}:${af.optionId}`}
+                      className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-indigo-100 text-indigo-700"
+                    >
+                      🔽 {q.fieldKey === "branch" ? t("playground.branchLabel") : (q.filterLabel || q.translations?.[0]?.text)}:{" "}
+                      {opt.translations?.[0]?.text}
+                      <button
+                        onClick={() =>
+                          setFilters((f) => ({
+                            ...f,
+                            answerFilters: f.answerFilters.filter(
+                              (x) => !(x.questionId === af.questionId && x.optionId === af.optionId),
+                            ),
+                          }))
+                        }
+                        className="ml-0.5 hover:opacity-70 font-bold"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  );
+                })}
               </div>
 
               {/* Active / Archived toggle pill */}
@@ -1397,10 +1398,8 @@ export const CandidatesPage: React.FC = () => {
 
               <div className="relative" ref={filterPanelRef}>
                 {(() => {
-                  const activeCount = [
-                    filters.botId ? 1 : 0,
-                    filters.questionId ? 1 : 0,
-                  ].reduce((a, b) => a + b, 0);
+                  const activeCount =
+                    (filters.botId ? 1 : 0) + filters.answerFilters.length;
                   return (
                     <button
                       onClick={() => setFilterPanelOpen((o) => !o)}
@@ -1438,8 +1437,7 @@ export const CandidatesPage: React.FC = () => {
                           setFilters((f) => ({
                             ...f,
                             botId: "",
-                            questionId: "",
-                            optionId: "",
+                            answerFilters: [],
                           }))
                         }
                         className="text-xs text-gray-400 hover:text-red-500 font-medium"
@@ -1448,7 +1446,7 @@ export const CandidatesPage: React.FC = () => {
                       </button>
                     </div>
                     <div className="p-4 space-y-5 max-h-[70vh] overflow-y-auto">
-                      {bots.length > 0 && (
+                      {isAdmin() && bots.length > 0 && (
                         <div>
                           <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2.5">
                             {t("pipeline.filterBot")}
@@ -1467,8 +1465,7 @@ export const CandidatesPage: React.FC = () => {
                                     setFilters((f) => ({
                                       ...f,
                                       botId: b.id,
-                                      questionId: "",
-                                      optionId: "",
+                                      answerFilters: [],
                                     }))
                                   }
                                 >
@@ -1489,7 +1486,7 @@ export const CandidatesPage: React.FC = () => {
                           </div>
                         </div>
                       )}
-                      {filters.botId ? (
+                      {(filters.botId || isOrg()) ? (
                         filterQuestions.map((q: any) => {
                           const qLabel =
                             q.fieldKey === "branch"
@@ -1518,20 +1515,42 @@ export const CandidatesPage: React.FC = () => {
                                 ].map((opt) => {
                                   const selected =
                                     opt.id === ""
-                                      ? filters.questionId !== q.id
-                                      : filters.questionId === q.id &&
-                                        filters.optionId === opt.id;
+                                      ? !filters.answerFilters.some((x) => x.questionId === q.id)
+                                      : filters.answerFilters.some(
+                                          (x) => x.questionId === q.id && x.optionId === opt.id,
+                                        );
                                   return (
                                     <label
                                       key={opt.id || "__any__"}
                                       className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors ${selected ? "bg-indigo-50 border border-indigo-200" : "hover:bg-gray-50 border border-transparent"}`}
-                                      onClick={() =>
-                                        setFilters((f) => ({
-                                          ...f,
-                                          questionId: opt.id ? q.id : "",
-                                          optionId: opt.id || "",
-                                        }))
-                                      }
+                                      onClick={() => {
+                                        if (!opt.id) {
+                                          setFilters((f) => ({
+                                            ...f,
+                                            answerFilters: f.answerFilters.filter(
+                                              (x) => x.questionId !== q.id,
+                                            ),
+                                          }));
+                                        } else {
+                                          setFilters((f) => {
+                                            const idx = f.answerFilters.findIndex(
+                                              (x) => x.questionId === q.id,
+                                            );
+                                            if (idx >= 0) {
+                                              const updated = [...f.answerFilters];
+                                              updated[idx] = { questionId: q.id, optionId: opt.id };
+                                              return { ...f, answerFilters: updated };
+                                            }
+                                            return {
+                                              ...f,
+                                              answerFilters: [
+                                                ...f.answerFilters,
+                                                { questionId: q.id, optionId: opt.id },
+                                              ],
+                                            };
+                                          });
+                                        }
+                                      }}
                                     >
                                       <div
                                         className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${selected ? "border-indigo-600" : "border-gray-300"}`}
@@ -1551,7 +1570,7 @@ export const CandidatesPage: React.FC = () => {
                           );
                         })
                       ) : (
-                        bots.length > 0 && (
+                        isAdmin() && bots.length > 0 && (
                           <p className="text-xs text-gray-400 text-center py-1">
                             {t("pipeline.selectBotForFilters")}
                           </p>
