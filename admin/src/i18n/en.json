@@ -374,6 +374,7 @@
     "addStageBtn": "Add Stage",
     "filterFallback": "Filter",
     "optionFallback": "Option",
+    "selectBotForFilters": "Select a bot above to filter by position or branch",
     "restoreFailed": "Restore failed",
     "deleteFailed": "Delete failed"
   },

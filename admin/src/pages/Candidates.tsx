@@ -890,7 +890,7 @@ export const CandidatesPage: React.FC = () => {
           (q: any) =>
             q.type === "choice" &&
             q.options?.length > 0 &&
-            (!q.isRequired || q.filterLabel),
+            (!q.isRequired || q.filterLabel || q.fieldKey === "branch"),
         ),
       );
     });
@@ -1340,7 +1340,7 @@ export const CandidatesPage: React.FC = () => {
                     if (!q || !opt) return null;
                     return (
                       <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-indigo-100 text-indigo-700">
-                        🔽 {q.filterLabel || q.translations?.[0]?.text}:{" "}
+                        🔽 {q.fieldKey === "branch" ? t("questions.branchLabel") : (q.filterLabel || q.translations?.[0]?.text)}:{" "}
                         {opt.translations?.[0]?.text}
                         <button
                           onClick={() =>
@@ -1489,58 +1489,74 @@ export const CandidatesPage: React.FC = () => {
                           </div>
                         </div>
                       )}
-                      {filterQuestions.map((q: any) => {
-                        const qLabel =
-                          q.filterLabel ||
-                          q.translations?.[0]?.text ||
-                          t("pipeline.filterFallback");
-                        return (
-                          <div key={q.id}>
-                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2.5">
-                              {qLabel}
-                            </p>
-                            <div className="space-y-1.5">
-                              {[
-                                { id: "", text: t("common.any") },
-                                ...q.options.map((o: any) => ({
-                                  id: o.id,
-                                  text: o.translations?.[0]?.text || t("pipeline.optionFallback"),
-                                })),
-                              ].map((opt) => {
-                                const selected =
-                                  opt.id === ""
-                                    ? filters.questionId !== q.id
-                                    : filters.questionId === q.id &&
-                                      filters.optionId === opt.id;
-                                return (
-                                  <label
-                                    key={opt.id || "__any__"}
-                                    className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors ${selected ? "bg-indigo-50 border border-indigo-200" : "hover:bg-gray-50 border border-transparent"}`}
-                                    onClick={() =>
-                                      setFilters((f) => ({
-                                        ...f,
-                                        questionId: opt.id ? q.id : "",
-                                        optionId: opt.id || "",
-                                      }))
-                                    }
-                                  >
-                                    <div
-                                      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${selected ? "border-indigo-600" : "border-gray-300"}`}
+                      {filters.botId ? (
+                        filterQuestions.map((q: any) => {
+                          const qLabel =
+                            q.fieldKey === "branch"
+                              ? t("questions.branchLabel")
+                              : q.filterLabel ||
+                                q.translations?.[0]?.text ||
+                                t("pipeline.filterFallback");
+                          const visibleOptions =
+                            q.fieldKey === "branch"
+                              ? q.options.filter(
+                                  (o: any) => !o.branch || o.branch.isActive !== false,
+                                )
+                              : q.options;
+                          return (
+                            <div key={q.id}>
+                              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2.5">
+                                {qLabel}
+                              </p>
+                              <div className="space-y-1.5">
+                                {[
+                                  { id: "", text: t("common.any") },
+                                  ...visibleOptions.map((o: any) => ({
+                                    id: o.id,
+                                    text: o.translations?.[0]?.text || t("pipeline.optionFallback"),
+                                  })),
+                                ].map((opt) => {
+                                  const selected =
+                                    opt.id === ""
+                                      ? filters.questionId !== q.id
+                                      : filters.questionId === q.id &&
+                                        filters.optionId === opt.id;
+                                  return (
+                                    <label
+                                      key={opt.id || "__any__"}
+                                      className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors ${selected ? "bg-indigo-50 border border-indigo-200" : "hover:bg-gray-50 border border-transparent"}`}
+                                      onClick={() =>
+                                        setFilters((f) => ({
+                                          ...f,
+                                          questionId: opt.id ? q.id : "",
+                                          optionId: opt.id || "",
+                                        }))
+                                      }
                                     >
-                                      {selected && (
-                                        <div className="w-2 h-2 rounded-full bg-indigo-600" />
-                                      )}
-                                    </div>
-                                    <span className="text-sm text-gray-700 font-medium">
-                                      {opt.text}
-                                    </span>
-                                  </label>
-                                );
-                              })}
+                                      <div
+                                        className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${selected ? "border-indigo-600" : "border-gray-300"}`}
+                                      >
+                                        {selected && (
+                                          <div className="w-2 h-2 rounded-full bg-indigo-600" />
+                                        )}
+                                      </div>
+                                      <span className="text-sm text-gray-700 font-medium">
+                                        {opt.text}
+                                      </span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })
+                      ) : (
+                        bots.length > 0 && (
+                          <p className="text-xs text-gray-400 text-center py-1">
+                            {t("pipeline.selectBotForFilters")}
+                          </p>
+                        )
+                      )}
                     </div>
                     <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
                       <button

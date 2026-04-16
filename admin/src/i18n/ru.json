@@ -374,6 +374,7 @@
     "addStageBtn": "Добавить этап",
     "filterFallback": "Фильтр",
     "optionFallback": "Вариант",
+    "selectBotForFilters": "Выберите бота выше для фильтрации по должности или филиалу",
     "restoreFailed": "Ошибка восстановления",
     "deleteFailed": "Ошибка удаления"
   },

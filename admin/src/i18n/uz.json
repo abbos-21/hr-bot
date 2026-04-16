@@ -374,6 +374,7 @@
     "addStageBtn": "Bosqich qo'shish",
     "filterFallback": "Filtr",
     "optionFallback": "Variant",
+    "selectBotForFilters": "Lavozim yoki filial bo'yicha filtrlash uchun yuqorida bot tanlang",
     "restoreFailed": "Tiklashda xato",
     "deleteFailed": "O'chirishda xato"
   },
